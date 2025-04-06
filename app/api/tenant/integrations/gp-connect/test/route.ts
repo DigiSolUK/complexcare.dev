@@ -1,3 +1,10 @@
+/**
+ * GP Connect Test Integration API Route
+ *
+ * This API route tests the connection to GP Connect.
+ * In a production environment, this would make a real connection to the GP Connect API.
+ */
+
 import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {

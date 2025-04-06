@@ -1,3 +1,14 @@
+/**
+ * GP Connect Patient Records Page
+ *
+ * This page displays patient records from GP Connect for a specific patient.
+ * It uses the PatientRecordsViewer component to render the data.
+ *
+ * References:
+ * - GP Connect Demonstrator: https://gpconnect.github.io/gpconnect-demonstrator/
+ * - GP Connect Specifications: https://developer.nhs.uk/apis/gpconnect-1-6-0/
+ */
+
 import { notFound } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"

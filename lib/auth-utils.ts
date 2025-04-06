@@ -1,52 +1,18 @@
-import { type Permission, ROLE_PERMISSIONS } from "./permissions"
+"use client"
 
-// Define user role type
-export type UserRole = {
-  id: string
-  user_id: string
-  role: string
-  tenant_id: string
-  created_at: string
-  updated_at: string
-}
+import { useEffect, useState } from "react"
 
-// Get user roles from database - simplified for demo
-export async function getUserRoles(userId: string, tenantId: string): Promise<string[]> {
-  try {
-    // For demo, return admin role
-    return ["admin"]
-  } catch (error) {
-    console.error("Error fetching user roles:", error)
-    return []
-  }
-}
-
-// Check if user has a specific permission - simplified for demo
-export async function hasPermission(userId: string, tenantId: string, permission: Permission): Promise<boolean> {
-  // For demo, always return true
-  return true
-}
-
-// Get all permissions for a user - simplified for demo
-export async function getUserPermissions(userId: string, tenantId: string): Promise<Permission[]> {
-  try {
-    // Return all permissions for demo
-    const allPermissions: Permission[] = Object.values(ROLE_PERMISSIONS).flat() as Permission[]
-    return [...new Set(allPermissions)]
-  } catch (error) {
-    console.error("Error getting user permissions:", error)
-    return []
-  }
-}
-
-// Get current user from session - simplified for demo
+// Mock current user for demo purposes
 export async function getCurrentUser() {
   try {
-    // Return mock user for demo
+    // For demo, return a mock admin user
     return {
-      sub: "demo-user-1",
+      id: "demo-user-1",
       name: "Demo Admin",
       email: "admin@complexcare.dev",
+      role: "admin",
+      tenant_id: "demo-tenant-1",
+      tenant_name: "ComplexCare Demo",
     }
   } catch (error) {
     console.error("Error getting current user:", error)
@@ -54,8 +20,25 @@ export async function getCurrentUser() {
   }
 }
 
-// Get current user ID from session - simplified for demo
-export async function getCurrentUserId(): Promise<string | null> {
-  return "demo-user-1"
+export const useAuth = () => {
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const currentUser = await getCurrentUser()
+        setUser(currentUser)
+      } catch (error) {
+        console.error("Error fetching user:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUser()
+  }, [])
+
+  return { user, loading }
 }
 

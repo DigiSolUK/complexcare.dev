@@ -1,3 +1,14 @@
+/**
+ * GP Connect API Route
+ *
+ * This API route provides access to patient records from GP Connect.
+ * Currently using mock data, but designed to be replaced with real GP Connect API calls.
+ *
+ * References:
+ * - GP Connect Demonstrator: https://gpconnect.github.io/gpconnect-demonstrator/
+ * - GP Connect Specifications: https://developer.nhs.uk/apis/gpconnect-1-6-0/
+ */
+
 import { type NextRequest, NextResponse } from "next/server"
 import { fetchPatientRecord } from "@/lib/services/gp-connect-service"
 

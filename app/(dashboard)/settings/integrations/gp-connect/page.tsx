@@ -1,3 +1,14 @@
+/**
+ * GP Connect Integration Settings Page
+ *
+ * This page allows administrators to configure the GP Connect integration settings.
+ * In a production environment, this would include API credentials and configuration options.
+ *
+ * References:
+ * - GP Connect Demonstrator: https://gpconnect.github.io/gpconnect-demonstrator/
+ * - GP Connect Specifications: https://developer.nhs.uk/apis/gpconnect-1-6-0/
+ */
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GPConnectSettingsForm } from "@/components/settings/gp-connect-settings-form"

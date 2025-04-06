@@ -1,34 +1,16 @@
-import { Suspense } from "react"
-import { Skeleton } from "@/components/ui/skeleton"
-import TimesheetsContent from "./timesheets-content"
-import type { Metadata } from "next"
+import { TimesheetTable } from "@/components/timesheets/timesheet-table"
 
-export const metadata: Metadata = {
-  title: "Timesheets | ComplexCare CRM",
-  description: "Manage staff timesheets and working hours",
-}
+export const dynamic = "force-dynamic"
 
 export default function TimesheetsPage() {
   return (
-    <Suspense fallback={<TimesheetsSkeleton />}>
-      <TimesheetsContent />
-    </Suspense>
-  )
-}
-
-function TimesheetsSkeleton() {
-  return (
     <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-10 w-32" />
+      <div>
+        <h1 className="text-3xl font-bold">Timesheets</h1>
+        <p className="text-muted-foreground">Manage and approve care professional timesheets</p>
       </div>
 
-      <Skeleton className="h-12 w-full" />
-
-      <div className="mt-6">
-        <Skeleton className="h-96 w-full rounded-lg" />
-      </div>
+      <TimesheetTable />
     </div>
   )
 }

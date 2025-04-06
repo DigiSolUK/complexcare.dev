@@ -1,116 +1,49 @@
 import { type NextRequest, NextResponse } from "next/server"
-import {
-  getTimesheet,
-  updateTimesheet,
-  deleteTimesheet,
-  approveTimesheet,
-  rejectTimesheet,
-} from "@/lib/services/timesheet-service"
+import { getTimesheet, updateTimesheet, deleteTimesheet } from "@/lib/services/timesheet-service"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = params.id
-    const searchParams = request.nextUrl.searchParams
-    const tenantId = searchParams.get("tenantId")
-
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
-    }
-
-    const { timesheet, error } = await getTimesheet(tenantId, id)
-    if (error) {
-      return NextResponse.json({ error }, { status: 500 })
-    }
+    const timesheet = await getTimesheet(params.id)
 
     if (!timesheet) {
       return NextResponse.json({ error: "Timesheet not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ timesheet })
+    return NextResponse.json(timesheet)
   } catch (error) {
-    console.error("Error in timesheet API:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error(`Error in GET /api/timesheets/${params.id}:`, error)
+    return NextResponse.json({ error: "Failed to fetch timesheet" }, { status: 500 })
   }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = params.id
-    const body = await request.json()
-    const { tenantId, ...timesheetData } = body
+    const data = await request.json()
+    const timesheet = await updateTimesheet(params.id, data)
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    if (!timesheet) {
+      return NextResponse.json({ error: "Timesheet not found or update failed" }, { status: 404 })
     }
 
-    const { timesheet, error } = await updateTimesheet(tenantId, id, timesheetData)
-    if (error) {
-      return NextResponse.json({ error }, { status: 500 })
-    }
-
-    return NextResponse.json({ timesheet })
+    return NextResponse.json(timesheet)
   } catch (error) {
-    console.error("Error in timesheet API:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error(`Error in PUT /api/timesheets/${params.id}:`, error)
+    return NextResponse.json({ error: "Failed to update timesheet" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = params.id
-    const searchParams = request.nextUrl.searchParams
-    const tenantId = searchParams.get("tenantId")
+    const success = await deleteTimesheet(params.id)
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    if (!success) {
+      return NextResponse.json({ error: "Timesheet not found or delete failed" }, { status: 404 })
     }
 
-    const { success, error } = await deleteTimesheet(tenantId, id)
-    if (error) {
-      return NextResponse.json({ error }, { status: 500 })
-    }
-
-    return NextResponse.json({ success })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error in timesheet API:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-}
-
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const id = params.id
-    const body = await request.json()
-    const { tenantId, action, approverId, notes } = body
-
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
-    }
-
-    if (!approverId) {
-      return NextResponse.json({ error: "Approver ID is required" }, { status: 400 })
-    }
-
-    let result
-    if (action === "approve") {
-      result = await approveTimesheet(tenantId, id, approverId)
-    } else if (action === "reject") {
-      if (!notes) {
-        return NextResponse.json({ error: "Notes are required for rejection" }, { status: 400 })
-      }
-      result = await rejectTimesheet(tenantId, id, approverId, notes)
-    } else {
-      return NextResponse.json({ error: "Invalid action" }, { status: 400 })
-    }
-
-    if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 500 })
-    }
-
-    return NextResponse.json({ timesheet: result.timesheet })
-  } catch (error) {
-    console.error("Error in timesheet API:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error(`Error in DELETE /api/timesheets/${params.id}:`, error)
+    return NextResponse.json({ error: "Failed to delete timesheet" }, { status: 500 })
   }
 }
 

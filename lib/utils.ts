@@ -16,3 +16,17 @@ export function formatCurrency(amount: number | string, currency = "GBP"): strin
   }).format(numericAmount)
 }
 
+export function formatDate(dateString: string): string {
+  const options: Intl.DateTimeFormatOptions = { year: "numeric", month: "short", day: "numeric" }
+  return new Date(dateString).toLocaleDateString("en-GB", options)
+}
+
+export function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase()
+    .substring(0, 2)
+}
+

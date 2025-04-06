@@ -1,33 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TimesheetTable } from "@/components/timesheets/timesheet-table"
 import { TimesheetCalendar } from "@/components/timesheets/timesheet-calendar"
 import { CreateTimesheetDialog } from "@/components/timesheets/create-timesheet-dialog"
-import { useTenant } from "@/components/providers/tenant-provider"
-import { getTimesheets } from "@/lib/services/timesheet-service"
 
-export default async function TimesheetsContent() {
+export default function TimesheetsContent() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [tenantId, setTenantId] = useState("demo-tenant")
-
-  useEffect(() => {
-    let id = "demo-tenant"
-    try {
-      const { tenant } = useTenant()
-      if (tenant?.id) {
-        id = tenant.id
-      }
-    } catch (error) {
-      console.error("TenantProvider not available, using default tenant ID:", error)
-    }
-    setTenantId(id)
-  }, [])
-
-  // Fetch timesheets with the tenant ID (or fallback)
-  const timesheets = await getTimesheets(tenantId)
+  // Use a simple string instead of trying to access the tenant context
+  const tenantId = "demo-tenant"
 
   return (
     <div className="container mx-auto py-6">
@@ -42,10 +25,10 @@ export default async function TimesheetsContent() {
           <TabsTrigger value="calendar">Calendar View</TabsTrigger>
         </TabsList>
         <TabsContent value="list">
-          <TimesheetTable timesheets={timesheets} />
+          <TimesheetTable initialTimesheets={[]} tenantId={tenantId} />
         </TabsContent>
         <TabsContent value="calendar">
-          <TimesheetCalendar timesheets={timesheets} />
+          <TimesheetCalendar timesheets={[]} />
         </TabsContent>
       </Tabs>
 

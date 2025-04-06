@@ -1,123 +1,114 @@
-"use client"
-
-import { useState } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import type { Patient } from "@/types/patient"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { PatientViewDialog } from "./patient-view-dialog"
-import { PatientCarePlanDialog } from "./patient-care-plan-dialog"
-
-interface Patient {
-  id: string
-  name: string
-  dateOfBirth: string
-  gender: string
-  status: string
-  primaryCondition: string
-  avatar?: string
-}
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { MoreHorizontal } from "lucide-react"
+import Link from "next/link"
 
 interface PatientTableProps {
   patients: Patient[]
 }
 
 export function PatientTable({ patients }: PatientTableProps) {
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
-  const [viewDialogOpen, setViewDialogOpen] = useState(false)
-  const [carePlanDialogOpen, setCarePlanDialogOpen] = useState(false)
-
+  // Function to get initials from name
   const getInitials = (name: string) => {
     return name
       .split(" ")
-      .map((part) => part[0])
+      .map((part) => part.charAt(0))
       .join("")
       .toUpperCase()
-      .substring(0, 2)
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "active":
-        return "bg-green-100 text-green-800"
-      case "inactive":
-        return "bg-gray-100 text-gray-800"
-      case "critical":
-        return "bg-red-100 text-red-800"
-      case "stable":
-        return "bg-blue-100 text-blue-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+  // Function to determine care needs level
+  const getCareNeedsLevel = (patient: Patient) => {
+    if (!patient.medicalConditions || patient.medicalConditions.length === 0) {
+      return { label: "Low", variant: "outline" as const }
     }
+
+    if (patient.medicalConditions.length > 2) {
+      return { label: "Complex", variant: "destructive" as const }
+    }
+
+    if (patient.medicalConditions.length > 1) {
+      return { label: "High", variant: "default" as const }
+    }
+
+    return { label: "Medium", variant: "secondary" as const }
+  }
+
+  // If no patients, show empty state
+  if (!patients || patients.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-muted-foreground">No patients found</p>
+      </div>
+    )
   }
 
   return (
-    <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Patient</TableHead>
-            <TableHead>Date of Birth</TableHead>
-            <TableHead>Gender</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Primary Condition</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {patients.map((patient) => (
-            <TableRow key={patient.id}>
-              <TableCell className="font-medium flex items-center gap-2">
-                <Avatar>
-                  <AvatarImage src={patient.avatar} alt={patient.name} />
-                  <AvatarFallback>{getInitials(patient.name)}</AvatarFallback>
-                </Avatar>
-                {patient.name}
-              </TableCell>
-              <TableCell>{new Date(patient.dateOfBirth).toLocaleDateString()}</TableCell>
-              <TableCell>{patient.gender}</TableCell>
-              <TableCell>
-                <Badge className={getStatusColor(patient.status)}>{patient.status}</Badge>
-              </TableCell>
-              <TableCell>{patient.primaryCondition}</TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedPatient(patient)
-                    setViewDialogOpen(true)
-                  }}
-                >
-                  View
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedPatient(patient)
-                    setCarePlanDialogOpen(true)
-                  }}
-                >
-                  Care Plan
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b">
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">NHS Number</th>
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date of Birth</th>
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Care Needs</th>
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+            <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {patients.map((patient) => {
+            const careNeeds = getCareNeedsLevel(patient)
+            const fullName = `${patient.firstName} ${patient.lastName}`
 
-      {selectedPatient && (
-        <>
-          <PatientViewDialog patient={selectedPatient} open={viewDialogOpen} onOpenChange={setViewDialogOpen} />
-          <PatientCarePlanDialog
-            patient={selectedPatient}
-            open={carePlanDialogOpen}
-            onOpenChange={setCarePlanDialogOpen}
-          />
-        </>
-      )}
-    </>
+            return (
+              <tr key={patient.id} className="border-b hover:bg-muted/50">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarImage
+                        src={
+                          patient.avatarUrl ||
+                          `https://ui-avatars.com/api/?name=${patient.firstName}+${patient.lastName}&background=random`
+                        }
+                        alt={fullName}
+                      />
+                      <AvatarFallback>{getInitials(fullName)}</AvatarFallback>
+                    </Avatar>
+                    <Link href={`/patients/${patient.id}`} className="font-medium hover:underline">
+                      {fullName}
+                    </Link>
+                  </div>
+                </td>
+                <td className="px-4 py-3">{patient.nhsNumber || "-"}</td>
+                <td className="px-4 py-3">
+                  {new Date(patient.dateOfBirth).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })}
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant={careNeeds.variant}>{careNeeds.label}</Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant={patient.status === "inactive" ? "outline" : "default"}>
+                    {patient.status === "on hold" ? "On Hold" : patient.status === "inactive" ? "Inactive" : "Active"}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Button variant="ghost" size="icon">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

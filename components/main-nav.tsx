@@ -1,74 +1,52 @@
 "use client"
-
-import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Icons } from "@/components/icons"
-import { MobileNav } from "@/components/layout/mobile-nav"
-import { useFeatures } from "@/lib/features-context"
 
 export function MainNav() {
   const pathname = usePathname()
-  const [showMobileMenu, setShowMobileMenu] = React.useState<boolean>(false)
-  const { isFeatureEnabled } = useFeatures()
 
   return (
-    <div className="flex gap-6 md:gap-10">
-      <Link href="/" className="hidden items-center space-x-2 md:flex">
-        <Icons.logo className="h-6 w-6" />
-        <span className="hidden font-bold sm:inline-block">ComplexCare</span>
+    <div className="mr-4 flex">
+      <Link href="/" className="mr-6 flex items-center space-x-2">
+        <span className="hidden font-bold sm:inline-block">ComplexCare CRM</span>
       </Link>
-      <button className="flex items-center space-x-2 md:hidden" onClick={() => setShowMobileMenu(!showMobileMenu)}>
-        {showMobileMenu ? <Icons.close className="h-5 w-5" /> : <Icons.logo className="h-5 w-5" />}
-        <span className="font-bold">Menu</span>
-      </button>
-      {showMobileMenu && <MobileNav />}
-      <nav className="hidden gap-6 md:flex">
+      <nav className="flex items-center space-x-6 text-sm font-medium">
         <Link
-          href="/"
+          href="/dashboard"
           className={cn(
-            "flex items-center text-lg font-medium transition-colors hover:text-foreground/80 sm:text-sm",
-            pathname === "/" ? "text-foreground" : "text-foreground/60",
+            "transition-colors hover:text-foreground/80",
+            pathname === "/dashboard" ? "text-foreground" : "text-foreground/60",
           )}
         >
-          Home
+          Dashboard
         </Link>
         <Link
-          href="/features"
+          href="/patients"
           className={cn(
-            "flex items-center text-lg font-medium transition-colors hover:text-foreground/80 sm:text-sm",
-            pathname?.startsWith("/features") ? "text-foreground" : "text-foreground/60",
+            "transition-colors hover:text-foreground/80",
+            pathname?.startsWith("/patients") ? "text-foreground" : "text-foreground/60",
           )}
         >
-          Features
+          Patients
         </Link>
         <Link
-          href="/pricing"
+          href="/appointments"
           className={cn(
-            "flex items-center text-lg font-medium transition-colors hover:text-foreground/80 sm:text-sm",
-            pathname?.startsWith("/pricing") ? "text-foreground" : "text-foreground/60",
+            "transition-colors hover:text-foreground/80",
+            pathname?.startsWith("/appointments") ? "text-foreground" : "text-foreground/60",
           )}
         >
-          Pricing
+          Appointments
         </Link>
         <Link
-          href="/about"
+          href="/tasks"
           className={cn(
-            "flex items-center text-lg font-medium transition-colors hover:text-foreground/80 sm:text-sm",
-            pathname?.startsWith("/about") ? "text-foreground" : "text-foreground/60",
+            "transition-colors hover:text-foreground/80",
+            pathname?.startsWith("/tasks") ? "text-foreground" : "text-foreground/60",
           )}
         >
-          About
-        </Link>
-        <Link
-          href="/contact"
-          className={cn(
-            "flex items-center text-lg font-medium transition-colors hover:text-foreground/80 sm:text-sm",
-            pathname?.startsWith("/contact") ? "text-foreground" : "text-foreground/60",
-          )}
-        >
-          Contact
+          Tasks
         </Link>
       </nav>
     </div>

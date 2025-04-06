@@ -1,6 +1,10 @@
+"use client"
+
 import type { NextRequest } from "next/server"
 import { executeQuery } from "@/lib/db"
 import { cache } from "react"
+import { cookies } from "next/headers" // Already imported
+import { unstable_cache } from "next/cache"
 
 export type Tenant = {
   id: string
@@ -12,6 +16,51 @@ export type Tenant = {
   created_at: string
   updated_at: string
 }
+
+// Function to check if a string is a valid UUID
+export function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  return uuidRegex.test(uuid)
+}
+
+// Default UUID to use as fallback
+export const DEFAULT_UUID = "00000000-0000-0000-0000-000000000000"
+
+// Generate a random UUID
+export function generateUUID(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === "x" ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
+// The following code needs to be updated to work correctly in server components
+// due to the usage of next/headers cookies
+
+// Function to get tenant ID from cookies or default to a demo tenant
+export const getTenantId = unstable_cache(async (): Promise<string> => {
+  try {
+    // This will only work in server components
+    if (typeof window === "undefined") {
+      try {
+        return cookies().get("tenantId")?.value || "demo-tenant-1"
+      } catch (error) {
+        console.error("Error accessing cookies:", error)
+        return "demo-tenant-1"
+      }
+    } else {
+      // Client-side fallback
+      const cookiesStr = document.cookie
+      const cookies = cookiesStr.split(";")
+      const tenantCookie = cookies.find((cookie) => cookie.trim().startsWith("tenantId="))
+      return tenantCookie ? tenantCookie.split("=")[1] : "demo-tenant-1"
+    }
+  } catch (error) {
+    console.error("Error in getTenantId:", error)
+    return "demo-tenant-1"
+  }
+}, ["tenantId"])
 
 // Cache tenant data for 5 minutes to reduce database queries
 const TENANT_CACHE_TIME = 5 * 60 * 1000 // 5 minutes
@@ -109,26 +158,6 @@ export function clearTenantCache(tenantId?: string) {
     tenantCache.delete(tenantId)
   } else {
     tenantCache.clear()
-  }
-}
-
-// Get tenant ID safely without relying on cookies directly
-export async function getTenantId(): Promise<string | null> {
-  try {
-    // For server components, try to get from environment or default
-    if (process.env.DEFAULT_TENANT_ID) {
-      return process.env.DEFAULT_TENANT_ID
-    }
-
-    // Default for development
-    if (process.env.NODE_ENV === "development") {
-      return "ba367cfe-6de0-4180-9566-1002b75cf82c" // Default tenant ID
-    }
-
-    return null
-  } catch (error) {
-    console.error("Error getting tenant ID:", error)
-    return null
   }
 }
 

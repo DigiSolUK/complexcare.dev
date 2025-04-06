@@ -1,206 +1,83 @@
 "use client"
 
-import type React from "react"
-
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Icons } from "@/components/icons"
-import { useFeatures } from "@/lib/features-context"
-import { useSession } from "next-auth/react"
+import { LayoutDashboard, Users, Calendar, ClipboardList, FileText, Settings, Shield, BarChart } from "lucide-react"
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+const sidebarNavItems = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Patients",
+    href: "/patients",
+    icon: Users,
+  },
+  {
+    title: "Appointments",
+    href: "/appointments",
+    icon: Calendar,
+  },
+  {
+    title: "Tasks",
+    href: "/tasks",
+    icon: ClipboardList,
+  },
+  {
+    title: "Documents",
+    href: "/documents",
+    icon: FileText,
+  },
+  {
+    title: "Compliance",
+    href: "/compliance",
+    icon: Shield,
+  },
+  {
+    title: "Reports",
+    href: "/reports",
+    icon: BarChart,
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: Settings,
+  },
+]
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname()
-  const { isFeatureEnabled } = useFeatures()
-  const { data: session } = useSession()
-  const isAdmin = session?.user?.role === "admin"
 
   return (
-    <div className={cn("pb-12", className)}>
+    <div className="hidden border-r md:block">
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">Dashboard</h2>
           <div className="space-y-1">
-            <Button
-              variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              asChild
-            >
-              <Link href="/dashboard">
-                <Icons.dashboard className="mr-2 h-4 w-4" />
-                Overview
-              </Link>
-            </Button>
-            <Button
-              variant={pathname?.startsWith("/patients") ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              asChild
-            >
-              <Link href="/patients">
-                <Icons.users className="mr-2 h-4 w-4" />
-                Patients
-              </Link>
-            </Button>
-            <Button
-              variant={pathname?.startsWith("/care-professionals") ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              asChild
-            >
-              <Link href="/care-professionals">
-                <Icons.userCog className="mr-2 h-4 w-4" />
-                Care Professionals
-              </Link>
-            </Button>
-            <Button
-              variant={pathname?.startsWith("/schedule") ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              asChild
-            >
-              <Link href="/schedule">
-                <Icons.calendar className="mr-2 h-4 w-4" />
-                Schedule
-              </Link>
-            </Button>
-            {isFeatureEnabled("timesheet_management") && (
-              <Button
-                variant={pathname?.startsWith("/timesheets") ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                asChild
-              >
-                <Link href="/timesheets">
-                  <Icons.clock className="mr-2 h-4 w-4" />
-                  Timesheets
+            <h2 className="mb-2 px-4 text-xl font-semibold tracking-tight">Menu</h2>
+            <nav className="flex flex-col space-y-1">
+              {sidebarNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                    pathname === item.href || (pathname?.startsWith(item.href) && item.href !== "/")
+                      ? "bg-accent text-accent-foreground"
+                      : "transparent",
+                  )}
+                >
+                  <item.icon className="mr-2 h-4 w-4" />
+                  <span>{item.title}</span>
                 </Link>
-              </Button>
-            )}
-            {isFeatureEnabled("basic_invoicing") && (
-              <Button
-                variant={pathname?.startsWith("/invoices") ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                asChild
-              >
-                <Link href="/invoices">
-                  <Icons.receipt className="mr-2 h-4 w-4" />
-                  Invoices
-                </Link>
-              </Button>
-            )}
-            {isFeatureEnabled("document_management") && (
-              <Button
-                variant={pathname?.startsWith("/documents") ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                asChild
-              >
-                <Link href="/documents">
-                  <Icons.fileText className="mr-2 h-4 w-4" />
-                  Documents
-                </Link>
-              </Button>
-            )}
-            {isFeatureEnabled("basic_reporting") && (
-              <Button
-                variant={pathname?.startsWith("/reports") ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                asChild
-              >
-                <Link href="/reports">
-                  <Icons.barChart className="mr-2 h-4 w-4" />
-                  Reports
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">Settings</h2>
-          <div className="space-y-1">
-            <Button variant={pathname === "/settings" ? "secondary" : "ghost"} className="w-full justify-start" asChild>
-              <Link href="/settings">
-                <Icons.settings className="mr-2 h-4 w-4" />
-                General
-              </Link>
-            </Button>
-            <Button
-              variant={pathname?.startsWith("/settings/users") ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              asChild
-            >
-              <Link href="/settings/users">
-                <Icons.users className="mr-2 h-4 w-4" />
-                Users
-              </Link>
-            </Button>
-            <Button
-              variant={pathname?.startsWith("/settings/features") ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              asChild
-            >
-              <Link href="/settings/features">
-                <Icons.toggleLeft className="mr-2 h-4 w-4" />
-                Features
-              </Link>
-            </Button>
-            <Button
-              variant={pathname?.startsWith("/settings/integrations") ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              asChild
-            >
-              <Link href="/settings/integrations">
-                <Icons.link className="mr-2 h-4 w-4" />
-                Integrations
-              </Link>
-            </Button>
-            {isAdmin && (
-              <Button
-                variant={pathname?.startsWith("/admin/pricing") ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                asChild
-              >
-                <Link href="/admin/pricing">
-                  <Icons.creditCard className="mr-2 h-4 w-4" />
-                  Pricing
-                </Link>
-              </Button>
-            )}
-            {isAdmin && (
-              <Button
-                variant={pathname?.startsWith("/admin/billing") ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                asChild
-              >
-                <Link href="/admin/billing">
-                  <Icons.pound className="mr-2 h-4 w-4" />
-                  Billing
-                </Link>
-              </Button>
-            )}
+              ))}
+            </nav>
           </div>
         </div>
       </div>
     </div>
-  )
-}
-
-export function MobileSidebar() {
-  return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="icon" className="md:hidden">
-          <Icons.menu className="h-4 w-4" />
-          <span className="sr-only">Toggle Menu</span>
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="pr-0">
-        <ScrollArea className="h-full">
-          <Sidebar className="w-full" />
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
   )
 }
 
