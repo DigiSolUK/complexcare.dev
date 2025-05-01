@@ -51,4 +51,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create API key" }, { status: 500 })
   }
 }
-

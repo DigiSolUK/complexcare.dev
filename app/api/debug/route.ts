@@ -23,4 +23,3 @@ export async function GET() {
     return NextResponse.json({ error: "Debug API error", message: error.message }, { status: 500 })
   }
 }
-

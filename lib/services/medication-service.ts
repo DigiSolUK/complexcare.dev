@@ -85,4 +85,3 @@ export async function deleteMedication(tenantId: string, medicationId: string): 
   const medications = await tenantDelete<Medication>(tenantId, "medications", medicationId)
   return medications.length > 0 ? medications[0] : null
 }
-

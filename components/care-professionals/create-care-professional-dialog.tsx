@@ -363,4 +363,3 @@ export function CreateCareProfessionalDialog({ open, onOpenChange, onSuccess }: 
     </Dialog>
   )
 }
-

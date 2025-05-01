@@ -227,4 +227,3 @@ export function CredentialTable({ filter = "all", userId }: CredentialTableProps
     </Table>
   )
 }
-

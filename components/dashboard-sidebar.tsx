@@ -146,13 +146,24 @@ export function DashboardSidebar() {
     },
   ]
 
+  const adminItems = [
+    {
+      href: "/admin/tenant-management",
+      title: "Tenant Management",
+      icon: <Users className="mr-2 h-4 w-4" />,
+      color: "purple",
+    },
+  ]
+
   return (
     <div className="flex h-full flex-col gap-2 p-4">
       <div className="px-3 py-2">
         <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">Navigation</h2>
         <SidebarNav items={items} />
+
+        <h2 className="mb-2 mt-6 px-4 text-lg font-semibold tracking-tight">Administration</h2>
+        <SidebarNav items={adminItems} />
       </div>
     </div>
   )
 }
-

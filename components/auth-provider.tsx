@@ -6,4 +6,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Simple wrapper since we're in demo mode
   return <>{children}</>
 }
-

@@ -76,4 +76,3 @@ export function PayrollProviderTable({ providers = [] }: PayrollProviderTablePro
     </div>
   )
 }
-

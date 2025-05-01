@@ -162,4 +162,3 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
     </Dialog>
   )
 }
-

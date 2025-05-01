@@ -155,4 +155,3 @@ export function TodoKanban({ todos }: TodoKanbanProps) {
     </div>
   )
 }
-

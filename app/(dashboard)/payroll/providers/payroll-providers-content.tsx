@@ -7,4 +7,3 @@ export async function PayrollProvidersContent() {
 
   return <PayrollProvidersClient initialProviders={providers} />
 }
-

@@ -3,110 +3,22 @@ import type { Invoice, InvoiceItem } from "@/types"
 
 export async function getInvoices(tenantId: string): Promise<Invoice[]> {
   try {
-    // If we're in demo mode or tenantId is not a valid UUID, return mock data
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !isValidUUID(tenantId)) {
-      return getMockInvoices()
-    }
+    const result = await sql`
+      SELECT i.*, p.first_name, p.last_name
+      FROM invoices i
+      LEFT JOIN patients p ON i.patient_id = p.id
+      WHERE i.tenant_id = ${tenantId}
+      ORDER BY i.created_at DESC
+    `
 
-    try {
-      const result = await sql`
-        SELECT i.*, p.first_name, p.last_name
-        FROM invoices i
-        LEFT JOIN patients p ON i.patient_id = p.id
-        WHERE i.tenant_id = ${tenantId}
-        ORDER BY i.created_at DESC
-      `
-
-      return result.rows.map((row) => ({
-        ...row,
-        patient_name: row.first_name && row.last_name ? `${row.first_name} ${row.last_name}` : "Unknown Patient",
-      }))
-    } catch (error) {
-      console.error("Database error fetching invoices:", error)
-      return getMockInvoices()
-    }
+    return result.rows.map((row) => ({
+      ...row,
+      patient_name: row.first_name && row.last_name ? `${row.first_name} ${row.last_name}` : "Unknown Patient",
+    }))
   } catch (error) {
     console.error("Error fetching invoices:", error)
-    return getMockInvoices()
+    throw new Error("Failed to fetch invoices")
   }
-}
-
-// Helper function to check if a string is a valid UUID
-function isValidUUID(uuid: string) {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-  return uuidRegex.test(uuid)
-}
-
-// Helper function to get mock invoices
-function getMockInvoices(): Invoice[] {
-  return [
-    {
-      id: "inv-001",
-      tenant_id: "demo-tenant",
-      patient_id: "pat-001",
-      patient_name: "John Smith",
-      amount: 250.0,
-      due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      invoice_number: "INV-0001",
-      description: "Monthly care services",
-      status: "sent",
-      created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "inv-002",
-      tenant_id: "demo-tenant",
-      patient_id: "pat-002",
-      patient_name: "Emily Wilson",
-      amount: 175.5,
-      due_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      invoice_number: "INV-0002",
-      description: "Weekly therapy sessions",
-      status: "paid",
-      paid_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "inv-003",
-      tenant_id: "demo-tenant",
-      patient_id: "pat-003",
-      patient_name: "Robert Martin",
-      amount: 320.75,
-      due_date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      invoice_number: "INV-0003",
-      description: "Specialized equipment and care services",
-      status: "overdue",
-      created_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "inv-004",
-      tenant_id: "demo-tenant",
-      patient_id: "pat-004",
-      patient_name: "Sarah Johnson",
-      amount: 150.0,
-      due_date: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      invoice_number: "INV-0004",
-      description: "Assessment and care plan development",
-      status: "draft",
-      created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "inv-005",
-      tenant_id: "demo-tenant",
-      patient_id: "pat-005",
-      patient_name: "David Taylor",
-      amount: 275.25,
-      due_date: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      invoice_number: "INV-0005",
-      description: "Monthly care package",
-      status: "sent",
-      created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ]
 }
 
 export async function getInvoiceById(tenantId: string, id: string): Promise<Invoice | null> {
@@ -260,4 +172,3 @@ export async function getNextInvoiceNumber(tenantId: string): Promise<string> {
     throw new Error("Failed to generate next invoice number")
   }
 }
-

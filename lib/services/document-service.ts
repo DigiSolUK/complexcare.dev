@@ -104,4 +104,3 @@ export async function searchDocuments(tenantId: string, searchTerm: string): Pro
     [`%${searchTerm}%`],
   )
 }
-

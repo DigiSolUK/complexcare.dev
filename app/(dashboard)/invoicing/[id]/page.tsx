@@ -9,4 +9,3 @@ export const metadata: Metadata = {
 export default function InvoiceDetailsPage({ params }: { params: { id: string } }) {
   return <InvoiceDetailsClient invoiceId={params.id} />
 }
-

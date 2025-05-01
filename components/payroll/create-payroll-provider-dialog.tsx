@@ -170,4 +170,3 @@ export function CreatePayrollProviderDialog({ open, onOpenChange, onSuccess }: C
     </Dialog>
   )
 }
-

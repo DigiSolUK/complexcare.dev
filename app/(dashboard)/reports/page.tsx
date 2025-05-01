@@ -283,4 +283,3 @@ function ReportCard({ title, description, icon }: ReportCardProps) {
     </Card>
   )
 }
-

@@ -95,4 +95,3 @@ export async function updateApiKeyLastUsed(tenantId: string, key: string): Promi
     throw new Error("Failed to update API key last used")
   }
 }
-

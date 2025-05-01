@@ -318,4 +318,3 @@ export async function getExpiringCredentials(tenantId: string, daysThreshold = 3
     throw new Error("Failed to fetch expiring credentials")
   }
 }
-

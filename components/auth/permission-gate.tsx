@@ -36,4 +36,3 @@ export function PermissionGate({ permission, children, fallback = null }: Permis
 
   return hasPermission ? <>{children}</> : <>{fallback}</>
 }
-

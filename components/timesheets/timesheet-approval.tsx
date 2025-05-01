@@ -142,4 +142,3 @@ export function TimesheetApproval({ initialTimesheets = [], tenantId }: Timeshee
     </div>
   )
 }
-

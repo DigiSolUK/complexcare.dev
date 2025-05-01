@@ -153,4 +153,3 @@ export function RecentPatients({ tenantId }: RecentPatientsProps) {
     </div>
   )
 }
-

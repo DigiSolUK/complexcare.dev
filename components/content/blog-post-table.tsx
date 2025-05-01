@@ -275,4 +275,3 @@ export function BlogPostTable() {
     </div>
   )
 }
-

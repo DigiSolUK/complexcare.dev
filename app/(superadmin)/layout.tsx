@@ -19,4 +19,3 @@ export default function SuperadminLayout({ children }: SuperadminLayoutProps) {
     </div>
   )
 }
-

@@ -58,4 +58,3 @@ export function InvoicePaymentHistory({ invoice }: { invoice: Invoice }) {
     </div>
   )
 }
-

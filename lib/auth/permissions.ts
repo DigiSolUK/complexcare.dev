@@ -1,16 +1,25 @@
-// Define all possible permissions in the system
 export const PERMISSIONS = {
+  // Tenant permissions
+  TENANT_VIEW: "tenant:view",
+  TENANT_CREATE: "tenant:create",
+  TENANT_UPDATE: "tenant:update",
+  TENANT_DELETE: "tenant:delete",
+  TENANT_USER_VIEW: "tenant:user:view",
+  TENANT_USER_CREATE: "tenant:user:create",
+  TENANT_USER_UPDATE: "tenant:user:update",
+  TENANT_USER_DELETE: "tenant:user:delete",
+
   // Patient permissions
   PATIENT_VIEW: "patient:view",
   PATIENT_CREATE: "patient:create",
   PATIENT_UPDATE: "patient:update",
   PATIENT_DELETE: "patient:delete",
 
-  // Appointment permissions
-  APPOINTMENT_VIEW: "appointment:view",
-  APPOINTMENT_CREATE: "appointment:create",
-  APPOINTMENT_UPDATE: "appointment:update",
-  APPOINTMENT_DELETE: "appointment:delete",
+  // Care professional permissions
+  CARE_PROFESSIONAL_VIEW: "care_professional:view",
+  CARE_PROFESSIONAL_CREATE: "care_professional:create",
+  CARE_PROFESSIONAL_UPDATE: "care_professional:update",
+  CARE_PROFESSIONAL_DELETE: "care_professional:delete",
 
   // Care plan permissions
   CARE_PLAN_VIEW: "care_plan:view",
@@ -18,11 +27,17 @@ export const PERMISSIONS = {
   CARE_PLAN_UPDATE: "care_plan:update",
   CARE_PLAN_DELETE: "care_plan:delete",
 
-  // Medication permissions
-  MEDICATION_VIEW: "medication:view",
-  MEDICATION_CREATE: "medication:create",
-  MEDICATION_UPDATE: "medication:update",
-  MEDICATION_DELETE: "medication:delete",
+  // Appointment permissions
+  APPOINTMENT_VIEW: "appointment:view",
+  APPOINTMENT_CREATE: "appointment:create",
+  APPOINTMENT_UPDATE: "appointment:update",
+  APPOINTMENT_DELETE: "appointment:delete",
+
+  // Task permissions
+  TASK_VIEW: "task:view",
+  TASK_CREATE: "task:create",
+  TASK_UPDATE: "task:update",
+  TASK_DELETE: "task:delete",
 
   // Document permissions
   DOCUMENT_VIEW: "document:view",
@@ -30,135 +45,170 @@ export const PERMISSIONS = {
   DOCUMENT_UPDATE: "document:update",
   DOCUMENT_DELETE: "document:delete",
 
-  // Compliance permissions
-  COMPLIANCE_VIEW: "compliance:view",
-  COMPLIANCE_CREATE: "compliance:create",
-  COMPLIANCE_UPDATE: "compliance:update",
-  COMPLIANCE_DELETE: "compliance:delete",
+  // Invoice permissions
+  INVOICE_VIEW: "invoice:view",
+  INVOICE_CREATE: "invoice:create",
+  INVOICE_UPDATE: "invoice:update",
+  INVOICE_DELETE: "invoice:delete",
 
-  // User management permissions
+  // Report permissions
+  REPORT_VIEW: "report:view",
+  REPORT_CREATE: "report:create",
+  REPORT_UPDATE: "report:update",
+  REPORT_DELETE: "report:delete",
+
+  // Analytics permissions
+  ANALYTICS_VIEW: "analytics:view",
+
+  // Settings permissions
+  SETTINGS_VIEW: "settings:view",
+  SETTINGS_UPDATE: "settings:update",
+
+  // User permissions
   USER_VIEW: "user:view",
   USER_CREATE: "user:create",
   USER_UPDATE: "user:update",
   USER_DELETE: "user:delete",
 
-  // Role management permissions
+  // Role permissions
   ROLE_VIEW: "role:view",
   ROLE_CREATE: "role:create",
   ROLE_UPDATE: "role:update",
   ROLE_DELETE: "role:delete",
 
-  // Tenant management permissions
-  TENANT_VIEW: "tenant:view",
-  TENANT_CREATE: "tenant:create",
-  TENANT_UPDATE: "tenant:update",
-  TENANT_DELETE: "tenant:delete",
-
-  // Recruitment permissions
-  RECRUITMENT_VIEW: "recruitment:view",
-  RECRUITMENT_CREATE: "recruitment:create",
-  RECRUITMENT_UPDATE: "recruitment:update",
-  RECRUITMENT_DELETE: "recruitment:delete",
-
-  // Content management permissions
-  CONTENT_VIEW: "content:view",
-  CONTENT_CREATE: "content:create",
-  CONTENT_UPDATE: "content:update",
-  CONTENT_DELETE: "content:delete",
+  // API permissions
+  API_KEY_VIEW: "api_key:view",
+  API_KEY_CREATE: "api_key:create",
+  API_KEY_UPDATE: "api_key:update",
+  API_KEY_DELETE: "api_key:delete",
+  // Compliance permissions
+  COMPLIANCE_VIEW: "compliance:view",
+  COMPLIANCE_CREATE: "compliance:create",
+  COMPLIANCE_UPDATE: "compliance:update",
+  COMPLIANCE_DELETE: "compliance:delete",
+  // Payroll permissions
+  PAYROLL_VIEW: "payroll:view",
+  PAYROLL_CREATE: "payroll:create",
+  PAYROLL_UPDATE: "payroll:update",
+  PAYROLL_DELETE: "payroll:delete",
+  PAYROLL_SUBMIT: "payroll:submit",
+  // Credential permissions
+  CREDENTIAL_VIEW: "credential:view",
+  CREDENTIAL_CREATE: "credential:create",
+  CREDENTIAL_UPDATE: "credential:update",
+  CREDENTIAL_DELETE: "credential:delete",
+  CREDENTIAL_VERIFY: "credential:verify",
 } as const
 
-// Define role types
-export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
-
-// Define predefined roles with their permissions
+// Role definitions
 export const ROLES = {
   SUPER_ADMIN: "super_admin",
   TENANT_ADMIN: "tenant_admin",
-  CLINICAL_ADMIN: "clinical_admin",
   CARE_MANAGER: "care_manager",
   CARE_PROFESSIONAL: "care_professional",
+  FINANCE_MANAGER: "finance_manager",
   RECEPTIONIST: "receptionist",
-  PATIENT: "patient",
-} as const
+  USER: "user",
+}
 
-export type Role = (typeof ROLES)[keyof typeof ROLES]
-
-// Define permissions for each role
-export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+// Role permissions mapping
+export const ROLE_PERMISSIONS = {
   [ROLES.SUPER_ADMIN]: Object.values(PERMISSIONS),
   [ROLES.TENANT_ADMIN]: [
-    // Tenant admins can do everything except manage other tenants
-    ...Object.values(PERMISSIONS).filter((permission) => !permission.startsWith("tenant:")),
-  ],
-  [ROLES.CLINICAL_ADMIN]: [
-    // Clinical admins can manage patients, appointments, care plans, medications, and documents
     PERMISSIONS.PATIENT_VIEW,
     PERMISSIONS.PATIENT_CREATE,
     PERMISSIONS.PATIENT_UPDATE,
     PERMISSIONS.PATIENT_DELETE,
-    PERMISSIONS.APPOINTMENT_VIEW,
-    PERMISSIONS.APPOINTMENT_CREATE,
-    PERMISSIONS.APPOINTMENT_UPDATE,
-    PERMISSIONS.APPOINTMENT_DELETE,
+    PERMISSIONS.CARE_PROFESSIONAL_VIEW,
+    PERMISSIONS.CARE_PROFESSIONAL_CREATE,
+    PERMISSIONS.CARE_PROFESSIONAL_UPDATE,
+    PERMISSIONS.CARE_PROFESSIONAL_DELETE,
     PERMISSIONS.CARE_PLAN_VIEW,
     PERMISSIONS.CARE_PLAN_CREATE,
     PERMISSIONS.CARE_PLAN_UPDATE,
     PERMISSIONS.CARE_PLAN_DELETE,
-    PERMISSIONS.MEDICATION_VIEW,
-    PERMISSIONS.MEDICATION_CREATE,
-    PERMISSIONS.MEDICATION_UPDATE,
-    PERMISSIONS.MEDICATION_DELETE,
+    PERMISSIONS.APPOINTMENT_VIEW,
+    PERMISSIONS.APPOINTMENT_CREATE,
+    PERMISSIONS.APPOINTMENT_UPDATE,
+    PERMISSIONS.APPOINTMENT_DELETE,
+    PERMISSIONS.TASK_VIEW,
+    PERMISSIONS.TASK_CREATE,
+    PERMISSIONS.TASK_UPDATE,
+    PERMISSIONS.TASK_DELETE,
     PERMISSIONS.DOCUMENT_VIEW,
     PERMISSIONS.DOCUMENT_CREATE,
     PERMISSIONS.DOCUMENT_UPDATE,
     PERMISSIONS.DOCUMENT_DELETE,
-    PERMISSIONS.COMPLIANCE_VIEW,
+    PERMISSIONS.INVOICE_VIEW,
+    PERMISSIONS.INVOICE_CREATE,
+    PERMISSIONS.INVOICE_UPDATE,
+    PERMISSIONS.INVOICE_DELETE,
+    PERMISSIONS.REPORT_VIEW,
+    PERMISSIONS.REPORT_CREATE,
+    PERMISSIONS.REPORT_UPDATE,
+    PERMISSIONS.REPORT_DELETE,
+    PERMISSIONS.ANALYTICS_VIEW,
+    PERMISSIONS.SETTINGS_VIEW,
+    PERMISSIONS.SETTINGS_UPDATE,
     PERMISSIONS.USER_VIEW,
+    PERMISSIONS.USER_CREATE,
+    PERMISSIONS.USER_UPDATE,
+    PERMISSIONS.USER_DELETE,
+    PERMISSIONS.ROLE_VIEW,
+    PERMISSIONS.ROLE_CREATE,
+    PERMISSIONS.ROLE_UPDATE,
+    PERMISSIONS.ROLE_DELETE,
+    PERMISSIONS.API_KEY_VIEW,
+    PERMISSIONS.API_KEY_CREATE,
+    PERMISSIONS.API_KEY_UPDATE,
+    PERMISSIONS.API_KEY_DELETE,
+    PERMISSIONS.COMPLIANCE_VIEW,
+    PERMISSIONS.COMPLIANCE_CREATE,
+    PERMISSIONS.COMPLIANCE_UPDATE,
+    PERMISSIONS.COMPLIANCE_DELETE,
+    PERMISSIONS.PAYROLL_VIEW,
+    PERMISSIONS.PAYROLL_CREATE,
+    PERMISSIONS.PAYROLL_UPDATE,
+    PERMISSIONS.PAYROLL_DELETE,
+    PERMISSIONS.PAYROLL_SUBMIT,
+    PERMISSIONS.CREDENTIAL_VIEW,
+    PERMISSIONS.CREDENTIAL_CREATE,
+    PERMISSIONS.CREDENTIAL_UPDATE,
+    PERMISSIONS.CREDENTIAL_DELETE,
+    PERMISSIONS.CREDENTIAL_VERIFY,
   ],
   [ROLES.CARE_MANAGER]: [
-    // Care managers can view and manage patients, appointments, care plans, and documents
     PERMISSIONS.PATIENT_VIEW,
-    PERMISSIONS.PATIENT_CREATE,
     PERMISSIONS.PATIENT_UPDATE,
-    PERMISSIONS.APPOINTMENT_VIEW,
-    PERMISSIONS.APPOINTMENT_CREATE,
-    PERMISSIONS.APPOINTMENT_UPDATE,
     PERMISSIONS.CARE_PLAN_VIEW,
     PERMISSIONS.CARE_PLAN_CREATE,
     PERMISSIONS.CARE_PLAN_UPDATE,
-    PERMISSIONS.MEDICATION_VIEW,
-    PERMISSIONS.DOCUMENT_VIEW,
-    PERMISSIONS.DOCUMENT_CREATE,
-    PERMISSIONS.DOCUMENT_UPDATE,
-    PERMISSIONS.COMPLIANCE_VIEW,
-  ],
-  [ROLES.CARE_PROFESSIONAL]: [
-    // Care professionals can view patients, appointments, care plans, and documents
-    PERMISSIONS.PATIENT_VIEW,
     PERMISSIONS.APPOINTMENT_VIEW,
     PERMISSIONS.APPOINTMENT_CREATE,
     PERMISSIONS.APPOINTMENT_UPDATE,
-    PERMISSIONS.CARE_PLAN_VIEW,
-    PERMISSIONS.CARE_PLAN_UPDATE,
-    PERMISSIONS.MEDICATION_VIEW,
+    PERMISSIONS.TASK_VIEW,
+    PERMISSIONS.TASK_CREATE,
+    PERMISSIONS.TASK_UPDATE,
     PERMISSIONS.DOCUMENT_VIEW,
-    PERMISSIONS.DOCUMENT_CREATE,
+    PERMISSIONS.REPORT_VIEW,
   ],
-  [ROLES.RECEPTIONIST]: [
-    // Receptionists can view and manage appointments
-    PERMISSIONS.PATIENT_VIEW,
-    PERMISSIONS.APPOINTMENT_VIEW,
-    PERMISSIONS.APPOINTMENT_CREATE,
-    PERMISSIONS.APPOINTMENT_UPDATE,
-    PERMISSIONS.DOCUMENT_VIEW,
+  [ROLES.CARE_PROFESSIONAL]: [PERMISSIONS.PATIENT_VIEW, PERMISSIONS.APPOINTMENT_VIEW, PERMISSIONS.TASK_VIEW],
+  [ROLES.FINANCE_MANAGER]: [
+    PERMISSIONS.INVOICE_VIEW,
+    PERMISSIONS.INVOICE_CREATE,
+    PERMISSIONS.INVOICE_UPDATE,
+    PERMISSIONS.INVOICE_DELETE,
+    PERMISSIONS.REPORT_VIEW,
+    PERMISSIONS.ANALYTICS_VIEW,
+    PERMISSIONS.PAYROLL_VIEW,
+    PERMISSIONS.PAYROLL_CREATE,
+    PERMISSIONS.PAYROLL_UPDATE,
+    PERMISSIONS.PAYROLL_DELETE,
+    PERMISSIONS.PAYROLL_SUBMIT,
   ],
-  [ROLES.PATIENT]: [
-    // Patients can view their own data
-    PERMISSIONS.PATIENT_VIEW,
-    PERMISSIONS.APPOINTMENT_VIEW,
-    PERMISSIONS.CARE_PLAN_VIEW,
-    PERMISSIONS.MEDICATION_VIEW,
-    PERMISSIONS.DOCUMENT_VIEW,
-  ],
+  [ROLES.RECEPTIONIST]: [PERMISSIONS.PATIENT_VIEW, PERMISSIONS.APPOINTMENT_VIEW, PERMISSIONS.APPOINTMENT_CREATE],
+  [ROLES.USER]: [PERMISSIONS.PATIENT_VIEW],
 }
 
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
+export type Role = (typeof ROLES)[keyof typeof ROLES]

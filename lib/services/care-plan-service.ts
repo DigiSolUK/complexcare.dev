@@ -139,4 +139,3 @@ export async function getActiveCarePlansCount(tenantId: string): Promise<number>
     return 0
   }
 }
-

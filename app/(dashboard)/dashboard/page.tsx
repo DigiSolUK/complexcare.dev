@@ -1,78 +1,152 @@
-import { DemoBanner } from "@/components/demo-banner"
+import { Suspense } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ErrorBoundary } from "@/components/error-boundary"
+import { DashboardStats } from "@/components/dashboard/dashboard-stats"
+import { RecentPatients } from "@/components/dashboard/recent-patients"
+import { TasksList } from "@/components/dashboard/tasks-list"
+import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments"
 
-export default function DashboardPage() {
+async function getDashboardData() {
+  try {
+    // This is mock data - in a real app, you would fetch this from your database
+    return {
+      patientCount: 128,
+      patientGrowth: 12,
+      appointmentsToday: 24,
+      appointmentsPending: 5,
+      carePlansActive: 87,
+      carePlansReview: 12,
+      staffCompliance: 94,
+      certificationsExpiring: 3,
+      tasksAssigned: 42,
+      tasksCompleted: 18,
+      outstandingInvoices: 12450,
+      overduePayments: 4,
+    }
+  } catch (error) {
+    console.error("Error fetching dashboard data:", error)
+    return {
+      patientCount: 0,
+      patientGrowth: 0,
+      appointmentsToday: 0,
+      appointmentsPending: 0,
+      carePlansActive: 0,
+      carePlansReview: 0,
+      staffCompliance: 0,
+      certificationsExpiring: 0,
+      tasksAssigned: 0,
+      tasksCompleted: 0,
+      outstandingInvoices: 0,
+      overduePayments: 0,
+    }
+  }
+}
+
+export default async function DashboardPage() {
+  const dashboardData = await getDashboardData()
+
   return (
-    <div className="container mx-auto">
-      <DemoBanner />
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-
-      {/* Dashboard content */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4">Patients</h2>
-          <p className="text-3xl font-bold">128</p>
-          <p className="text-sm text-gray-500">Total patients</p>
+    <ErrorBoundary componentPath="app/(dashboard)/dashboard/page.tsx">
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">Welcome to your Complex Care CRM dashboard</p>
+          </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4">Appointments</h2>
-          <p className="text-3xl font-bold">47</p>
-          <p className="text-sm text-gray-500">Scheduled this week</p>
-        </div>
+        {/* Dashboard Stats */}
+        <Suspense fallback={<DashboardStatsSkeleton />}>
+          <DashboardStats data={dashboardData} />
+        </Suspense>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4">Tasks</h2>
-          <p className="text-3xl font-bold">23</p>
-          <p className="text-sm text-gray-500">Pending tasks</p>
-        </div>
+        <Tabs defaultValue="overview" className="mt-6">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="patients">Patients</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-4 mt-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Card className="col-span-2">
+                <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+                  <CardDescription>Your recent patient activity</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px] flex items-center justify-center">
+                    <p className="text-muted-foreground">Activity chart will be displayed here</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upcoming Appointments</CardTitle>
+                  <CardDescription>Your schedule for today</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Suspense fallback={<Skeleton className="h-[300px]" />}>
+                    <UpcomingAppointments />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="patients" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Patients</CardTitle>
+                <CardDescription>Recently updated patient records</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Suspense fallback={<Skeleton className="h-[400px]" />}>
+                  <RecentPatients />
+                </Suspense>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="tasks" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tasks</CardTitle>
+                <CardDescription>Your assigned tasks and to-dos</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Suspense fallback={<Skeleton className="h-[400px]" />}>
+                  <TasksList />
+                </Suspense>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
-          <ul className="space-y-4">
-            <li className="flex items-center">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-              <span>Patient assessment completed for John Doe</span>
-            </li>
-            <li className="flex items-center">
-              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-              <span>Medication updated for Sarah Smith</span>
-            </li>
-            <li className="flex items-center">
-              <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-              <span>New care plan created for Michael Johnson</span>
-            </li>
-            <li className="flex items-center">
-              <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-              <span>Appointment rescheduled for Emily Brown</span>
-            </li>
-          </ul>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4">Upcoming Appointments</h2>
-          <ul className="space-y-4">
-            <li className="flex justify-between">
-              <span>Dr. Smith with John Doe</span>
-              <span className="text-gray-500">Today, 2:00 PM</span>
-            </li>
-            <li className="flex justify-between">
-              <span>Dr. Johnson with Sarah Smith</span>
-              <span className="text-gray-500">Tomorrow, 10:30 AM</span>
-            </li>
-            <li className="flex justify-between">
-              <span>Dr. Williams with Michael Johnson</span>
-              <span className="text-gray-500">Wed, 3:15 PM</span>
-            </li>
-            <li className="flex justify-between">
-              <span>Dr. Brown with Emily Brown</span>
-              <span className="text-gray-500">Thu, 9:00 AM</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
+    </ErrorBoundary>
   )
 }
 
+function DashboardStatsSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {Array(6)
+        .fill(0)
+        .map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-24 mb-1" />
+              <Skeleton className="h-4 w-32" />
+            </CardContent>
+          </Card>
+        ))}
+    </div>
+  )
+}

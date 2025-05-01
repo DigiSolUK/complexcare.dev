@@ -255,4 +255,3 @@ export function CreatePayrollSubmissionDialog({ tenantId, onSubmit }: CreatePayr
     </Dialog>
   )
 }
-

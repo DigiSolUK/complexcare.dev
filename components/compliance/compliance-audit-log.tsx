@@ -191,4 +191,3 @@ export function ComplianceAuditLog() {
     </Card>
   )
 }
-

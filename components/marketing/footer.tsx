@@ -92,4 +92,3 @@ export function MarketingFooter() {
     </footer>
   )
 }
-

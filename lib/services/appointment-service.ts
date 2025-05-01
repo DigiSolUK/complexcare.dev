@@ -110,4 +110,3 @@ export async function deleteAppointment(tenantId: string, appointmentId: string)
   const appointments = await tenantDelete<Appointment>(tenantId, "appointments", appointmentId)
   return appointments.length > 0 ? appointments[0] : null
 }
-

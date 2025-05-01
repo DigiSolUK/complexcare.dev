@@ -276,4 +276,3 @@ export async function getTodoStats(tenantId: string): Promise<{
     highPriority: Number.parseInt(stats[0].high_priority),
   }
 }
-

@@ -143,4 +143,3 @@ export function InvoiceTable({ filter = "all", searchQuery = "" }: InvoiceTableP
     </Table>
   )
 }
-

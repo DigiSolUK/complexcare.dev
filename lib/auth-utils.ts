@@ -1,23 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { getSession } from "@/lib/auth"
+import { getUserById } from "@/lib/services/user-service"
 
-// Mock current user for demo purposes
 export async function getCurrentUser() {
-  try {
-    // For demo, return a mock admin user
-    return {
-      id: "demo-user-1",
-      name: "Demo Admin",
-      email: "admin@complexcare.dev",
-      role: "admin",
-      tenant_id: "demo-tenant-1",
-      tenant_name: "ComplexCare Demo",
-    }
-  } catch (error) {
-    console.error("Error getting current user:", error)
+  const session = await getSession()
+
+  if (!session?.user?.id) {
     return null
   }
+
+  const user = await getUserById(session.user.id)
+  return user
 }
 
 export const useAuth = () => {
@@ -41,4 +36,3 @@ export const useAuth = () => {
 
   return { user, loading }
 }
-

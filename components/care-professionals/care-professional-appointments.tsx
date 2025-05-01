@@ -5,9 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { CalendarIcon, Clock, Plus, RefreshCw, User } from "lucide-react"
+import { AlertCircle, CalendarIcon, Clock, Plus, RefreshCw, User } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { format, addDays, subDays } from "date-fns"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { format, addDays, subDays, isValid, parseISO } from "date-fns"
 
 interface CareProfessionalAppointmentsProps {
   professionalId: string
@@ -17,6 +18,7 @@ export function CareProfessionalAppointments({ professionalId }: CareProfessiona
   const [appointments, setAppointments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
     fetchAppointments()
@@ -24,8 +26,9 @@ export function CareProfessionalAppointments({ professionalId }: CareProfessiona
 
   const fetchAppointments = async () => {
     try {
-      setLoading(true)
+      setIsRefreshing(true)
       setError(null)
+      if (!loading) setLoading(true)
 
       // In a real app, fetch from API
       // const response = await fetch(`/api/care-professionals/${professionalId}/appointments`)
@@ -41,10 +44,14 @@ export function CareProfessionalAppointments({ professionalId }: CareProfessiona
       setAppointments(demoAppointments)
     } catch (error) {
       console.error("Error fetching appointments:", error)
-      setError("Failed to load appointments")
-      setAppointments(getDemoAppointments(professionalId)) // Fallback to demo data
+      setError(error instanceof Error ? error.message : "Failed to load appointments")
+      // Don't set demo data on error in production
+      if (process.env.NODE_ENV !== "production") {
+        setAppointments(getDemoAppointments(professionalId))
+      }
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -143,7 +150,19 @@ export function CareProfessionalAppointments({ professionalId }: CareProfessiona
     }
   }
 
-  if (loading) {
+  // Format date safely
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A"
+
+    try {
+      const date = parseISO(dateString)
+      return isValid(date) ? format(date, "MMM dd, yyyy") : "Invalid date"
+    } catch (e) {
+      return "Invalid date"
+    }
+  }
+
+  if (loading && !isRefreshing) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -153,13 +172,15 @@ export function CareProfessionalAppointments({ professionalId }: CareProfessiona
         <Card>
           <CardHeader>
             <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64" />
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-4 w-48" />
+                <div key={i} className="grid grid-cols-6 gap-4">
+                  {Array.from({ length: 6 }).map((_, j) => (
+                    <Skeleton key={j} className="h-4 w-full" />
+                  ))}
                 </div>
               ))}
             </div>
@@ -169,14 +190,37 @@ export function CareProfessionalAppointments({ professionalId }: CareProfessiona
     )
   }
 
+  if (error && appointments.length === 0) {
+    return (
+      <Alert variant="destructive" className="mb-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          {error}
+          <Button variant="outline" size="sm" className="mt-2 ml-2" onClick={fetchAppointments} disabled={isRefreshing}>
+            {isRefreshing ? "Retrying..." : "Retry"}
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
   return (
     <div className="space-y-4">
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Warning</AlertTitle>
+          <AlertDescription>{error} Using cached data.</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Appointments</h2>
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm" onClick={fetchAppointments}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+          <Button variant="outline" size="sm" onClick={fetchAppointments} disabled={isRefreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Refreshing..." : "Refresh"}
           </Button>
           <Button size="sm">
             <Plus className="h-4 w-4 mr-2" />
@@ -185,67 +229,78 @@ export function CareProfessionalAppointments({ professionalId }: CareProfessiona
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <span className="block sm:inline">{error}</span>
-        </div>
+      {appointments.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-6">
+              <CalendarIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No Appointments Found</h3>
+              <p className="text-muted-foreground mb-4">This professional has no appointments scheduled.</p>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Schedule First Appointment
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming & Recent Appointments</CardTitle>
+            <CardDescription>View and manage appointments for this care professional</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date & Time</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {appointments.map((appointment) => (
+                    <TableRow key={appointment.id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <div className="flex items-center">
+                            <CalendarIcon className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                            <span>{formatDate(appointment.date)}</span>
+                          </div>
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5 mr-1" />
+                            <span>
+                              {appointment.time} ({appointment.duration} min)
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <User className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                          <span>{appointment.patient_name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{appointment.type}</TableCell>
+                      <TableCell>{appointment.location}</TableCell>
+                      <TableCell>{getStatusBadge(appointment.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming & Recent Appointments</CardTitle>
-          <CardDescription>View and manage appointments for this care professional</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date & Time</TableHead>
-                <TableHead>Patient</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {appointments.map((appointment) => (
-                <TableRow key={appointment.id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <div className="flex items-center">
-                        <CalendarIcon className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
-                        <span>{appointment.date}</span>
-                      </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Clock className="h-3.5 w-3.5 mr-1" />
-                        <span>
-                          {appointment.time} ({appointment.duration} min)
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <User className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
-                      <span>{appointment.patient_name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{appointment.type}</TableCell>
-                  <TableCell>{appointment.location}</TableCell>
-                  <TableCell>{getStatusBadge(appointment.status)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      View
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   )
 }
-

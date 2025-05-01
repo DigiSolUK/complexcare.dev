@@ -67,4 +67,3 @@ export function DatePickerWithRange({ className, dateRange, onDateRangeChange }:
     </div>
   )
 }
-

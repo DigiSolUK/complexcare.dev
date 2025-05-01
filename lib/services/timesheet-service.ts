@@ -1,476 +1,284 @@
-"use server"
+import type { z } from "zod"
+import { neon } from "@neondatabase/serverless"
+import { createTimesheetSchema, type timesheetSchema, updateTimesheetSchema } from "../validations/schemas"
+import { ensureTenantId, getCurrentTenantId } from "../tenant"
 
-import { sql } from "@vercel/postgres"
-import type { Timesheet } from "@/types/timesheet"
-import { DEFAULT_UUID, isValidUUID, getTenantId } from "../tenant-utils"
+// Connect to the database
+const sql = neon(process.env.DATABASE_URL || "")
 
-// Mock data for development and testing
-const mockTimesheets: Timesheet[] = [
-  {
-    id: "1",
-    careProfessionalId: "1",
-    careProfessionalName: "Sarah Johnson",
-    date: "2023-05-15",
-    hoursWorked: 8,
-    status: "approved",
-    approvedBy: "John Manager",
-    approvedAt: "2023-05-16T10:30:00Z",
-    notes: "Regular shift",
-    tenantId: "demo-tenant-1",
-  },
-  {
-    id: "2",
-    careProfessionalId: "2",
-    careProfessionalName: "James Williams",
-    date: "2023-05-15",
-    hoursWorked: 6.5,
-    status: "pending",
-    notes: "Covered for absent colleague",
-    tenantId: "demo-tenant-1",
-  },
-  {
-    id: "3",
-    careProfessionalId: "3",
-    careProfessionalName: "Emily Brown",
-    date: "2023-05-14",
-    hoursWorked: 7,
-    status: "rejected",
-    approvedBy: "John Manager",
-    approvedAt: "2023-05-15T09:15:00Z",
-    notes: "Hours mismatch with schedule",
-    tenantId: "demo-tenant-1",
-  },
-  {
-    id: "4",
-    careProfessionalId: "1",
-    careProfessionalName: "Sarah Johnson",
-    date: "2023-05-14",
-    hoursWorked: 8,
-    status: "approved",
-    approvedBy: "John Manager",
-    approvedAt: "2023-05-15T11:45:00Z",
-    notes: "Regular shift",
-    tenantId: "demo-tenant-1",
-  },
-  {
-    id: "5",
-    careProfessionalId: "4",
-    careProfessionalName: "Robert Smith",
-    date: "2023-05-13",
-    hoursWorked: 4,
-    status: "pending",
-    notes: "Half day",
-    tenantId: "demo-tenant-1",
-  },
-]
+export type Timesheet = z.infer<typeof timesheetSchema>
+export type CreateTimesheetInput = z.infer<typeof createTimesheetSchema>
+export type UpdateTimesheetInput = z.infer<typeof updateTimesheetSchema>
 
-// Function to get all timesheets
-export async function getTimesheets(): Promise<Timesheet[]> {
-  try {
-    // For development or demo mode, return mock data
-    if (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      return mockTimesheets
-    }
+export async function getTimesheets(tenantId?: string, userId?: string, status?: string): Promise<Timesheet[]> {
+  const validTenantId = getCurrentTenantId(tenantId)
 
-    // Get tenant ID
-    const tenantId = getTenantId()
+  let query = `
+    SELECT * FROM timesheets 
+    WHERE tenant_id = $1
+  `
 
-    // Validate UUID format
-    const validTenantId = isValidUUID(tenantId) ? tenantId : DEFAULT_UUID
+  const params: any[] = [validTenantId]
 
-    // Query database
-    const result = await sql`
-      SELECT * FROM timesheets 
-      WHERE tenant_id = ${validTenantId}
-      ORDER BY date DESC
-    `
-
-    return result.rows.map((row) => ({
-      id: row.id,
-      careProfessionalId: row.care_professional_id,
-      careProfessionalName: row.care_professional_name,
-      date: row.date,
-      hoursWorked: row.hours_worked,
-      status: row.status,
-      approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
-      notes: row.notes,
-      tenantId: row.tenant_id,
-    }))
-  } catch (error) {
-    console.error("Error fetching timesheets:", error)
-    // Return mock data as fallback
-    return mockTimesheets
+  if (userId) {
+    query += ` AND user_id = $${params.length + 1}`
+    params.push(userId)
   }
+
+  if (status) {
+    query += ` AND status = $${params.length + 1}`
+    params.push(status)
+  }
+
+  query += ` ORDER BY date DESC, created_at DESC`
+
+  const result = await sql(query, params)
+
+  return result.map((row) => ({
+    id: row.id,
+    tenantId: row.tenant_id,
+    userId: row.user_id,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    breakDuration: row.break_duration,
+    status: row.status,
+    notes: row.notes,
+    approvedBy: row.approved_by,
+    approvedAt: row.approved_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }))
 }
 
-// Function to get a single timesheet by ID
-export async function getTimesheet(id: string): Promise<Timesheet | null> {
-  try {
-    // For development or demo mode, return mock data
-    if (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      const timesheet = mockTimesheets.find((t) => t.id === id)
-      return timesheet || null
-    }
+export async function getTimesheetById(id: string, tenantId?: string): Promise<Timesheet | null> {
+  const validTenantId = getCurrentTenantId(tenantId)
 
-    // Get tenant ID
-    const tenantId = getTenantId()
-
-    // Validate UUID format
-    const validTenantId = isValidUUID(tenantId) ? tenantId : DEFAULT_UUID
-
-    // Query database
-    const result = await sql`
-      SELECT * FROM timesheets 
-      WHERE id = ${id} AND tenant_id = ${validTenantId}
+  const result = await sql(
     `
+    SELECT * FROM timesheets 
+    WHERE id = $1 AND tenant_id = $2
+  `,
+    [id, validTenantId],
+  )
 
-    if (result.rows.length === 0) {
-      return null
-    }
-
-    const row = result.rows[0]
-    return {
-      id: row.id,
-      careProfessionalId: row.care_professional_id,
-      careProfessionalName: row.care_professional_name,
-      date: row.date,
-      hoursWorked: row.hours_worked,
-      status: row.status,
-      approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
-      notes: row.notes,
-      tenantId: row.tenant_id,
-    }
-  } catch (error) {
-    console.error(`Error fetching timesheet with ID ${id}:`, error)
-    // Return null on error
+  if (result.length === 0) {
     return null
   }
-}
 
-// Function to create a new timesheet
-export async function createTimesheet(timesheet: Omit<Timesheet, "id" | "tenantId">): Promise<Timesheet | null> {
-  try {
-    // For development or demo mode, return mock data
-    if (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      const newTimesheet: Timesheet = {
-        ...timesheet,
-        id: (mockTimesheets.length + 1).toString(),
-        tenantId: "demo-tenant-1",
-      }
-      mockTimesheets.push(newTimesheet)
-      return newTimesheet
-    }
+  const row = result[0]
 
-    // Get tenant ID
-    const tenantId = getTenantId()
-
-    // Validate UUID format
-    const validTenantId = isValidUUID(tenantId) ? tenantId : DEFAULT_UUID
-
-    // Insert into database
-    const result = await sql`
-      INSERT INTO timesheets (
-        care_professional_id, 
-        care_professional_name, 
-        date, 
-        hours_worked, 
-        status, 
-        notes, 
-        tenant_id
-      ) VALUES (
-        ${timesheet.careProfessionalId}, 
-        ${timesheet.careProfessionalName}, 
-        ${timesheet.date}, 
-        ${timesheet.hoursWorked}, 
-        ${timesheet.status || "pending"}, 
-        ${timesheet.notes || ""}, 
-        ${validTenantId}
-      ) RETURNING *
-    `
-
-    const row = result.rows[0]
-    return {
-      id: row.id,
-      careProfessionalId: row.care_professional_id,
-      careProfessionalName: row.care_professional_name,
-      date: row.date,
-      hoursWorked: row.hours_worked,
-      status: row.status,
-      approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
-      notes: row.notes,
-      tenantId: row.tenant_id,
-    }
-  } catch (error) {
-    console.error("Error creating timesheet:", error)
-    // Return null on error
-    return null
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    userId: row.user_id,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    breakDuration: row.break_duration,
+    status: row.status,
+    notes: row.notes,
+    approvedBy: row.approved_by,
+    approvedAt: row.approved_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
-// Function to update a timesheet
-export async function updateTimesheet(id: string, timesheet: Partial<Timesheet>): Promise<Timesheet | null> {
-  try {
-    // For development or demo mode, update mock data
-    if (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      const index = mockTimesheets.findIndex((t) => t.id === id)
-      if (index === -1) return null
+export async function createTimesheet(data: CreateTimesheetInput): Promise<Timesheet> {
+  // Validate input
+  const validatedData = createTimesheetSchema.parse(data)
 
-      mockTimesheets[index] = {
-        ...mockTimesheets[index],
-        ...timesheet,
-      }
+  // Ensure tenant ID
+  const timesheet = ensureTenantId(validatedData) as CreateTimesheetInput
 
-      return mockTimesheets[index]
-    }
-
-    // Get tenant ID
-    const tenantId = getTenantId()
-
-    // Validate UUID format
-    const validTenantId = isValidUUID(tenantId) ? tenantId : DEFAULT_UUID
-
-    // Build update query dynamically based on provided fields
-    let updateFields = ""
-    const updateValues: any[] = []
-
-    if (timesheet.careProfessionalId) {
-      updateFields += "care_professional_id = $1, "
-      updateValues.push(timesheet.careProfessionalId)
-    }
-
-    if (timesheet.careProfessionalName) {
-      updateFields += "care_professional_name = $2, "
-      updateValues.push(timesheet.careProfessionalName)
-    }
-
-    if (timesheet.date) {
-      updateFields += "date = $3, "
-      updateValues.push(timesheet.date)
-    }
-
-    if (timesheet.hoursWorked !== undefined) {
-      updateFields += "hours_worked = $4, "
-      updateValues.push(timesheet.hoursWorked)
-    }
-
-    if (timesheet.status) {
-      updateFields += "status = $5, "
-      updateValues.push(timesheet.status)
-    }
-
-    if (timesheet.approvedBy) {
-      updateFields += "approved_by = $6, "
-      updateValues.push(timesheet.approvedBy)
-    }
-
-    if (timesheet.approvedAt) {
-      updateFields += "approved_at = $7, "
-      updateValues.push(timesheet.approvedAt)
-    }
-
-    if (timesheet.notes !== undefined) {
-      updateFields += "notes = $8, "
-      updateValues.push(timesheet.notes)
-    }
-
-    // Remove trailing comma and space
-    updateFields = updateFields.slice(0, -2)
-
-    if (!updateFields) {
-      return null // Nothing to update
-    }
-
-    // Update database
-    const query = `
-      UPDATE timesheets 
-      SET ${updateFields}
-      WHERE id = $9 AND tenant_id = $10
-      RETURNING *
+  const result = await sql(
     `
+    INSERT INTO timesheets (
+      tenant_id, user_id, date, start_time, end_time, 
+      break_duration, status, notes
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8
+    ) RETURNING *
+  `,
+    [
+      timesheet.tenantId,
+      timesheet.userId,
+      timesheet.date,
+      timesheet.startTime,
+      timesheet.endTime,
+      timesheet.breakDuration,
+      timesheet.status,
+      timesheet.notes || null,
+    ],
+  )
 
-    updateValues.push(id)
-    updateValues.push(validTenantId)
+  const row = result[0]
 
-    const result = await sql.query(query, updateValues)
-
-    if (result.rows.length === 0) {
-      return null
-    }
-
-    const row = result.rows[0]
-    return {
-      id: row.id,
-      careProfessionalId: row.care_professional_id,
-      careProfessionalName: row.care_professional_name,
-      date: row.date,
-      hoursWorked: row.hours_worked,
-      status: row.status,
-      approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
-      notes: row.notes,
-      tenantId: row.tenant_id,
-    }
-  } catch (error) {
-    console.error(`Error updating timesheet with ID ${id}:`, error)
-    // Return null on error
-    return null
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    userId: row.user_id,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    breakDuration: row.break_duration,
+    status: row.status,
+    notes: row.notes,
+    approvedBy: row.approved_by,
+    approvedAt: row.approved_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
-// Function to delete a timesheet
-export async function deleteTimesheet(id: string): Promise<boolean> {
-  try {
-    // For development or demo mode, delete from mock data
-    if (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      const index = mockTimesheets.findIndex((t) => t.id === id)
-      if (index === -1) return false
+export async function updateTimesheet(id: string, data: UpdateTimesheetInput, tenantId?: string): Promise<Timesheet> {
+  // Validate input
+  const validatedData = updateTimesheetSchema.parse(data)
 
-      mockTimesheets.splice(index, 1)
-      return true
-    }
+  // Ensure tenant ID
+  const validTenantId = getCurrentTenantId(tenantId)
+  const timesheet = ensureTenantId(validatedData, validTenantId) as UpdateTimesheetInput
 
-    // Get tenant ID
-    const tenantId = getTenantId()
+  // Build dynamic update query
+  const updates: string[] = []
+  const values: any[] = []
 
-    // Validate UUID format
-    const validTenantId = isValidUUID(tenantId) ? tenantId : DEFAULT_UUID
+  // Add tenant_id as first parameter
+  values.push(validTenantId)
 
-    // Delete from database
-    const result = await sql`
-      DELETE FROM timesheets 
-      WHERE id = ${id} AND tenant_id = ${validTenantId}
-      RETURNING id
-    `
+  // Add id as second parameter
+  values.push(id)
 
-    return result.rows.length > 0
-  } catch (error) {
-    console.error(`Error deleting timesheet with ID ${id}:`, error)
-    // Return false on error
-    return false
+  // Start parameter index at 3
+  let paramIndex = 3
+
+  // Add each field that exists in the update data
+  if (timesheet.userId !== undefined) {
+    updates.push(`user_id = $${paramIndex++}`)
+    values.push(timesheet.userId)
+  }
+
+  if (timesheet.date !== undefined) {
+    updates.push(`date = $${paramIndex++}`)
+    values.push(timesheet.date)
+  }
+
+  if (timesheet.startTime !== undefined) {
+    updates.push(`start_time = $${paramIndex++}`)
+    values.push(timesheet.startTime)
+  }
+
+  if (timesheet.endTime !== undefined) {
+    updates.push(`end_time = $${paramIndex++}`)
+    values.push(timesheet.endTime)
+  }
+
+  if (timesheet.breakDuration !== undefined) {
+    updates.push(`break_duration = $${paramIndex++}`)
+    values.push(timesheet.breakDuration)
+  }
+
+  if (timesheet.status !== undefined) {
+    updates.push(`status = $${paramIndex++}`)
+    values.push(timesheet.status)
+  }
+
+  if (timesheet.notes !== undefined) {
+    updates.push(`notes = $${paramIndex++}`)
+    values.push(timesheet.notes)
+  }
+
+  // Add updated_at timestamp
+  updates.push(`updated_at = NOW()`)
+
+  if (updates.length === 0) {
+    throw new Error("No fields to update")
+  }
+
+  const query = `
+    UPDATE timesheets 
+    SET ${updates.join(", ")} 
+    WHERE tenant_id = $1 AND id = $2
+    RETURNING *
+  `
+
+  const result = await sql(query, values)
+
+  if (result.length === 0) {
+    throw new Error("Timesheet not found")
+  }
+
+  const row = result[0]
+
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    userId: row.user_id,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    breakDuration: row.break_duration,
+    status: row.status,
+    notes: row.notes,
+    approvedBy: row.approved_by,
+    approvedAt: row.approved_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
-// Function to approve a timesheet
-export async function approveTimesheet(id: string, approverName: string): Promise<Timesheet | null> {
-  try {
-    // For development or demo mode, update mock data
-    if (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      const index = mockTimesheets.findIndex((t) => t.id === id)
-      if (index === -1) return null
+export async function deleteTimesheet(id: string, tenantId?: string): Promise<boolean> {
+  const validTenantId = getCurrentTenantId(tenantId)
 
-      const approvedAt = new Date().toISOString()
-
-      mockTimesheets[index] = {
-        ...mockTimesheets[index],
-        status: "approved",
-        approvedBy: approverName,
-        approvedAt,
-      }
-
-      return mockTimesheets[index]
-    }
-
-    // Get tenant ID
-    const tenantId = getTenantId()
-
-    // Validate UUID format
-    const validTenantId = isValidUUID(tenantId) ? tenantId : DEFAULT_UUID
-
-    // Update database
-    const approvedAt = new Date().toISOString()
-
-    const result = await sql`
-      UPDATE timesheets 
-      SET status = 'approved', approved_by = ${approverName}, approved_at = ${approvedAt}
-      WHERE id = ${id} AND tenant_id = ${validTenantId}
-      RETURNING *
+  const result = await sql(
     `
+    DELETE FROM timesheets 
+    WHERE id = $1 AND tenant_id = $2
+    RETURNING id
+  `,
+    [id, validTenantId],
+  )
 
-    if (result.rows.length === 0) {
-      return null
-    }
-
-    const row = result.rows[0]
-    return {
-      id: row.id,
-      careProfessionalId: row.care_professional_id,
-      careProfessionalName: row.care_professional_name,
-      date: row.date,
-      hoursWorked: row.hours_worked,
-      status: row.status,
-      approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
-      notes: row.notes,
-      tenantId: row.tenant_id,
-    }
-  } catch (error) {
-    console.error(`Error approving timesheet with ID ${id}:`, error)
-    // Return null on error
-    return null
-  }
+  return result.length > 0
 }
 
-// Function to reject a timesheet
-export async function rejectTimesheet(id: string, approverName: string, reason: string): Promise<Timesheet | null> {
-  try {
-    // For development or demo mode, update mock data
-    if (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      const index = mockTimesheets.findIndex((t) => t.id === id)
-      if (index === -1) return null
+export async function approveTimesheet(id: string, approvedBy: string, tenantId?: string): Promise<Timesheet> {
+  const validTenantId = getCurrentTenantId(tenantId)
 
-      const approvedAt = new Date().toISOString()
-
-      mockTimesheets[index] = {
-        ...mockTimesheets[index],
-        status: "rejected",
-        approvedBy: approverName,
-        approvedAt,
-        notes: reason,
-      }
-
-      return mockTimesheets[index]
-    }
-
-    // Get tenant ID
-    const tenantId = getTenantId()
-
-    // Validate UUID format
-    const validTenantId = isValidUUID(tenantId) ? tenantId : DEFAULT_UUID
-
-    // Update database
-    const approvedAt = new Date().toISOString()
-
-    const result = await sql`
-      UPDATE timesheets 
-      SET status = 'rejected', approved_by = ${approverName}, approved_at = ${approvedAt}, notes = ${reason}
-      WHERE id = ${id} AND tenant_id = ${validTenantId}
-      RETURNING *
+  const result = await sql(
     `
+    UPDATE timesheets 
+    SET 
+      status = 'approved',
+      approved_by = $3,
+      approved_at = NOW(),
+      updated_at = NOW()
+    WHERE id = $1 AND tenant_id = $2
+    RETURNING *
+  `,
+    [id, validTenantId, approvedBy],
+  )
 
-    if (result.rows.length === 0) {
-      return null
-    }
+  if (result.length === 0) {
+    throw new Error("Timesheet not found")
+  }
 
-    const row = result.rows[0]
-    return {
-      id: row.id,
-      careProfessionalId: row.care_professional_id,
-      careProfessionalName: row.care_professional_name,
-      date: row.date,
-      hoursWorked: row.hours_worked,
-      status: row.status,
-      approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
-      notes: row.notes,
-      tenantId: row.tenant_id,
-    }
-  } catch (error) {
-    console.error(`Error rejecting timesheet with ID ${id}:`, error)
-    // Return null on error
-    return null
+  const row = result[0]
+
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    userId: row.user_id,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    breakDuration: row.break_duration,
+    status: row.status,
+    notes: row.notes,
+    approvedBy: row.approved_by,
+    approvedAt: row.approved_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
-

@@ -287,4 +287,3 @@ export function InvoiceDetailsClient({ invoiceId }: { invoiceId: string }) {
     </div>
   )
 }
-

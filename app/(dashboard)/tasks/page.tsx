@@ -11,9 +11,6 @@ export const metadata: Metadata = {
   description: "Manage your tasks and to-dos",
 }
 
-// Force dynamic rendering to avoid static generation issues
-export const dynamic = "force-dynamic"
-
 // Demo data for tasks
 const demoStats = {
   total: 42,
@@ -169,4 +166,3 @@ export default function TasksPage() {
     </div>
   )
 }
-

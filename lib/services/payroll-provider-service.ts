@@ -315,4 +315,3 @@ function formatForCSV(payrollData: any[], config: Record<string, any>) {
     ...config.additionalFields,
   }))
 }
-

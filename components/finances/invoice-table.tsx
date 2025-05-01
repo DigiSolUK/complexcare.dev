@@ -290,4 +290,3 @@ export function InvoiceTable() {
     </div>
   )
 }
-

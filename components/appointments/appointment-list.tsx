@@ -319,4 +319,3 @@ export function AppointmentList({ filter = "all" }: AppointmentListProps) {
     </div>
   )
 }
-

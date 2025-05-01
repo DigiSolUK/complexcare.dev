@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -20,6 +19,8 @@ import {
   Briefcase,
   FileEdit,
   PieChart,
+  LightbulbIcon,
+  Brain,
 } from "lucide-react"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
@@ -28,7 +29,7 @@ export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <div className={cn("pb-12", className)}>
+    <div className={cn("pb-12 border-r w-64", className)}>
       <div className="space-y-4 py-4">
         <div className="px-4 py-2">
           <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">Main</h2>
@@ -92,6 +93,26 @@ export function Sidebar({ className }: SidebarProps) {
             >
               <FileCheck className="mr-2 h-4 w-4" />
               <span>Tasks</span>
+            </Link>
+            <Link
+              href="/ai-tools"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/ai-tools") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <LightbulbIcon className="mr-2 h-4 w-4" />
+              <span>AI Tools</span>
+            </Link>
+            <Link
+              href="/clinical-decision-support"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/clinical-decision-support") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Brain className="mr-2 h-4 w-4" />
+              <span>Clinical Decision Support</span>
             </Link>
           </div>
         </div>
@@ -199,4 +220,3 @@ export function Sidebar({ className }: SidebarProps) {
     </div>
   )
 }
-

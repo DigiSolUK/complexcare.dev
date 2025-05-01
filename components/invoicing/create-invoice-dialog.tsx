@@ -352,4 +352,3 @@ export function CreateInvoiceDialog({ open, onOpenChange }: CreateInvoiceDialogP
     </Dialog>
   )
 }
-

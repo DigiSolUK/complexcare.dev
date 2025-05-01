@@ -650,4 +650,3 @@ export function FinancialAnalytics() {
     </div>
   )
 }
-

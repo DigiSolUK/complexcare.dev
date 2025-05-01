@@ -246,4 +246,3 @@ export async function generatePayrollFromTimesheets(
     return { payroll: null, error: "Failed to generate payroll from timesheets" }
   }
 }
-

@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { AlertCircle, CheckCircle, Clock, FileText, Plus, RefreshCw } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface CareProfessionalCredentialsProps {
   professionalId: string
@@ -16,6 +17,7 @@ export function CareProfessionalCredentials({ professionalId }: CareProfessional
   const [credentials, setCredentials] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
     fetchCredentials()
@@ -23,7 +25,7 @@ export function CareProfessionalCredentials({ professionalId }: CareProfessional
 
   const fetchCredentials = async () => {
     try {
-      setLoading(true)
+      setIsRefreshing(true)
       setError(null)
 
       // In a real app, fetch from API
@@ -40,10 +42,14 @@ export function CareProfessionalCredentials({ professionalId }: CareProfessional
       setCredentials(demoCredentials)
     } catch (error) {
       console.error("Error fetching credentials:", error)
-      setError("Failed to load credentials")
-      setCredentials(getDemoCredentials(professionalId)) // Fallback to demo data
+      setError(error instanceof Error ? error.message : "Failed to load credentials")
+      // Don't set demo data on error in production
+      if (process.env.NODE_ENV !== "production") {
+        setCredentials(getDemoCredentials(professionalId))
+      }
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -133,7 +139,19 @@ export function CareProfessionalCredentials({ professionalId }: CareProfessional
     }
   }
 
-  if (loading) {
+  // Format date safely
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A"
+
+    try {
+      const date = new Date(dateString)
+      return isNaN(date.getTime()) ? "Invalid date" : date.toLocaleDateString()
+    } catch (e) {
+      return "Invalid date"
+    }
+  }
+
+  if (loading && !isRefreshing) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -143,13 +161,20 @@ export function CareProfessionalCredentials({ professionalId }: CareProfessional
         <Card>
           <CardHeader>
             <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64" />
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              <div className="grid grid-cols-6 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-4 w-full" />
+                ))}
+              </div>
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-4 w-48" />
+                <div key={i} className="grid grid-cols-6 gap-4">
+                  {Array.from({ length: 6 }).map((_, j) => (
+                    <Skeleton key={j} className="h-4 w-full" />
+                  ))}
                 </div>
               ))}
             </div>
@@ -159,14 +184,37 @@ export function CareProfessionalCredentials({ professionalId }: CareProfessional
     )
   }
 
+  if (error && credentials.length === 0) {
+    return (
+      <Alert variant="destructive" className="mb-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          {error}
+          <Button variant="outline" size="sm" className="mt-2 ml-2" onClick={fetchCredentials} disabled={isRefreshing}>
+            {isRefreshing ? "Retrying..." : "Retry"}
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
   return (
     <div className="space-y-4">
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Warning</AlertTitle>
+          <AlertDescription>{error} Using cached data.</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Professional Credentials</h2>
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm" onClick={fetchCredentials}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+          <Button variant="outline" size="sm" onClick={fetchCredentials} disabled={isRefreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Refreshing..." : "Refresh"}
           </Button>
           <Button size="sm">
             <Plus className="h-4 w-4 mr-2" />
@@ -174,12 +222,6 @@ export function CareProfessionalCredentials({ professionalId }: CareProfessional
           </Button>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <span className="block sm:inline">{error}</span>
-        </div>
-      )}
 
       {credentials.length === 0 ? (
         <Card>
@@ -202,38 +244,39 @@ export function CareProfessionalCredentials({ professionalId }: CareProfessional
             <CardDescription>Manage and verify professional credentials and certifications</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Number</TableHead>
-                  <TableHead>Issuer</TableHead>
-                  <TableHead>Expiry Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {credentials.map((credential) => (
-                  <TableRow key={credential.id}>
-                    <TableCell className="font-medium">{credential.type}</TableCell>
-                    <TableCell>{credential.number}</TableCell>
-                    <TableCell>{credential.issuer}</TableCell>
-                    <TableCell>{credential.expiry_date}</TableCell>
-                    <TableCell>{getStatusBadge(credential.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">
-                        View
-                      </Button>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Number</TableHead>
+                    <TableHead>Issuer</TableHead>
+                    <TableHead>Expiry Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {credentials.map((credential) => (
+                    <TableRow key={credential.id}>
+                      <TableCell className="font-medium">{credential.type}</TableCell>
+                      <TableCell>{credential.number}</TableCell>
+                      <TableCell>{credential.issuer}</TableCell>
+                      <TableCell>{formatDate(credential.expiry_date)}</TableCell>
+                      <TableCell>{getStatusBadge(credential.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}
     </div>
   )
 }
-

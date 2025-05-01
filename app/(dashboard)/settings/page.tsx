@@ -31,7 +31,6 @@ export default function SettingsPage() {
           <TabsTrigger value="users">Users & Permissions</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="billing">Billing & Subscription</TabsTrigger>
         </TabsList>
 
@@ -99,6 +98,7 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Branding</CardTitle>
@@ -611,24 +611,6 @@ The ComplexCare Team"
           </Card>
         </TabsContent>
 
-        <TabsContent value="features" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Feature Management</CardTitle>
-              <CardDescription>Enable or disable features for your organization</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-4">
-                Manage which features are available in your ComplexCare CRM instance. You can enable or disable features
-                based on your organization's needs.
-              </p>
-              <Button asChild>
-                <a href="/settings/features">Manage Features</a>
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="billing" className="space-y-4">
           <Card>
             <CardHeader>
@@ -758,4 +740,3 @@ The ComplexCare Team"
     </div>
   )
 }
-

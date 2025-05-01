@@ -1,24 +1,48 @@
 export type Tenant = {
   id: string
   name: string
-  subscription_plan: string
-  subscription_status: string
-  is_active: boolean
-  primary_color: string
-  secondary_color: string
-  logo_url: string | null
-  domain: string | null
   slug: string
+  domain: string | null
+  status: string
+  subscription_tier: string
+  settings: any
+  branding: any
   created_at: Date
   updated_at: Date
-  trial_ends_at: Date | null
+  deleted_at: Date | null
+}
+
+export type TenantUser = {
+  id: string
+  tenant_id: string
+  user_id: string
+  role: string
+  is_primary: boolean
+  created_at: Date
+  updated_at: Date
+  deleted_at: Date | null
+  // Joined fields
+  email?: string
+  name?: string
+}
+
+export type TenantInvitation = {
+  id: string
+  tenant_id: string
+  email: string
+  role: string
+  token: string
+  expires_at: Date
+  created_at: Date
+  updated_at: Date
+  accepted_at: Date | null
 }
 
 export type User = {
   id: string
   tenant_id: string
-  name: string
   email: string
+  name: string
   role: string
   image: string | null
   phone: string | null
@@ -27,6 +51,7 @@ export type User = {
   postcode: string | null
   created_at: Date
   updated_at: Date
+  deleted_at: string | null
 }
 
 export interface Patient {
@@ -50,6 +75,7 @@ export interface CareProfessional {
   id: string
   first_name: string
   last_name: string
+  title?: string
   email: string
   phone?: string
   role: string
@@ -84,6 +110,8 @@ export type CarePlan = {
   status: string
   start_date: Date
   end_date: Date | null
+  review_date: string | null
+  assigned_to: string | null
   created_at: Date
   updated_at: Date
   created_by: string
@@ -118,6 +146,7 @@ export type Task = {
   due_date: Date
   assigned_to: string | null
   created_by: string
+  updated_by: string | null
   related_to_type: string | null
   related_to_id: string | null
   created_at: Date
@@ -165,19 +194,20 @@ export interface Timesheet {
   id: string
   tenant_id: string
   user_id: string
-  user_name?: string
+  userName?: string
   date: string
-  start_time: string
-  end_time: string
-  break_duration_minutes: number
-  total_hours: number
+  startTime: string
+  endTime: string
+  breakDurationMinutes: number
+  totalHours: number
   status: string
   notes?: string
-  approved_by?: string
-  approver_name?: string
-  approved_at?: string
-  created_at: string
-  updated_at: string
+  approvedBy?: string
+  approverName?: string
+  approvedAt?: string
+  createdAt: string
+  updatedAt: string
+  userOnly?: boolean
 }
 
 export type Payroll = {
@@ -283,4 +313,3 @@ export interface ApiKey {
   created_at: string
   updated_at: string
 }
-

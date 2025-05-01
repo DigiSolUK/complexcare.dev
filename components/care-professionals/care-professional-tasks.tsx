@@ -257,4 +257,3 @@ export function CareProfessionalTasks({ professionalId }: CareProfessionalTasksP
     </div>
   )
 }
-

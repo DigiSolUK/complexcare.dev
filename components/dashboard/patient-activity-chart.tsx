@@ -63,4 +63,3 @@ export function PatientActivityChart({ className, ...props }: PatientActivityCha
     </Card>
   )
 }
-

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server"
-import { executeQuery } from "@/lib/db"
+import { neon } from "@neondatabase/serverless"
 import { getPerformanceMetrics } from "@/lib/monitoring/performance"
 import { getCacheStats } from "@/lib/cache/cache"
 
 export async function GET() {
   try {
-    // Check database connection
+    // Check database connection using the correct tagged template syntax
+    const sql = neon(process.env.DATABASE_URL)
     const dbStartTime = performance.now()
-    const dbResult = await executeQuery("SELECT NOW() as time")
+    const dbResult = await sql`SELECT NOW() as time`
     const dbEndTime = performance.now()
     const dbResponseTime = dbEndTime - dbStartTime
 
@@ -50,4 +51,3 @@ export async function GET() {
     )
   }
 }
-

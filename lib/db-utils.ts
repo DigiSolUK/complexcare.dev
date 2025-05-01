@@ -1,99 +1,135 @@
 import { neon } from "@neondatabase/serverless"
 import { v4 as uuidv4 } from "uuid"
 
-// Initialize the SQL client
-export const sql = process.env.DATABASE_URL ? neon(process.env.DATABASE_URL) : null
+function isValidUUID(uuid: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(uuid)
+}
 
-// Execute a query for a specific tenant using tagged template literals
+// Execute a query for a specific tenant
 export async function tenantQuery<T>(tenantId: string, queryText: string, params: any[] = []): Promise<T[]> {
-  if (!sql) {
-    console.warn("Database connection not available, returning empty array")
+  if (!isValidUUID(tenantId)) {
+    console.warn("Invalid tenant ID provided. Skipping query execution.")
     return []
   }
-
   try {
-    // Convert the parameterized query to a tagged template literal
-    // This is a simplified approach - in a real app, you'd want to use a proper SQL query builder
-    const query = queryText
-    const values = [...params] // Make a copy of params
+    // Get the database URL from environment variables
+    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
 
-    // Replace $1, $2, etc. with actual values in the query
-    if (params.length > 0) {
-      // For demo purposes, we'll just return mock data
-      console.log("Using mock data due to parameterized query")
+    if (!databaseUrl) {
+      console.warn("DATABASE_URL environment variable is not set, using fallback data")
       return getMockData<T>(queryText)
     }
 
-    // Use tagged template literals
-    const result = await sql`${query}`
-    return result as T[]
+    // Create a SQL client
+    const sql = neon(databaseUrl)
+
+    // Log the query for debugging
+    console.log(`Executing query for tenant ${tenantId}:`, queryText)
+
+    // Execute the query
+    const result = await sql.query(queryText, params)
+    console.log(`Query result rows: ${result.rows?.length || 0}`)
+
+    return result.rows as T[]
   } catch (error) {
     console.error("Error executing tenant query:", error)
-    // Return mock data in case of error
-    return getMockData<T>(queryText)
+    return []
   }
 }
 
-// Insert a record for a specific tenant
+// Insert a record for a specific tenant (simplified for now)
 export async function tenantInsert<T>(tenantId: string, table: string, data: any): Promise<T[]> {
-  if (!sql) {
-    console.warn("Database connection not available, returning empty array")
+  if (!isValidUUID(tenantId)) {
+    console.warn("Invalid tenant ID provided. Skipping insert operation.")
     return []
   }
-
   try {
-    // Generate an ID if not provided
+    // Get the database URL from environment variables
+    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
+
+    if (!databaseUrl) {
+      console.warn("DATABASE_URL environment variable is not set, using fallback data")
+      return [data] as unknown as T[]
+    }
+
+    // Create a SQL client
+    const sql = neon(databaseUrl)
+
     if (!data.id) {
       data.id = uuidv4()
     }
-
-    // Ensure tenant_id is set
     data.tenant_id = tenantId
 
-    // For demo purposes, we'll just return mock data
-    console.log("Using mock data for insert operation")
-    return getMockInsertData<T>(table, data)
+    const query = `
+      INSERT INTO ${table} (${Object.keys(data).join(", ")})
+      VALUES (${Object.values(data)
+        .map((v, i) => `$${i + 1}`)
+        .join(", ")})
+      RETURNING *
+    `
+
+    const values = Object.values(data)
+
+    // Log the query for debugging
+    console.log(`Executing insert for tenant ${tenantId}:`, query)
+
+    // Execute the query
+    const result = await sql.query(query, values)
+    console.log(`Query result rows: ${result.rows?.length || 0}`)
+
+    return result.rows as T[]
   } catch (error) {
     console.error("Error executing tenant insert:", error)
-    // Return mock data in case of error
-    return getMockInsertData<T>(table, data)
+    return []
   }
 }
 
-// Update a record for a specific tenant
+// Update a record for a specific tenant (simplified for now)
 export async function tenantUpdate<T>(tenantId: string, table: string, id: string, data: any): Promise<T[]> {
-  if (!sql) {
-    console.warn("Database connection not available, returning empty array")
+  if (!isValidUUID(tenantId)) {
+    console.warn("Invalid tenant ID provided. Skipping update operation.")
     return []
   }
-
   try {
-    // For demo purposes, we'll just return mock data
-    console.log("Using mock data for update operation")
-    return getMockUpdateData<T>(table, id, data)
+    // Get the database URL from environment variables
+    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
+
+    if (!databaseUrl) {
+      console.warn("DATABASE_URL environment variable is not set, using fallback data")
+      return [data] as unknown as T[]
+    }
+
+    // Create a SQL client
+    const sql = neon(databaseUrl)
+
+    const updateFields = Object.entries(data)
+      .map(([key, value]) => `${key} = '${value}'`)
+      .join(", ")
+
+    const query = `
+      UPDATE ${table}
+      SET ${updateFields}
+      WHERE tenant_id = '${tenantId}' AND id = '${id}'
+      RETURNING *
+    `
+
+    // Log the query for debugging
+    console.log(`Executing update for tenant ${tenantId}:`, query)
+
+    // Execute the query
+    const result = await sql.query(query)
+    console.log(`Query result rows: ${result.rows?.length || 0}`)
+
+    return result.rows as T[]
   } catch (error) {
     console.error("Error executing tenant update:", error)
-    // Return mock data in case of error
-    return getMockUpdateData<T>(table, id, data)
+    return []
   }
 }
 
-// Delete a record for a specific tenant
+// Delete a record for a specific tenant (simplified for now)
 export async function tenantDelete<T>(tenantId: string, table: string, id: string): Promise<T[]> {
-  if (!sql) {
-    console.warn("Database connection not available, returning empty array")
-    return []
-  }
-
-  try {
-    // For demo purposes, we'll just return mock data
-    console.log("Using mock data for delete operation")
-    return [] as T[]
-  } catch (error) {
-    console.error("Error executing tenant delete:", error)
-    // Return mock data in case of error
-    return [] as T[]
-  }
+  return [] as T[]
 }
 
 // Helper function to get mock data based on the query
@@ -177,11 +213,12 @@ function getMockData<T>(query: string): T[] {
         tenant_id: "demo-tenant",
         first_name: "Emily",
         last_name: "Smith",
+        email: "emily.smith@example.com",
+        status: "active",
         date_of_birth: "1982-11-30",
         gender: "Female",
         address: "456 High St, Manchester",
         phone: "07700 900333",
-        email: "emily.smith@example.com",
         emergency_contact: "Michael Smith",
         emergency_phone: "07700 900444",
         medical_conditions: "Asthma",
@@ -199,37 +236,27 @@ function getMockData<T>(query: string): T[] {
         id: "ts-001",
         tenant_id: "demo-tenant",
         user_id: "cp-001",
-        user_name: "Sarah Johnson",
+        userName: "Sarah Johnson",
         date: "2023-04-15",
-        start_time: "08:00",
-        end_time: "16:30",
-        break_duration_minutes: 30,
-        total_hours: 8,
+        hoursWorked: 8,
         status: "approved",
+        approved: true,
         notes: "Regular shift",
-        approved_by: "user-002",
-        approver_name: "John Smith",
-        approved_at: "2023-04-16T10:00:00Z",
-        created_at: "2023-04-15T16:35:00Z",
-        updated_at: "2023-04-16T10:00:00Z",
+        createdAt: "2023-04-15T16:35:00Z",
+        updatedAt: "2023-04-16T10:00:00Z",
       },
       {
         id: "ts-002",
         tenant_id: "demo-tenant",
         user_id: "cp-002",
-        user_name: "James Williams",
+        userName: "James Williams",
         date: "2023-04-15",
-        start_time: "09:00",
-        end_time: "17:00",
-        break_duration_minutes: 45,
-        total_hours: 7.25,
+        hoursWorked: 7.25,
         status: "approved",
+        approved: true,
         notes: "Patient assessments",
-        approved_by: "user-002",
-        approver_name: "John Smith",
-        approved_at: "2023-04-16T10:05:00Z",
-        created_at: "2023-04-15T17:05:00Z",
-        updated_at: "2023-04-16T10:05:00Z",
+        createdAt: "2023-04-15T17:05:00Z",
+        updatedAt: "2023-04-16T10:05:00Z",
       },
     ] as unknown as T[]
   }
@@ -237,29 +264,3 @@ function getMockData<T>(query: string): T[] {
   // Default empty array
   return [] as T[]
 }
-
-// Helper function to get mock data for insert operations
-function getMockInsertData<T>(table: string, data: any): T[] {
-  const now = new Date().toISOString()
-  const mockData = {
-    ...data,
-    id: data.id || `mock-${Math.floor(Math.random() * 1000)}`,
-    created_at: now,
-    updated_at: now,
-  }
-
-  return [mockData] as unknown as T[]
-}
-
-// Helper function to get mock data for update operations
-function getMockUpdateData<T>(table: string, id: string, data: any): T[] {
-  const now = new Date().toISOString()
-  const mockData = {
-    ...data,
-    id: id,
-    updated_at: now,
-  }
-
-  return [mockData] as unknown as T[]
-}
-

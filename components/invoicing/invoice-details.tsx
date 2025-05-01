@@ -73,4 +73,3 @@ export function InvoiceDetails({ invoice }: { invoice: Invoice }) {
     </div>
   )
 }
-

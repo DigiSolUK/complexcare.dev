@@ -84,4 +84,3 @@ export function withPerformanceMonitoring(handler: Function) {
     return measurePerformance(routeName, () => handler(req, ...args))
   }
 }
-

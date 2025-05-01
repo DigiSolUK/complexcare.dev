@@ -73,4 +73,3 @@ export async function tenantDelete<T>(tenantId: string, table: string, id: strin
     return [] as T[]
   }
 }
-

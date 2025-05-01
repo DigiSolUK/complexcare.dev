@@ -1,19 +1,9 @@
 "use client"
 
-import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
-export default function Error({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string }
-  reset: () => void
-}) {
-  useEffect(() => {
-    console.error(error)
-  }, [error])
-
+export default function Error() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
@@ -22,17 +12,16 @@ export default function Error({
           We apologize for the inconvenience. Please try again or contact support if the problem persists.
         </p>
         <div className="space-y-4">
-          <Button onClick={reset} variant="destructive">
+          <Button onClick={() => window.location.reload()} variant="destructive">
             Try Again
           </Button>
           <div>
-            <a href="/" className="inline-block text-sm text-blue-600 hover:underline">
+            <Link href="/" className="inline-block text-sm text-blue-600 hover:underline">
               Return Home
-            </a>
+            </Link>
           </div>
         </div>
       </div>
     </div>
   )
 }
-

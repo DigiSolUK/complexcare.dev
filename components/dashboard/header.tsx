@@ -1,28 +1,52 @@
 "use client"
 
 import Link from "next/link"
-import { DemoUserMenu } from "@/components/demo-user-menu"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
-import { Search } from "lucide-react"
+import { UserMenu } from "@/components/user-menu"
+import { TenantSwitcher } from "@/components/tenant-switcher"
+import { useTenant } from "@/lib/tenant-context"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Menu } from "lucide-react"
 
-export function DashboardHeader() {
+interface HeaderProps {
+  toggleSidebar: () => void
+}
+
+export function Header({ toggleSidebar }: HeaderProps) {
+  const { currentTenant, isLoading } = useTenant()
+
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-6">
-      <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-        <span className="text-primary">ComplexCare</span>
-        <span className="hidden sm:inline">CRM</span>
-        <span className="rounded bg-yellow-200 px-1.5 py-0.5 text-xs font-medium text-yellow-700">Demo</span>
-      </Link>
-      <div className="ml-auto flex items-center gap-4">
-        <Button variant="outline" size="sm" className="h-8 gap-1">
-          <Search className="h-4 w-4" />
-          <span className="hidden sm:inline">Search</span>
-        </Button>
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+      <Button variant="outline" size="icon" className="md:hidden" onClick={toggleSidebar}>
+        <Menu className="h-5 w-5" />
+        <span className="sr-only">Toggle sidebar</span>
+      </Button>
+      <div className="flex flex-1 items-center gap-4">
+        <Link href="/" className="flex items-center gap-2">
+          {isLoading ? (
+            <Skeleton className="h-8 w-8 rounded-full" />
+          ) : currentTenant?.branding?.logoUrl ? (
+            <img
+              src={currentTenant.branding.logoUrl || "/placeholder.svg"}
+              alt={currentTenant.name}
+              className="h-8 w-8 rounded-full object-contain"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              {currentTenant?.name.charAt(0) || "C"}
+            </div>
+          )}
+          <span className="text-lg font-semibold">
+            {isLoading ? <Skeleton className="h-6 w-32" /> : currentTenant?.name || "ComplexCare CRM"}
+          </span>
+        </Link>
+      </div>
+      <div className="flex items-center gap-4">
+        <TenantSwitcher />
         <ModeToggle />
-        <DemoUserMenu />
+        <UserMenu />
       </div>
     </header>
   )
 }
-

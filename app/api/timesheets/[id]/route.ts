@@ -1,49 +1,110 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getTimesheet, updateTimesheet, deleteTimesheet } from "@/lib/services/timesheet-service"
+import type { NextRequest } from "next/server"
+import { z } from "zod"
+import {
+  getTimesheetById,
+  updateTimesheet,
+  deleteTimesheet,
+  approveTimesheet,
+  type UpdateTimesheetInput,
+} from "@/lib/services/timesheet-service"
+import { apiError, apiSuccess, parseRequestBody, getTenantIdFromRequest } from "@/lib/api-utils"
+import { idSchema, updateTimesheetSchema } from "@/lib/validations/schemas"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const timesheet = await getTimesheet(params.id)
+    // Validate ID
+    const id = idSchema.parse(params.id)
+
+    // Get and validate tenant ID
+    const tenantId = getTenantIdFromRequest(req)
+
+    // Get timesheet
+    const timesheet = await getTimesheetById(id, tenantId)
 
     if (!timesheet) {
-      return NextResponse.json({ error: "Timesheet not found" }, { status: 404 })
+      return apiError("Timesheet not found", 404)
     }
 
-    return NextResponse.json(timesheet)
+    return apiSuccess(timesheet)
   } catch (error) {
-    console.error(`Error in GET /api/timesheets/${params.id}:`, error)
-    return NextResponse.json({ error: "Failed to fetch timesheet" }, { status: 500 })
+    return apiError(error)
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const data = await request.json()
-    const timesheet = await updateTimesheet(params.id, data)
+    // Validate ID
+    const id = idSchema.parse(params.id)
 
-    if (!timesheet) {
-      return NextResponse.json({ error: "Timesheet not found or update failed" }, { status: 404 })
-    }
+    // Parse request body
+    const body = await parseRequestBody<UpdateTimesheetInput>(req)
 
-    return NextResponse.json(timesheet)
+    // Get tenant ID from request
+    const tenantId = getTenantIdFromRequest(req)
+
+    // Validate with Zod
+    const validatedData = updateTimesheetSchema.parse(body)
+
+    // Update timesheet
+    const timesheet = await updateTimesheet(id, validatedData, tenantId)
+
+    return apiSuccess(timesheet)
   } catch (error) {
-    console.error(`Error in PUT /api/timesheets/${params.id}:`, error)
-    return NextResponse.json({ error: "Failed to update timesheet" }, { status: 500 })
+    if (error instanceof z.ZodError) {
+      return apiError(error, 400)
+    }
+    return apiError(error)
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const success = await deleteTimesheet(params.id)
+    // Validate ID
+    const id = idSchema.parse(params.id)
+
+    // Get tenant ID from request
+    const tenantId = getTenantIdFromRequest(req)
+
+    // Delete timesheet
+    const success = await deleteTimesheet(id, tenantId)
 
     if (!success) {
-      return NextResponse.json({ error: "Timesheet not found or delete failed" }, { status: 404 })
+      return apiError("Timesheet not found", 404)
     }
 
-    return NextResponse.json({ success: true })
+    return apiSuccess({ deleted: true })
   } catch (error) {
-    console.error(`Error in DELETE /api/timesheets/${params.id}:`, error)
-    return NextResponse.json({ error: "Failed to delete timesheet" }, { status: 500 })
+    return apiError(error)
   }
 }
 
+// Special route for approving timesheets
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    // Validate ID
+    const id = idSchema.parse(params.id)
+
+    // Parse request body
+    const body = await parseRequestBody<{ action: string; approvedBy: string }>(req)
+
+    // Get tenant ID from request
+    const tenantId = getTenantIdFromRequest(req)
+
+    // Validate action
+    if (body.action !== "approve") {
+      return apiError("Invalid action. Only 'approve' is supported.", 400)
+    }
+
+    // Validate approvedBy
+    if (!body.approvedBy) {
+      return apiError("approvedBy is required", 400)
+    }
+
+    // Approve timesheet
+    const timesheet = await approveTimesheet(id, body.approvedBy, tenantId)
+
+    return apiSuccess(timesheet)
+  } catch (error) {
+    return apiError(error)
+  }
+}

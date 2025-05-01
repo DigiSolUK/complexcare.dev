@@ -135,4 +135,3 @@ export function PayrollSubmissionsTable({ tenantId }: PayrollSubmissionsTablePro
     </div>
   )
 }
-

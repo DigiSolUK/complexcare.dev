@@ -9,4 +9,3 @@ AUTH0_ISSUER_BASE_URL=https://your-auth0-domain.auth0.com
 
 # Database
 DATABASE_URL=your-database-url
-

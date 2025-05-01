@@ -54,4 +54,3 @@ export function InvoiceItemsTable({ items }: { items: InvoiceItem[] }) {
     </div>
   )
 }
-

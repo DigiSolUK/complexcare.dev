@@ -110,4 +110,3 @@ export function TimesheetsClient({ initialTimesheets = [] }: TimesheetsClientPro
     </div>
   )
 }
-

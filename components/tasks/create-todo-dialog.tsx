@@ -205,4 +205,3 @@ export function CreateTodoDialog({ open, onOpenChange, onTodoCreated }: CreateTo
     </Dialog>
   )
 }
-

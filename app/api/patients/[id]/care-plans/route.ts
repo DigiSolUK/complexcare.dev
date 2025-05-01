@@ -19,4 +19,3 @@ export async function GET(request: Request) {
 
   return new Response("Placeholder response.  Original code was omitted.")
 }
-

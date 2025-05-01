@@ -1,70 +1,55 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, type ReactNode, useState, useEffect } from "react"
+import { DEFAULT_TENANT_ID, getCurrentTenantId } from "@/lib/tenant"
 
-type Tenant = {
-  id: string
-  name: string
-  domain: string
-  settings: Record<string, any>
-  features: string[]
-  status: "active" | "inactive" | "suspended"
+// Define the Tenant context type
+interface TenantContextType {
+  tenantId: string
+  setTenantId: (id: string) => void
 }
 
-type TenantContextType = {
-  tenant: Tenant | null
-  isLoading: boolean
-  error: Error | null
-  setTenant: (tenant: Tenant) => void
-}
-
+// Create the context with default values
 const TenantContext = createContext<TenantContextType>({
-  tenant: null,
-  isLoading: true,
-  error: null,
-  setTenant: () => {},
+  tenantId: DEFAULT_TENANT_ID,
+  setTenantId: () => {},
 })
 
-export function TenantProvider({
-  children,
-  initialTenant = null,
-}: {
-  children: ReactNode
-  initialTenant?: Tenant | null
-}) {
-  const [tenant, setTenant] = useState<Tenant | null>(initialTenant)
-  const [isLoading, setIsLoading] = useState<boolean>(!initialTenant)
-  const [error, setError] = useState<Error | null>(null)
+// Export the tenant provider component
+export function TenantProvider({ children }: { children: ReactNode }) {
+  const [tenantId, setTenantId] = useState<string>(DEFAULT_TENANT_ID)
 
+  // Function to validate and set tenant ID
+  const handleSetTenantId = (id: string) => {
+    // Use our utility to validate and get a safe tenant ID
+    const validTenantId = getCurrentTenantId(id)
+    setTenantId(validTenantId)
+  }
+
+  // Log tenant ID changes for debugging
   useEffect(() => {
-    if (initialTenant) return
+    console.log("Tenant ID set to:", tenantId)
+  }, [tenantId])
 
-    async function fetchTenant() {
-      try {
-        const response = await fetch("/api/tenant")
-        if (!response.ok) {
-          throw new Error("Failed to fetch tenant information")
-        }
-        const data = await response.json()
-        setTenant(data)
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchTenant()
-  }, [initialTenant])
-
-  return <TenantContext.Provider value={{ tenant, isLoading, error, setTenant }}>{children}</TenantContext.Provider>
+  return (
+    <TenantContext.Provider
+      value={{
+        tenantId,
+        setTenantId: handleSetTenantId,
+      }}
+    >
+      {children}
+    </TenantContext.Provider>
+  )
 }
 
+// Create a hook for using the tenant context
 export function useTenant() {
   const context = useContext(TenantContext)
-  if (context === undefined) {
+
+  if (!context) {
     throw new Error("useTenant must be used within a TenantProvider")
   }
+
   return context
 }
-

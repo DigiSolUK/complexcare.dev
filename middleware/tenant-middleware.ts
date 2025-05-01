@@ -38,4 +38,3 @@ export async function tenantMiddleware(request: NextRequest) {
     },
   })
 }
-

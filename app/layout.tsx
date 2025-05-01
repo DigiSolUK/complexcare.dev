@@ -2,6 +2,8 @@ import type React from "react"
 import "./globals.css"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ErrorBoundary } from "@/components/error-boundary"
+import { GlobalErrorHandler } from "@/components/global-error-handler"
 import type { Metadata } from "next"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -21,13 +23,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          {children}
+          <ErrorBoundary componentPath="app/layout.tsx">
+            <GlobalErrorHandler />
+            {children}
+          </ErrorBoundary>
         </ThemeProvider>
       </body>
     </html>
   )
 }
-
-
-
-import './globals.css'

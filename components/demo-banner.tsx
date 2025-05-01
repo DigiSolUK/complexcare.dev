@@ -5,4 +5,3 @@ export function DemoBanner() {
     </div>
   )
 }
-

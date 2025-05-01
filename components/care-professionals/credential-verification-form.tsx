@@ -377,4 +377,3 @@ export function CredentialVerificationForm({ professional, credential }: Credent
     </div>
   )
 }
-

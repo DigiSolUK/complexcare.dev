@@ -48,4 +48,3 @@ export function CreateCarePlanDialog({ trigger }: CreateCarePlanDialogProps) {
     </Dialog>
   )
 }
-

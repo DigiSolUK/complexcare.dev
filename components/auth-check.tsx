@@ -6,4 +6,3 @@ export function AuthCheck({ children }: { children: React.ReactNode }) {
   // In demo mode, we allow all access
   return <>{children}</>
 }
-

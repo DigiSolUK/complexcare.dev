@@ -17,19 +17,15 @@ export function InvoiceStats() {
   })
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<Invoice[]>([])
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchInvoices = async () => {
       try {
         setLoading(true)
-        setError(null)
         const response = await fetch("/api/invoices")
-
         if (!response.ok) {
-          throw new Error(`Failed to fetch invoices: ${response.statusText}`)
+          throw new Error("Failed to fetch invoices")
         }
-
         const data: Invoice[] = await response.json()
         setData(data)
 
@@ -59,38 +55,7 @@ export function InvoiceStats() {
           percentChange: 5.2, // Example value, would be calculated based on historical data
         })
       } catch (err) {
-        console.error("Error fetching invoice stats:", err)
-        setError("Failed to load invoice statistics")
-
-        // Set demo data as fallback
-        const demoData = getDemoInvoices()
-        setData(demoData)
-
-        // Calculate stats from demo data
-        const totalPaid = demoData
-          .filter((invoice) => invoice.status === "paid")
-          .reduce((sum, invoice) => sum + Number.parseFloat(invoice.amount.toString()), 0)
-
-        const totalOverdue = demoData
-          .filter((invoice) => invoice.status === "overdue")
-          .reduce((sum, invoice) => sum + Number.parseFloat(invoice.amount.toString()), 0)
-
-        const totalPending = demoData
-          .filter((invoice) => invoice.status === "sent")
-          .reduce((sum, invoice) => sum + Number.parseFloat(invoice.amount.toString()), 0)
-
-        const totalDraft = demoData
-          .filter((invoice) => invoice.status === "draft")
-          .reduce((sum, invoice) => sum + Number.parseFloat(invoice.amount.toString()), 0)
-
-        setStats({
-          totalPaid,
-          totalOverdue,
-          totalPending,
-          totalDraft,
-          invoiceCount: demoData.length,
-          percentChange: 5.2,
-        })
+        console.error(err)
       } finally {
         setLoading(false)
       }
@@ -99,64 +64,12 @@ export function InvoiceStats() {
     fetchInvoices()
   }, [])
 
-  // Demo data fallback
-  const getDemoInvoices = (): Invoice[] => {
-    return [
-      {
-        id: "inv-001",
-        tenant_id: "demo-tenant",
-        patient_id: "pat-001",
-        patient_name: "John Smith",
-        amount: 250.0,
-        status: "sent",
-      },
-      {
-        id: "inv-002",
-        tenant_id: "demo-tenant",
-        patient_id: "pat-002",
-        patient_name: "Emily Wilson",
-        amount: 175.5,
-        status: "paid",
-      },
-      {
-        id: "inv-003",
-        tenant_id: "demo-tenant",
-        patient_id: "pat-003",
-        patient_name: "Robert Martin",
-        amount: 320.75,
-        status: "overdue",
-      },
-      {
-        id: "inv-004",
-        tenant_id: "demo-tenant",
-        patient_id: "pat-004",
-        patient_name: "Sarah Johnson",
-        amount: 150.0,
-        status: "draft",
-      },
-      {
-        id: "inv-005",
-        tenant_id: "demo-tenant",
-        patient_id: "pat-005",
-        patient_name: "David Taylor",
-        amount: 275.25,
-        status: "sent",
-      },
-    ] as Invoice[]
-  }
-
   if (loading) {
     return <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">Loading stats...</div>
   }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {error && (
-        <div className="col-span-full bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md mb-4">
-          <p className="text-sm">{error} (Using demo data)</p>
-        </div>
-      )}
-
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
@@ -221,4 +134,3 @@ export function InvoiceStats() {
     </div>
   )
 }
-

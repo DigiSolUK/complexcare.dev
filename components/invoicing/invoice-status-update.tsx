@@ -103,4 +103,3 @@ export function InvoiceStatusUpdate({ invoice, onStatusChange }: InvoiceStatusUp
     </div>
   )
 }
-

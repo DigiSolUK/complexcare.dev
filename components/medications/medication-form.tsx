@@ -281,4 +281,3 @@ export function MedicationForm({ initialData, onSubmit, patients = [], careProfe
     </Form>
   )
 }
-

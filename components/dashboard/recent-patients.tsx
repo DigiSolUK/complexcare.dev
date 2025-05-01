@@ -122,4 +122,3 @@ export function RecentPatients({ showAll = false }: RecentPatientsProps) {
     </Card>
   )
 }
-

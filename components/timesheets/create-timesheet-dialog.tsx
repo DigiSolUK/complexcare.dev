@@ -1,151 +1,90 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
 import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Form, FormField } from "@/components/ui/form"
+
+const formSchema = z.object({
+  staffId: z.string().min(1, "Staff ID is required"),
+  staffName: z.string().min(1, "Staff name is required"),
+  date: z.date({
+    required_error: "Date is required",
+  }),
+  hoursWorked: z.coerce.number().positive("Hours must be positive"),
+  notes: z.string().optional(),
+})
+
+type FormValues = z.infer<typeof formSchema>
 
 interface CreateTimesheetDialogProps {
-  tenantId?: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  tenantId: string
 }
 
-export function CreateTimesheetDialog({ tenantId }: CreateTimesheetDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [date, setDate] = useState<Date>()
-  const [hours, setHours] = useState("")
-  const [notes, setNotes] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export function CreateTimesheetDialog({ 
+  open, 
+  onOpenChange,
+  tenantId 
+}: CreateTimesheetDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      staffId: '',
+      staffName: '',
+      date: new Date(),
+      hoursWorked: 8,
+      notes: '',
+    },
+  });
 
-    if (!date) {
-      setError("Please select a date")
-      return
-    }
-
-    if (!hours || isNaN(Number.parseFloat(hours))) {
-      setError("Please enter valid hours")
-      return
-    }
-
+  const onSubmit = async (data: FormValues) => {
     try {
-      setLoading(true)
-      setError(null)
-
-      const response = await fetch("/api/timesheets", {
-        method: "POST",
+      setIsSubmitting(true);
+      
+      const response = await fetch('/api/timesheets', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          date,
-          hoursWorked: Number.parseFloat(hours),
-          notes,
-          tenantId: tenantId || "default",
-          status: "pending",
-          approved: false,
-          userOnly: true,
+          ...data,
+          date: format(data.date, 'yyyy-MM-dd'),
+          tenantId,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to create timesheet")
+        throw new Error('Failed to create timesheet');
       }
 
       // Reset form and close dialog
-      setDate(undefined)
-      setHours("")
-      setNotes("")
-      setOpen(false)
-    } catch (err) {
-      console.error("Error creating timesheet:", err)
-      setError("Failed to create timesheet. Please try again.")
+      form.reset();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error creating timesheet:', error);
     } finally {
-      setLoading(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>Add Timesheet</Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Add New Timesheet</DialogTitle>
-            <DialogDescription>Record your working hours for a specific date.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="date">Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="date"
-                    variant={"outline"}
-                    className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Select a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="hours">Hours Worked</Label>
-              <Input
-                id="hours"
-                type="number"
-                step="0.5"
-                min="0.5"
-                max="24"
-                value={hours}
-                onChange={(e) => setHours(e.target.value)}
-                placeholder="Enter hours worked"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any notes about this timesheet"
-              />
-            </div>
-            {error && <div className="text-sm text-red-500">{error}</div>}
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Submitting..." : "Submit Timesheet"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
+        <DialogHeader>
+          <DialogTitle>Add New Timesheet</DialogTitle>
+          <DialogDescription>
+            Enter the timesheet details below.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              \
