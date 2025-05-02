@@ -7,6 +7,7 @@ import { DashboardStats } from "@/components/dashboard/dashboard-stats"
 import { RecentPatients } from "@/components/dashboard/recent-patients"
 import { TasksList } from "@/components/dashboard/tasks-list"
 import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments"
+import { AnimatedContainer } from "@/components/ui/animated-container"
 
 async function getDashboardData() {
   try {
@@ -50,16 +51,20 @@ export default async function DashboardPage() {
   return (
     <ErrorBoundary componentPath="app/(dashboard)/dashboard/page.tsx">
       <div className="container mx-auto py-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">Welcome to your Complex Care CRM dashboard</p>
+        <AnimatedContainer animation="slideUp" duration={0.5}>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+              <p className="text-muted-foreground">Welcome to your Complex Care CRM dashboard</p>
+            </div>
           </div>
-        </div>
+        </AnimatedContainer>
 
         {/* Dashboard Stats */}
         <Suspense fallback={<DashboardStatsSkeleton />}>
-          <DashboardStats data={dashboardData} />
+          <AnimatedContainer animation="fadeIn" delay={0.1}>
+            <DashboardStats data={dashboardData} />
+          </AnimatedContainer>
         </Suspense>
 
         <Tabs defaultValue="overview" className="mt-6">
@@ -71,58 +76,66 @@ export default async function DashboardPage() {
 
           <TabsContent value="overview" className="space-y-4 mt-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card className="col-span-2">
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Your recent patient activity</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px] flex items-center justify-center">
-                    <p className="text-muted-foreground">Activity chart will be displayed here</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <AnimatedContainer animation="slideUp" delay={0.2}>
+                <Card className="col-span-2">
+                  <CardHeader>
+                    <CardTitle>Recent Activity</CardTitle>
+                    <CardDescription>Your recent patient activity</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px] flex items-center justify-center">
+                      <p className="text-muted-foreground">Activity chart will be displayed here</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </AnimatedContainer>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Upcoming Appointments</CardTitle>
-                  <CardDescription>Your schedule for today</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Suspense fallback={<Skeleton className="h-[300px]" />}>
-                    <UpcomingAppointments />
-                  </Suspense>
-                </CardContent>
-              </Card>
+              <AnimatedContainer animation="slideUp" delay={0.3}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upcoming Appointments</CardTitle>
+                    <CardDescription>Your schedule for today</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Suspense fallback={<Skeleton className="h-[300px]" />}>
+                      <UpcomingAppointments />
+                    </Suspense>
+                  </CardContent>
+                </Card>
+              </AnimatedContainer>
             </div>
           </TabsContent>
 
           <TabsContent value="patients" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Patients</CardTitle>
-                <CardDescription>Recently updated patient records</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Suspense fallback={<Skeleton className="h-[400px]" />}>
-                  <RecentPatients />
-                </Suspense>
-              </CardContent>
-            </Card>
+            <AnimatedContainer animation="fadeIn">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Patients</CardTitle>
+                  <CardDescription>Recently updated patient records</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Suspense fallback={<Skeleton className="h-[400px]" />}>
+                    <RecentPatients />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            </AnimatedContainer>
           </TabsContent>
 
           <TabsContent value="tasks" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Tasks</CardTitle>
-                <CardDescription>Your assigned tasks and to-dos</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Suspense fallback={<Skeleton className="h-[400px]" />}>
-                  <TasksList />
-                </Suspense>
-              </CardContent>
-            </Card>
+            <AnimatedContainer animation="fadeIn">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tasks</CardTitle>
+                  <CardDescription>Your assigned tasks and to-dos</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Suspense fallback={<Skeleton className="h-[400px]" />}>
+                    <TasksList />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            </AnimatedContainer>
           </TabsContent>
         </Tabs>
       </div>

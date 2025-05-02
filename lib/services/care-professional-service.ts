@@ -1,8 +1,10 @@
-import type { CareProfessional } from "@/types"
+import type { CareProfessional as CareProfessionalType } from "@/types"
 import { tenantQuery } from "@/lib/db/tenant"
 import { cache } from "../redis/cache-service"
 import { CacheService } from "@/lib/redis/cache-service"
 import { neon } from "@/lib/db"
+import { v4 as uuidv4 } from "uuid"
+import { neon as neonDatabase } from "@neondatabase/serverless"
 
 // Cache key prefix for care professionals
 const CACHE_PREFIX = "care-professional:"
@@ -19,7 +21,7 @@ function validateDate(dateString: string): string {
 }
 
 // Demo care professionals
-const demoCareProfessionals: CareProfessional[] = [
+const demoCareProfessionals: CareProfessionalType[] = [
   {
     id: "1",
     first_name: "Emma",
@@ -137,6 +139,35 @@ const CACHE_TTL = {
   CARE_PROFESSIONAL: 3600, // 1 hour
   CARE_PROFESSIONALS_LIST: 1800, // 30 minutes
   CREDENTIALS: 3600, // 1 hour
+}
+
+export interface Credential {
+  id: string
+  care_professional_id: string
+  credential_type: string
+  credential_number: string
+  issuing_authority: string
+  issue_date: Date
+  expiry_date: Date
+  verification_status: string
+  verification_date?: Date
+  verification_notes?: string
+  created_at: Date
+  updated_at: Date
+}
+
+export interface CareProfessional {
+  id: string
+  tenant_id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  role: string
+  status: string
+  created_at: Date
+  updated_at: Date
+  created_by: string
 }
 
 export class CareProfessionalService {
@@ -335,12 +366,36 @@ export async function getCareProfessionals(tenantId: string, searchQuery?: strin
   }
 }
 
+/**
+ * Get a care professional by ID
+ * @param id The ID of the care professional to retrieve
+ * @returns The care professional data or null if not found
+ */
+export async function getCareProfessionalById(id: string) {
+  try {
+    const sql = neon(process.env.DATABASE_URL || "")
+    const result = await sql`
+      SELECT * FROM care_professionals 
+      WHERE id = ${id}
+    `
+
+    if (result && result.length > 0) {
+      return result[0]
+    }
+
+    return null
+  } catch (error) {
+    console.error("Error fetching care professional by ID:", error)
+    return null
+  }
+}
+
 // Add the missing export
-export const getCareProfessionalById = async (id: string, tenantId: string) => {
+export const getCareProfessionalByIdOld = async (id: string, tenantId: string) => {
   return CareProfessionalService.getCareProfessionalById(id, tenantId)
 }
 
-export async function getCareProfessionalByIdOld(id: string, tenantId: string) {
+export async function getCareProfessionalByIdOld2(id: string, tenantId: string) {
   const cacheKey = `${CACHE_PREFIX}${id}:${tenantId}`
 
   // Try to get from cache first
@@ -776,4 +831,239 @@ export async function deleteCareProfessionalOld(id: string, tenantId: string) {
   await cache.del(`${CACHE_PREFIX}list:${tenantId}`)
 
   return { success: true }
+}
+
+export async function getCareProfessionalsUpdated(tenantId: string) {
+  try {
+    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    const result = await sql`
+      SELECT * FROM care_professionals 
+      WHERE tenant_id = ${tenantId}
+      ORDER BY last_name, first_name
+    `
+    return { careProfessionals: result, error: null }
+  } catch (error) {
+    console.error("Error fetching care professionals:", error)
+    return { careProfessionals: [], error: "Failed to fetch care professionals" }
+  }
+}
+
+export async function getCareProfessionalByIdUpdated(tenantId: string, id: string) {
+  try {
+    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    const [careProfessional] = await sql`
+      SELECT * FROM care_professionals 
+      WHERE tenant_id = ${tenantId} AND id = ${id}
+    `
+
+    if (!careProfessional) {
+      return { careProfessional: null, error: "Care professional not found" }
+    }
+
+    return { careProfessional, error: null }
+  } catch (error) {
+    console.error("Error fetching care professional:", error)
+    return { careProfessional: null, error: "Failed to fetch care professional" }
+  }
+}
+
+export async function createCareProfessionalUpdated(tenantId: string, data: Partial<CareProfessionalType>) {
+  try {
+    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    const id = data.id || uuidv4()
+    const now = new Date()
+
+    const [careProfessional] = await sql`
+      INSERT INTO care_professionals (
+        id, tenant_id, first_name, last_name, email, phone, role, status, created_at, updated_at, created_by
+      ) VALUES (
+        ${id}, 
+        ${tenantId}, 
+        ${data.first_name || ""}, 
+        ${data.last_name || ""}, 
+        ${data.email || ""}, 
+        ${data.phone || ""}, 
+        ${data.role || "Care Assistant"}, 
+        ${data.status || "active"}, 
+        ${now}, 
+        ${now}, 
+        ${data.created_by || "system"}
+      )
+      RETURNING *
+    `
+
+    return { careProfessional, error: null }
+  } catch (error) {
+    console.error("Error creating care professional:", error)
+    return { careProfessional: null, error: "Failed to create care professional" }
+  }
+}
+
+export async function updateCareProfessionalUpdated(tenantId: string, id: string, data: Partial<CareProfessionalType>) {
+  try {
+    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    const now = new Date()
+
+    // Build the update query dynamically based on provided fields
+    const updateFields = []
+    const updateValues = []
+
+    if (data.first_name !== undefined) {
+      updateFields.push("first_name = $1")
+      updateValues.push(data.first_name)
+    }
+
+    if (data.last_name !== undefined) {
+      updateFields.push(`last_name = $${updateValues.length + 1}`)
+      updateValues.push(data.last_name)
+    }
+
+    if (data.email !== undefined) {
+      updateFields.push(`email = $${updateValues.length + 1}`)
+      updateValues.push(data.email)
+    }
+
+    if (data.phone !== undefined) {
+      updateFields.push(`phone = $${updateValues.length + 1}`)
+      updateValues.push(data.phone)
+    }
+
+    if (data.role !== undefined) {
+      updateFields.push(`role = $${updateValues.length + 1}`)
+      updateValues.push(data.role)
+    }
+
+    if (data.status !== undefined) {
+      updateFields.push(`status = $${updateValues.length + 1}`)
+      updateValues.push(data.status)
+    }
+
+    // Always update the updated_at timestamp
+    updateFields.push(`updated_at = $${updateValues.length + 1}`)
+    updateValues.push(now)
+
+    // Add the WHERE clause parameters
+    updateValues.push(tenantId)
+    updateValues.push(id)
+
+    const query = `
+      UPDATE care_professionals
+      SET ${updateFields.join(", ")}
+      WHERE tenant_id = $${updateValues.length - 1} AND id = $${updateValues.length}
+      RETURNING *
+    `
+
+    const result = await sql.query(query, updateValues)
+    const careProfessional = result.rows[0]
+
+    if (!careProfessional) {
+      return { careProfessional: null, error: "Care professional not found" }
+    }
+
+    return { careProfessional, error: null }
+  } catch (error) {
+    console.error("Error updating care professional:", error)
+    return { careProfessional: null, error: "Failed to update care professional" }
+  }
+}
+
+export async function deleteCareProfessionalUpdated(tenantId: string, id: string) {
+  try {
+    const sql = neonDatabase(process.env.DATABASE_URL || "")
+
+    // First check if the care professional exists
+    const [existingProfessional] = await sql`
+      SELECT id FROM care_professionals 
+      WHERE tenant_id = ${tenantId} AND id = ${id}
+    `
+
+    if (!existingProfessional) {
+      return { success: false, error: "Care professional not found" }
+    }
+
+    // Delete the care professional
+    await sql`
+      DELETE FROM care_professionals 
+      WHERE tenant_id = ${tenantId} AND id = ${id}
+    `
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error("Error deleting care professional:", error)
+    return { success: false, error: "Failed to delete care professional" }
+  }
+}
+
+export async function getCredentialsByCareProfessionalUpdated(tenantId: string, careProfessionalId: string) {
+  try {
+    const sql = neonDatabase(process.env.DATABASE_URL || "")
+
+    // First verify the care professional exists and belongs to the tenant
+    const [careProfessional] = await sql`
+      SELECT id FROM care_professionals 
+      WHERE tenant_id = ${tenantId} AND id = ${careProfessionalId}
+    `
+
+    if (!careProfessional) {
+      return { credentials: [], error: "Care professional not found" }
+    }
+
+    const credentials = await sql`
+      SELECT * FROM credentials 
+      WHERE care_professional_id = ${careProfessionalId}
+      ORDER BY credential_type, expiry_date DESC
+    `
+
+    return { credentials, error: null }
+  } catch (error) {
+    console.error("Error fetching credentials:", error)
+    return { credentials: [], error: "Failed to fetch credentials" }
+  }
+}
+
+export async function getExpiredCredentialsUpdated(tenantId: string) {
+  try {
+    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    const now = new Date()
+
+    const credentials = await sql`
+      SELECT c.*, cp.first_name, cp.last_name, cp.email
+      FROM credentials c
+      JOIN care_professionals cp ON c.care_professional_id = cp.id
+      WHERE cp.tenant_id = ${tenantId}
+        AND c.expiry_date < ${now}
+        AND cp.status = 'active'
+      ORDER BY c.expiry_date
+    `
+
+    return { credentials, error: null }
+  } catch (error) {
+    console.error("Error fetching expired credentials:", error)
+    return { credentials: [], error: "Failed to fetch expired credentials" }
+  }
+}
+
+export async function getExpiringCredentialsUpdated(tenantId: string, daysThreshold = 30) {
+  try {
+    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    const now = new Date()
+    const thresholdDate = new Date()
+    thresholdDate.setDate(thresholdDate.getDate() + daysThreshold)
+
+    const credentials = await sql`
+      SELECT c.*, cp.first_name, cp.last_name, cp.email
+      FROM credentials c
+      JOIN care_professionals cp ON c.care_professional_id = cp.id
+      WHERE cp.tenant_id = ${tenantId}
+        AND c.expiry_date >= ${now}
+        AND c.expiry_date <= ${thresholdDate}
+        AND cp.status = 'active'
+      ORDER BY c.expiry_date
+    `
+
+    return { credentials, error: null }
+  } catch (error) {
+    console.error("Error fetching expiring credentials:", error)
+    return { credentials: [], error: "Failed to fetch expiring credentials" }
+  }
 }

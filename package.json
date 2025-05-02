@@ -87,6 +87,7 @@
     "@neondatabase/serverless": "latest",
     "@cloudflare/workers-types": "latest",
     "@op-engineering/op-sqlite": "latest",
+    "@emotion/is-prop-valid": "latest",
     "next-auth": "latest",
     "react-big-calendar": "latest",
     "moment": "latest",
@@ -100,6 +101,7 @@
     "drizzle-orm": "latest",
     "bcryptjs": "latest",
     "@auth0/nextjs-auth0": "latest",
+    "framer-motion": "latest",
     "@upstash/redis": "latest"
   },
   "devDependencies": {

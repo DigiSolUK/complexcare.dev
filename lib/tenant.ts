@@ -1,78 +1,123 @@
-import { tenantIdSchema } from "./validations/schemas"
+import { cookies } from "next/headers"
+import { sql } from "@/lib/db"
+import redis from "@/lib/redis/client"
 
-// Define the default tenant ID
+// Default tenant ID for demo mode
 export const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
 
-// Define a schema for validating tenant IDs
+interface Tenant {
+  id: string
+  name: string
+  domain: string
+  status: string
+  settings: Record<string, any>
+  created_at: string
+  updated_at: string
+}
 
-// Default tenant ID for the entire application
+export async function getTenantIdFromCookies(): Promise<string | null> {
+  const cookieStore = cookies()
+  return cookieStore.get("tenantId")?.value || null
+}
 
-/**
- * Legacy function for backward compatibility
- * @returns The default tenant ID
- */
-export function getDefaultTenantId(): string {
+export async function getDefaultTenantId(): Promise<string> {
   return DEFAULT_TENANT_ID
 }
 
-/**
- * Gets the current tenant ID, with fallback to default
- * @param requestedTenantId Optional tenant ID to validate
- * @returns Valid tenant ID
- */
-export function getCurrentTenantId(requestedTenantId?: string): string {
+export async function ensureTenantId(tenantId: string | null): Promise<string> {
+  return tenantId || DEFAULT_TENANT_ID
+}
+
+export async function getCurrentTenantId(request?: Request): Promise<string> {
+  // If request is provided, try to get from headers
+  if (request) {
+    const tenantId = request.headers.get("x-tenant-id")
+    if (tenantId) return tenantId
+  }
+
+  // Otherwise try to get from cookie
+  const cookieTenantId = await getTenantIdFromCookies()
+  return cookieTenantId || DEFAULT_TENANT_ID
+}
+
+export async function getTenantById(id: string): Promise<Tenant | null> {
+  // Try to get from Redis cache first
+  const cacheKey = `tenant:${id}`
+  const cachedTenant = await redis.get(cacheKey)
+
+  if (cachedTenant) {
+    try {
+      return JSON.parse(cachedTenant as string) as Tenant
+    } catch {
+      // If parsing fails, continue to fetch from DB
+    }
+  }
+
   try {
-    // If a tenant ID is provided, validate it
-    if (requestedTenantId) {
-      return tenantIdSchema.parse(requestedTenantId)
+    const [tenant] = await sql`
+      SELECT * FROM tenants
+      WHERE id = ${id}
+    `
+
+    if (tenant) {
+      // Cache for 5 minutes
+      await redis.set(cacheKey, JSON.stringify(tenant), { ex: 300 })
     }
 
-    // Otherwise use the default
-    return DEFAULT_TENANT_ID
+    return tenant || null
   } catch (error) {
-    // If validation fails, return the default
-    console.warn("Invalid tenant ID provided, using default", error)
-    return DEFAULT_TENANT_ID
+    console.error("Error fetching tenant:", error)
+    return null
   }
 }
 
-/**
- * Ensures all data has the correct tenant ID
- * @param data Object or array of objects to ensure tenant ID on
- * @param tenantId Optional tenant ID to use (defaults to DEFAULT_TENANT_ID)
- * @returns Data with tenant ID enforced
- */
-export function ensureTenantId<T extends { tenantId?: string }>(
-  data: T | T[],
-  tenantId: string = DEFAULT_TENANT_ID,
-): T | T[] {
-  const validTenantId = getCurrentTenantId(tenantId)
+export async function getCurrentTenant(request?: Request): Promise<Tenant | null> {
+  const tenantId = await getCurrentTenantId(request)
+  return await getTenantById(tenantId)
+}
 
-  if (Array.isArray(data)) {
-    return data.map((item) => ({
-      ...item,
-      tenantId: validTenantId,
-    }))
-  }
+export function isSuperAdmin(user: { role?: string }): boolean {
+  return user?.role === "super_admin"
+}
 
-  return {
-    ...data,
-    tenantId: validTenantId,
+export async function getTenantSettings(tenantId: string): Promise<Record<string, any> | null> {
+  try {
+    const tenant = await getTenantById(tenantId)
+    return tenant?.settings || null
+  } catch (error) {
+    console.error("Error fetching tenant settings:", error)
+    return null
   }
 }
 
-/**
- * Creates a tenant-scoped query object for database queries
- * @param query Existing query object
- * @param tenantId Optional tenant ID to use (defaults to DEFAULT_TENANT_ID)
- * @returns Query with tenant ID added
- */
-export function withTenant<T extends Record<string, any>>(
-  query: T = {} as T,
-  tenantId: string = DEFAULT_TENANT_ID,
-): T & { tenantId: string } {
-  return {
-    ...query,
-    tenantId: getCurrentTenantId(tenantId),
+export async function updateTenantSettings(tenantId: string, settings: Record<string, any>): Promise<boolean> {
+  try {
+    // Get current tenant
+    const tenant = await getTenantById(tenantId)
+    if (!tenant) return false
+
+    // Merge with existing settings
+    const updatedSettings = {
+      ...tenant.settings,
+      ...settings,
+    }
+
+    // Update in database
+    await sql`
+      UPDATE tenants
+      SET 
+        settings = ${JSON.stringify(updatedSettings)},
+        updated_at = NOW()
+      WHERE id = ${tenantId}
+    `
+
+    // Update cache
+    const cacheKey = `tenant:${tenantId}`
+    await redis.del(cacheKey)
+
+    return true
+  } catch (error) {
+    console.error("Error updating tenant settings:", error)
+    return false
   }
 }
