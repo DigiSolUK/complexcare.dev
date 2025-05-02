@@ -1,282 +1,213 @@
-import { tenantQuery } from "@/lib/db-utils"
-import { neon } from "@neondatabase/serverless"
+import { db } from "../db"
+import { PatientCache } from "../redis/patient-cache"
 
-// Update the Patient type to match the actual database schema
-export type Patient = {
-  id: string
-  tenant_id: string
-  title?: string
-  first_name: string
-  last_name: string
-  date_of_birth: Date | string
-  gender: string
-  phone_number?: string
-  email?: string
-  address?: string
-  postcode?: string
-  nhs_number?: string
-  avatarurl?: string
-  care_needs?: string
-  medical_history?: string
-  medications?: string
-  allergies?: string
-  is_active?: boolean
-  created_at?: string
-  updated_at?: string
-  created_by?: string
-  updated_by?: string
-}
+export class PatientService {
+  /**
+   * Get all patients with caching
+   */
+  static async getAllPatients(tenantId: string) {
+    const cacheResult = await PatientCache.getOrSetAllPatients(async () => {
+      const result = await db.query("SELECT * FROM patients WHERE tenant_id = $1 ORDER BY last_name ASC", [tenantId])
+      return result.rows
+    })
 
-// Update the getPatients function to use the correct column names
-export async function getPatients(tenantId: string, limit = 100): Promise<Patient[]> {
-  try {
-    console.log(`Getting patients for tenant ${tenantId} with limit ${limit}`)
-
-    // Use a simpler query to reduce potential issues
-    const sql = neon(process.env.DATABASE_URL || "")
-    const result = await sql`
-      SELECT 
-        id, 
-        first_name, 
-        last_name, 
-        email, 
-        phone_number, 
-        date_of_birth,
-        gender,
-        address,
-        postcode,
-        nhs_number,
-        is_active,
-        created_at,
-        updated_at,
-        avatarurl,
-        medical_history,
-        medications,
-        allergies,
-        care_needs
-      FROM patients 
-      WHERE tenant_id = ${tenantId}
-      LIMIT ${limit}
-    `
-
-    console.log(`Retrieved ${result.length} patients`)
-    return result as Patient[]
-  } catch (error) {
-    console.error("Error getting patients:", error)
-    // Return empty array instead of throwing to prevent UI errors
-    return []
+    return cacheResult.data
   }
-}
 
-// Get a patient by ID
-export async function getPatientById(tenantId: string, patientId: string): Promise<Patient | null> {
-  try {
-    const patients = await tenantQuery<Patient>(tenantId, `SELECT * FROM patients WHERE id = $1 AND tenant_id = $2`, [
-      patientId,
-      tenantId,
-    ])
-    return patients && patients.length > 0 ? patients[0] : null
-  } catch (error) {
-    console.error(`Error getting patient ${patientId}:`, error)
-    return null
+  /**
+   * Get a patient by ID with caching
+   */
+  static async getPatientById(id: string, tenantId: string) {
+    const cacheResult = await PatientCache.getOrSetPatient(id, async () => {
+      const result = await db.query("SELECT * FROM patients WHERE id = $1 AND tenant_id = $2", [id, tenantId])
+      return result.rows[0]
+    })
+
+    return cacheResult.data
   }
-}
 
-// Get patient count
-export async function getPatientCount(tenantId: string): Promise<number> {
-  try {
-    const result = await tenantQuery<{ count: number }>(
-      tenantId,
-      `SELECT COUNT(*) as count FROM patients WHERE tenant_id = $1`,
+  /**
+   * Create a new patient and invalidate caches
+   */
+  static async createPatient(patientData: any, tenantId: string) {
+    const { firstName, lastName, dateOfBirth, gender, address, phone, email } = patientData
+
+    const result = await db.query(
+      `INSERT INTO patients 
+       (first_name, last_name, date_of_birth, gender, address, phone, email, tenant_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+       RETURNING *`,
+      [firstName, lastName, dateOfBirth, gender, address, phone, email, tenantId],
+    )
+
+    // Invalidate the patients list cache
+    await PatientCache.invalidatePatientList()
+
+    return result.rows[0]
+  }
+
+  /**
+   * Update a patient and update cache
+   */
+  static async updatePatient(id: string, patientData: any, tenantId: string) {
+    const { firstName, lastName, dateOfBirth, gender, address, phone, email } = patientData
+
+    const result = await db.query(
+      `UPDATE patients 
+       SET first_name = $1, last_name = $2, date_of_birth = $3, 
+           gender = $4, address = $5, phone = $6, email = $7 
+       WHERE id = $8 AND tenant_id = $9 
+       RETURNING *`,
+      [firstName, lastName, dateOfBirth, gender, address, phone, email, id, tenantId],
+    )
+
+    const updatedPatient = result.rows[0]
+
+    // Update the patient in cache
+    if (updatedPatient) {
+      await PatientCache.updatePatient(id, updatedPatient)
+    }
+
+    return updatedPatient
+  }
+
+  /**
+   * Delete a patient and invalidate caches
+   */
+  static async deletePatient(id: string, tenantId: string) {
+    const result = await db.query("DELETE FROM patients WHERE id = $1 AND tenant_id = $2 RETURNING *", [id, tenantId])
+
+    // Delete the patient from cache
+    await PatientCache.deletePatient(id)
+
+    return result.rows[0]
+  }
+
+  /**
+   * Get patient count with caching
+   */
+  static async getPatientCount(tenantId: string) {
+    const cachedCount = await PatientCache.getPatientCount()
+
+    if (cachedCount !== null) {
+      return cachedCount
+    }
+
+    const result = await db.query("SELECT COUNT(*) as count FROM patients WHERE tenant_id = $1", [tenantId])
+
+    const count = Number.parseInt(result.rows[0].count)
+
+    // Cache the count
+    await PatientCache.setPatientCount(count)
+
+    return count
+  }
+
+  /**
+   * Search patients by name with caching when possible
+   */
+  static async searchPatients(searchTerm: string, tenantId: string) {
+    // Try to get from cache first for common searches
+    const cachedResults = await PatientCache.searchPatientsByPattern(searchTerm)
+
+    if (cachedResults) {
+      return cachedResults
+    }
+
+    // Fall back to database search
+    const result = await db.query(
+      `SELECT * FROM patients 
+       WHERE tenant_id = $1 AND 
+       (first_name ILIKE $2 OR last_name ILIKE $2) 
+       ORDER BY last_name ASC`,
+      [tenantId, `%${searchTerm}%`],
+    )
+
+    return result.rows
+  }
+
+  /**
+   * Get patients with pagination and caching
+   */
+  static async getPaginatedPatients(page: number, pageSize: number, tenantId: string) {
+    const offset = (page - 1) * pageSize
+
+    // For pagination, we generally need to hit the database
+    const result = await db.query(
+      `SELECT * FROM patients 
+       WHERE tenant_id = $1 
+       ORDER BY last_name ASC 
+       LIMIT $2 OFFSET $3`,
+      [tenantId, pageSize, offset],
+    )
+
+    // Cache individual patients for future direct access
+    const patientsMap = new Map()
+    for (const patient of result.rows) {
+      patientsMap.set(patient.id, patient)
+    }
+
+    await PatientCache.bulkSetPatients(patientsMap)
+
+    return result.rows
+  }
+
+  /**
+   * Get patients by care professional ID with caching
+   */
+  static async getPatientsByCareProfessionalId(careProfessionalId: string, tenantId: string) {
+    const cacheKey = `care_professional:${careProfessionalId}:patients`
+    const cachedPatients = await PatientCache.getPatient(cacheKey)
+
+    if (cachedPatients) {
+      return cachedPatients
+    }
+
+    const result = await db.query(
+      `SELECT p.* FROM patients p
+       JOIN care_professional_patients cpp ON p.id = cpp.patient_id
+       WHERE cpp.care_professional_id = $1 AND p.tenant_id = $2
+       ORDER BY p.last_name ASC`,
+      [careProfessionalId, tenantId],
+    )
+
+    // Cache the results
+    await PatientCache.setPatient(cacheKey, result.rows)
+
+    return result.rows
+  }
+
+  /**
+   * Clear all patient caches - useful for admin operations
+   */
+  static async clearAllPatientCaches() {
+    await PatientCache.clearAllPatientCaches()
+  }
+
+  /**
+   * Warm up the cache with frequently accessed patients
+   */
+  static async warmupPatientCache(tenantId: string) {
+    // Get the most recently accessed patients
+    const result = await db.query(
+      `SELECT * FROM patients 
+       WHERE tenant_id = $1 
+       ORDER BY last_accessed_at DESC 
+       LIMIT 100`,
       [tenantId],
     )
-    return result && result.length > 0 ? Number(result[0].count) : 0
-  } catch (error) {
-    console.error("Error counting patients:", error)
-    return 0
-  }
-}
 
-// Validation functions
-
-// Check if patients table exists and has the expected structure
-export async function validatePatientsTable(): Promise<{
-  exists: boolean
-  columns: string[]
-  error: string | null
-}> {
-  try {
-    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
-
-    if (!databaseUrl) {
-      return {
-        exists: false,
-        columns: [],
-        error: "DATABASE_URL environment variable is not set",
-      }
+    // Cache all these patients
+    const patientsMap = new Map()
+    for (const patient of result.rows) {
+      patientsMap.set(patient.id, patient)
     }
 
-    const sql = neon(databaseUrl)
+    await PatientCache.bulkSetPatients(patientsMap)
 
-    // Check if table exists
-    const tableCheck = await sql`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'patients'
-      ) as exists
-    `
+    // Also cache the full list
+    await PatientCache.setAllPatients(result.rows)
 
-    const exists = tableCheck[0]?.exists === true
-
-    if (!exists) {
-      return {
-        exists: false,
-        columns: [],
-        error: "Patients table does not exist",
-      }
-    }
-
-    // Get columns
-    const columns = await sql`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'patients'
-      ORDER BY ordinal_position
-    `
-
-    return {
-      exists: true,
-      columns: columns.map((c: any) => `${c.column_name} (${c.data_type})`),
-      error: null,
-    }
-  } catch (error) {
-    return {
-      exists: false,
-      columns: [],
-      error: error instanceof Error ? error.message : String(error),
-    }
-  }
-}
-
-// Count all patients in the database (regardless of tenant)
-export async function countAllPatients(): Promise<{
-  count: number
-  error: string | null
-}> {
-  try {
-    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
-
-    if (!databaseUrl) {
-      return {
-        count: 0,
-        error: "DATABASE_URL environment variable is not set",
-      }
-    }
-
-    const sql = neon(databaseUrl)
-
-    const result = await sql`SELECT COUNT(*) as count FROM patients`
-
-    return {
-      count: Number(result[0]?.count || 0),
-      error: null,
-    }
-  } catch (error) {
-    return {
-      count: 0,
-      error: error instanceof Error ? error.message : String(error),
-    }
-  }
-}
-
-// Get a list of all tenant IDs that have patients
-export async function getTenantsWithPatients(): Promise<{
-  tenants: string[]
-  error: string | null
-}> {
-  try {
-    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
-
-    if (!databaseUrl) {
-      return {
-        tenants: [],
-        error: "DATABASE_URL environment variable is not set",
-      }
-    }
-
-    const sql = neon(databaseUrl)
-
-    const result = await sql`
-      SELECT DISTINCT tenant_id 
-      FROM patients 
-      ORDER BY tenant_id
-    `
-
-    return {
-      tenants: result.map((r: any) => r.tenant_id),
-      error: null,
-    }
-  } catch (error) {
-    return {
-      tenants: [],
-      error: error instanceof Error ? error.message : String(error),
-    }
-  }
-}
-
-// Create a test patient for a given tenant
-export async function createTestPatient(tenantId: string): Promise<{
-  success: boolean
-  patient: Patient | null
-  error: string | null
-}> {
-  try {
-    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
-
-    if (!databaseUrl) {
-      return {
-        success: false,
-        patient: null,
-        error: "DATABASE_URL environment variable is not set",
-      }
-    }
-
-    const sql = neon(databaseUrl)
-
-    const now = new Date().toISOString()
-    const testPatient = {
-      id: `test-${Date.now()}`,
-      tenant_id: tenantId,
-      first_name: "Test",
-      last_name: "Patient",
-      date_of_birth: "1990-01-01",
-      gender: "Other",
-      email: "test.patient@example.com",
-      phone_number: "07700 900000",
-      address: "123 Test Street",
-      postcode: "TE1 1ST",
-      status: "active",
-      created_at: now,
-      updated_at: now,
-      created_by: "system",
-    }
-
-    // Insert the test patient
-    await sql`
-      INSERT INTO patients ${sql(testPatient)}
-    `
-
-    return {
-      success: true,
-      patient: testPatient as Patient,
-      error: null,
-    }
-  } catch (error) {
-    return {
-      success: false,
-      patient: null,
-      error: error instanceof Error ? error.message : String(error),
-    }
+    return result.rows.length
   }
 }

@@ -1,7 +1,8 @@
 import type { CareProfessional } from "@/types"
 import { tenantQuery } from "@/lib/db/tenant"
-import { neon } from "@neondatabase/serverless"
 import { cache } from "../redis/cache-service"
+import { CacheService } from "@/lib/redis/cache-service"
+import { neon } from "@/lib/db"
 
 // Cache key prefix for care professionals
 const CACHE_PREFIX = "care-professional:"
@@ -131,6 +132,124 @@ const demoCareProfessionals: CareProfessional[] = [
   },
 ]
 
+// Cache TTL values (in seconds)
+const CACHE_TTL = {
+  CARE_PROFESSIONAL: 3600, // 1 hour
+  CARE_PROFESSIONALS_LIST: 1800, // 30 minutes
+  CREDENTIALS: 3600, // 1 hour
+}
+
+export class CareProfessionalService {
+  /**
+   * Get a care professional by ID with caching
+   */
+  static async getCareProfessionalById(id: string, tenantId: string) {
+    const cacheKey = `care_professional:${tenantId}:${id}`
+
+    return CacheService.getOrSet(
+      cacheKey,
+      async () => {
+        const result = await neon`
+          SELECT * FROM care_professionals 
+          WHERE id = ${id} AND tenant_id = ${tenantId}
+        `
+        return result.length > 0 ? result[0] : null
+      },
+      CACHE_TTL.CARE_PROFESSIONAL,
+    )
+  }
+
+  /**
+   * Get all care professionals with caching
+   */
+  static async getAllCareProfessionals(tenantId: string) {
+    const cacheKey = `care_professionals:${tenantId}:all`
+
+    return CacheService.getOrSet(
+      cacheKey,
+      async () => {
+        const result = await neon`
+          SELECT * FROM care_professionals 
+          WHERE tenant_id = ${tenantId}
+          ORDER BY last_name, first_name
+        `
+        return result
+      },
+      CACHE_TTL.CARE_PROFESSIONALS_LIST,
+    )
+  }
+
+  /**
+   * Create a new care professional
+   */
+  static async createCareProfessional(data: any, tenantId: string) {
+    // Insert into database
+    const result = await neon`
+      INSERT INTO care_professionals (
+        first_name, last_name, email, phone, role, status, tenant_id
+      ) VALUES (
+        ${data.firstName}, 
+        ${data.lastName}, 
+        ${data.email}, 
+        ${data.phone}, 
+        ${data.role}, 
+        ${data.status}, 
+        ${tenantId}
+      )
+      RETURNING *
+    `
+
+    // Invalidate cache
+    await CacheService.delete(`care_professionals:${tenantId}:all`)
+
+    return result[0]
+  }
+
+  /**
+   * Update a care professional
+   */
+  static async updateCareProfessional(id: string, data: any, tenantId: string) {
+    // Update in database
+    const result = await neon`
+      UPDATE care_professionals
+      SET 
+        first_name = ${data.firstName},
+        last_name = ${data.lastName},
+        email = ${data.email},
+        phone = ${data.phone},
+        role = ${data.role},
+        status = ${data.status},
+        updated_at = NOW()
+      WHERE id = ${id} AND tenant_id = ${tenantId}
+      RETURNING *
+    `
+
+    // Invalidate caches
+    await CacheService.delete(`care_professional:${tenantId}:${id}`)
+    await CacheService.delete(`care_professionals:${tenantId}:all`)
+
+    return result.length > 0 ? result[0] : null
+  }
+
+  /**
+   * Delete a care professional
+   */
+  static async deleteCareProfessional(id: string, tenantId: string) {
+    // Delete from database
+    const result = await neon`
+      DELETE FROM care_professionals
+      WHERE id = ${id} AND tenant_id = ${tenantId}
+      RETURNING id
+    `
+
+    // Invalidate caches
+    await CacheService.delete(`care_professional:${tenantId}:${id}`)
+    await CacheService.delete(`care_professionals:${tenantId}:all`)
+
+    return result.length > 0
+  }
+}
+
 export async function getCareProfessionals(tenantId: string, searchQuery?: string) {
   const cacheKey = `${CACHE_PREFIX}list:${tenantId}`
 
@@ -216,7 +335,7 @@ export async function getCareProfessionals(tenantId: string, searchQuery?: strin
   }
 }
 
-export async function getCareProfessionalById(id: string, tenantId: string) {
+export async function getCareProfessionalByIdOld(id: string, tenantId: string) {
   const cacheKey = `${CACHE_PREFIX}${id}:${tenantId}`
 
   // Try to get from cache first
@@ -280,7 +399,7 @@ export async function getCareProfessionalById(id: string, tenantId: string) {
   }
 }
 
-export async function createCareProfessional(data: any, tenantId: string) {
+export async function createCareProfessionalOld(data: any, tenantId: string) {
   const sql = neon(process.env.DATABASE_URL)
   const result = await sql`
     INSERT INTO care_professionals (
@@ -299,7 +418,7 @@ export async function createCareProfessional(data: any, tenantId: string) {
   return result[0]
 }
 
-export async function updateCareProfessional(id: string, data: any, tenantId: string) {
+export async function updateCareProfessionalOld(id: string, data: any, tenantId: string) {
   const sql = neon(process.env.DATABASE_URL)
   const result = await sql`
     UPDATE care_professionals SET
@@ -640,7 +759,7 @@ export async function getCareProfessionalsWithAppointmentCounts(
   }
 }
 
-export async function deleteCareProfessional(id: string, tenantId: string) {
+export async function deleteCareProfessionalOld(id: string, tenantId: string) {
   const sql = neon(process.env.DATABASE_URL)
   await sql`
     DELETE FROM care_professionals 

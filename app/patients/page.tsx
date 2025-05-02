@@ -30,6 +30,7 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     async function fetchPatients() {
@@ -42,26 +43,40 @@ export default function PatientsPage() {
         }
 
         const data = await response.json()
-        setPatients(data)
+
+        // Ensure we have an array of patients
+        if (Array.isArray(data)) {
+          setPatients(data)
+        } else {
+          console.error("Unexpected data format:", data)
+          setError("Received invalid data format from server")
+        }
       } catch (err) {
         console.error("Error fetching patients:", err)
         setError("Failed to load patients. Please try again later.")
+
+        // Auto-retry once after a short delay
+        if (retryCount < 1) {
+          setTimeout(() => {
+            setRetryCount((prev) => prev + 1)
+          }, 2000)
+        }
       } finally {
         setLoading(false)
       }
     }
 
     fetchPatients()
-  }, [])
+  }, [retryCount])
 
   const filteredPatients = patients.filter((patient) => {
     const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase()
     const searchLower = searchTerm.toLowerCase()
     return (
       fullName.includes(searchLower) ||
-      patient.nhs_number.includes(searchLower) ||
-      patient.primary_condition.toLowerCase().includes(searchLower) ||
-      patient.primary_care_provider.toLowerCase().includes(searchLower)
+      patient.nhs_number?.includes(searchLower) ||
+      patient.primary_condition?.toLowerCase().includes(searchLower) ||
+      patient.primary_care_provider?.toLowerCase().includes(searchLower)
     )
   })
 
@@ -74,8 +89,9 @@ export default function PatientsPage() {
       <div className="container mx-auto py-6 px-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center text-red-500">
-              <p>{error}</p>
+            <div className="text-center">
+              <p className="text-red-500 mb-4">{error}</p>
+              <Button onClick={() => setRetryCount((prev) => prev + 1)}>Retry</Button>
             </div>
           </CardContent>
         </Card>
@@ -157,15 +173,17 @@ export default function PatientsPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>{format(new Date(patient.date_of_birth), "dd/MM/yyyy")}</TableCell>
+                        <TableCell>
+                          {patient.date_of_birth ? format(new Date(patient.date_of_birth), "dd/MM/yyyy") : "N/A"}
+                        </TableCell>
                         <TableCell>{patient.gender}</TableCell>
                         <TableCell>
                           <Badge variant={patient.status === "active" ? "default" : "secondary"}>
-                            {patient.status}
+                            {patient.status || "active"}
                           </Badge>
                         </TableCell>
                         <TableCell className="hidden md:table-cell max-w-xs truncate">
-                          {patient.primary_condition}
+                          {patient.primary_condition || "No condition recorded"}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">

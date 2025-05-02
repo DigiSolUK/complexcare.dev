@@ -1,140 +1,91 @@
-import { Redis } from "@upstash/redis"
+import { redis } from "./client"
 
-// Create Redis client
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL || "",
-  token: process.env.KV_REST_API_TOKEN || "",
-})
-
-class CacheService {
+export class CacheService {
   /**
-   * Get a value from cache
-   * @param key - Cache key
+   * Get a value from the cache
+   * @param key The cache key
    * @returns The cached value or null if not found
    */
-  async get(key: string): Promise<string | null> {
+  static async get<T>(key: string): Promise<T | null> {
     try {
-      return await redis.get(key)
+      return (await redis.get(key)) as T | null
     } catch (error) {
-      console.error("Redis get error:", error)
+      console.error(`Cache get error for key ${key}:`, error)
       return null
     }
   }
 
   /**
-   * Set a value in cache
-   * @param key - Cache key
-   * @param value - Value to cache
-   * @param ttl - Time to live in seconds (optional)
-   * @returns Success status
+   * Set a value in the cache
+   * @param key The cache key
+   * @param value The value to cache
+   * @param ttlSeconds Time to live in seconds (optional)
+   * @returns true if successful, false otherwise
    */
-  async set(key: string, value: string, ttl?: number): Promise<boolean> {
+  static async set<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
     try {
-      if (ttl) {
-        await redis.set(key, value, { ex: ttl })
+      if (ttlSeconds) {
+        await redis.set(key, value, { ex: ttlSeconds })
       } else {
         await redis.set(key, value)
       }
       return true
     } catch (error) {
-      console.error("Redis set error:", error)
+      console.error(`Cache set error for key ${key}:`, error)
       return false
     }
   }
 
   /**
-   * Delete a value from cache
-   * @param key - Cache key
-   * @returns Success status
+   * Delete a value from the cache
+   * @param key The cache key
+   * @returns true if successful, false otherwise
    */
-  async del(key: string): Promise<boolean> {
+  static async delete(key: string): Promise<boolean> {
     try {
       await redis.del(key)
       return true
     } catch (error) {
-      console.error("Redis del error:", error)
+      console.error(`Cache delete error for key ${key}:`, error)
       return false
     }
   }
 
   /**
-   * Check if a key exists in cache
-   * @param key - Cache key
-   * @returns True if key exists
+   * Check if a key exists in the cache
+   * @param key The cache key
+   * @returns true if the key exists, false otherwise
    */
-  async exists(key: string): Promise<boolean> {
+  static async exists(key: string): Promise<boolean> {
     try {
       return (await redis.exists(key)) === 1
     } catch (error) {
-      console.error("Redis exists error:", error)
+      console.error(`Cache exists error for key ${key}:`, error)
       return false
     }
   }
 
   /**
-   * Increment a counter in cache
-   * @param key - Cache key
-   * @param increment - Amount to increment (default: 1)
-   * @returns New value
+   * Get a value from the cache or compute it if not found
+   * @param key The cache key
+   * @param fn The function to compute the value if not found
+   * @param ttlSeconds Time to live in seconds (optional)
+   * @returns The cached or computed value
    */
-  async incr(key: string, increment = 1): Promise<number> {
+  static async getOrSet<T>(key: string, fn: () => Promise<T>, ttlSeconds?: number): Promise<T | null> {
     try {
-      if (increment === 1) {
-        return await redis.incr(key)
-      } else {
-        return await redis.incrby(key, increment)
+      const cachedValue = await this.get<T>(key)
+
+      if (cachedValue !== null) {
+        return cachedValue
       }
-    } catch (error) {
-      console.error("Redis incr error:", error)
-      return 0
-    }
-  }
 
-  /**
-   * Set key expiration
-   * @param key - Cache key
-   * @param ttl - Time to live in seconds
-   * @returns Success status
-   */
-  async expire(key: string, ttl: number): Promise<boolean> {
-    try {
-      return (await redis.expire(key, ttl)) === 1
+      const computedValue = await fn()
+      await this.set(key, computedValue, ttlSeconds)
+      return computedValue
     } catch (error) {
-      console.error("Redis expire error:", error)
-      return false
-    }
-  }
-
-  /**
-   * Get multiple values from cache
-   * @param keys - Array of cache keys
-   * @returns Array of values
-   */
-  async mget(keys: string[]): Promise<(string | null)[]> {
-    try {
-      return await redis.mget(...keys)
-    } catch (error) {
-      console.error("Redis mget error:", error)
-      return keys.map(() => null)
-    }
-  }
-
-  /**
-   * Set multiple values in cache
-   * @param entries - Array of [key, value] pairs
-   * @returns Success status
-   */
-  async mset(entries: [string, string][]): Promise<boolean> {
-    try {
-      const args: string[] = entries.flat()
-      await redis.mset(...args)
-      return true
-    } catch (error) {
-      console.error("Redis mset error:", error)
-      return false
+      console.error(`Cache getOrSet error for key ${key}:`, error)
+      return null
     }
   }
 }
-
-// Export singleton instance
-export const cache = new CacheService()

@@ -12,12 +12,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Calendar,
-  Clock,
   FileText,
   Heart,
   Home,
   Mail,
-  MapPin,
   Phone,
   PlusCircle,
   User,
@@ -28,6 +26,8 @@ import {
   CalendarClock,
   ClipboardList,
   Activity,
+  AlertTriangle,
+  RefreshCcw,
 } from "lucide-react"
 
 interface Patient {
@@ -101,6 +101,75 @@ interface Patient {
   updated_at: string
 }
 
+// Skeleton component for loading state
+const PatientDetailSkeleton = () => (
+  <div className="container mx-auto py-6 px-4">
+    <div className="mb-6">
+      <Skeleton className="h-8 w-32" />
+    </div>
+    <Card className="mb-6">
+      <CardHeader className="pb-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+          <Skeleton className="h-20 w-20 rounded-full" />
+          <div className="flex-1">
+            <Skeleton className="h-6 w-48 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </div>
+      </CardHeader>
+    </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-32 mb-2" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-4 w-48 mb-2" />
+          <Skeleton className="h-4 w-32 mb-2" />
+          <Skeleton className="h-4 w-56" />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-32 mb-2" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-4 w-48 mb-2" />
+          <Skeleton className="h-4 w-32 mb-2" />
+          <Skeleton className="h-4 w-56" />
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+)
+
+// Function to calculate age from date of birth
+const calculateAge = (dateOfBirth: string): number => {
+  const today = new Date()
+  const birthDate = new Date(dateOfBirth)
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const month = today.getMonth() - birthDate.getMonth()
+
+  if (month < 0 || (month === 0 && today.getDate() < birthDate.getDate())) {
+    age--
+  }
+
+  return age
+}
+
+// Function to determine BMI category
+const getBMICategory = (bmi: number): string => {
+  if (bmi < 18.5) {
+    return "Underweight"
+  } else if (bmi < 25) {
+    return "Normal weight"
+  } else if (bmi < 30) {
+    return "Overweight"
+  } else {
+    return "Obese"
+  }
+}
+
 export default function PatientDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -109,29 +178,62 @@ export default function PatientDetailPage() {
   const [patient, setPatient] = useState<Patient | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [retrying, setRetrying] = useState(false)
+
+  async function fetchPatient() {
+    try {
+      setLoading(true)
+      setError(null)
+
+      console.log(`Fetching patient with ID: ${id}`)
+      const response = await fetch(`/api/patients/${id}`)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch patient: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log("Patient data received:", data)
+      setPatient(data)
+    } catch (err) {
+      console.error("Error fetching patient:", err)
+      setError("Failed to load patient details. Please try again later.")
+    } finally {
+      setLoading(false)
+      setRetrying(false)
+    }
+  }
+
+  // Function to handle retry
+  const handleRetry = () => {
+    setRetrying(true)
+    fetchPatient()
+  }
 
   useEffect(() => {
-    async function fetchPatient() {
-      try {
-        setLoading(true)
-        const response = await fetch(`/api/patients/${id}`)
+    fetchPatient()
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch patient: ${response.status}`)
-        }
+    // Auto retry once after a delay if there's an error
+    return () => {
+      // Cleanup
+    }
+  }, [id])
 
-        const data = await response.json()
-        setPatient(data)
-      } catch (err) {
-        console.error("Error fetching patient:", err)
-        setError("Failed to load patient details. Please try again later.")
-      } finally {
-        setLoading(false)
-      }
+  // Auto retry once after initial error
+  useEffect(() => {
+    let retryTimeout: NodeJS.Timeout
+
+    if (error && !retrying) {
+      retryTimeout = setTimeout(() => {
+        console.log("Auto-retrying patient fetch...")
+        handleRetry()
+      }, 2000)
     }
 
-    fetchPatient()
-  }, [id])
+    return () => {
+      if (retryTimeout) clearTimeout(retryTimeout)
+    }
+  }, [error, retrying])
 
   if (loading) {
     return <PatientDetailSkeleton />
@@ -142,8 +244,23 @@ export default function PatientDetailPage() {
       <div className="container mx-auto py-6 px-4">
         <Card className="w-full">
           <CardContent className="pt-6">
-            <div className="text-center text-red-500">
-              <p>{error}</p>
+            <div className="text-center">
+              <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500 mb-4" />
+              <h2 className="text-xl font-semibold mb-2">Error Loading Patient</h2>
+              <p className="text-red-500 mb-4">{error}</p>
+              <Button onClick={handleRetry} disabled={retrying}>
+                {retrying ? (
+                  <>
+                    <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Retry
+                  </>
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -158,11 +275,30 @@ export default function PatientDetailPage() {
           <CardContent className="pt-6">
             <div className="text-center">
               <p>Patient not found</p>
+              <Button variant="outline" size="sm" onClick={() => router.back()} className="mt-4">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Patients
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
     )
+  }
+
+  // Safely access nested properties
+  const getNestedProperty = (obj: any, path: string, defaultValue: any = "N/A") => {
+    const properties = path.split(".")
+    let value = obj
+
+    for (const prop of properties) {
+      if (value === null || value === undefined || typeof value !== "object") {
+        return defaultValue
+      }
+      value = value[prop]
+    }
+
+    return value !== null && value !== undefined ? value : defaultValue
   }
 
   return (
@@ -189,20 +325,21 @@ export default function PatientDetailPage() {
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
             <Avatar className="h-20 w-20">
               <AvatarImage
-                src={`/placeholder.svg?height=80&width=80&query=${patient.first_name.charAt(0)}${patient.last_name.charAt(0)}`}
-                alt={`${patient.first_name} ${patient.last_name}`}
+                src={`/placeholder.svg?height=80&width=80&query=${patient.first_name?.charAt(0) || ""}${patient.last_name?.charAt(0) || ""}`}
+                alt={`${patient.first_name || ""} ${patient.last_name || ""}`}
               />
-              <AvatarFallback>{`${patient.first_name.charAt(0)}${patient.last_name.charAt(0)}`}</AvatarFallback>
+              <AvatarFallback>{`${patient.first_name?.charAt(0) || ""}${patient.last_name?.charAt(0) || ""}`}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                 <div>
                   <CardTitle className="text-2xl">
-                    {patient.first_name} {patient.last_name}
+                    {patient.first_name || "Unknown"} {patient.last_name || ""}
                   </CardTitle>
                   <CardDescription>
-                    NHS Number: {patient.nhs_number} | DOB: {format(new Date(patient.date_of_birth), "PPP")} (
-                    {calculateAge(patient.date_of_birth)} years)
+                    NHS Number: {patient.nhs_number || "N/A"} | DOB:{" "}
+                    {patient.date_of_birth ? format(new Date(patient.date_of_birth), "PPP") : "N/A"} (
+                    {patient.date_of_birth ? calculateAge(patient.date_of_birth) : "N/A"} years)
                   </CardDescription>
                 </div>
                 <Badge variant={patient.status === "active" ? "default" : "secondary"} className="h-6">
@@ -236,18 +373,18 @@ export default function PatientDetailPage() {
                 <dl className="space-y-4">
                   <div>
                     <dt className="text-sm font-medium text-muted-foreground">Gender</dt>
-                    <dd>{patient.gender}</dd>
+                    <dd>{patient.gender || "N/A"}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-muted-foreground flex items-center">
                       <Home className="mr-2 h-4 w-4" /> Address
                     </dt>
                     <dd>
-                      {patient.address.street}
+                      {getNestedProperty(patient, "address.street")}
                       <br />
-                      {patient.address.city}, {patient.address.postcode}
+                      {getNestedProperty(patient, "address.city")}, {getNestedProperty(patient, "address.postcode")}
                       <br />
-                      {patient.address.country}
+                      {getNestedProperty(patient, "address.country")}
                     </dd>
                   </div>
                 </dl>
@@ -267,21 +404,22 @@ export default function PatientDetailPage() {
                     <dt className="text-sm font-medium text-muted-foreground flex items-center">
                       <Phone className="mr-2 h-4 w-4" /> Phone
                     </dt>
-                    <dd>{patient.contact.phone}</dd>
+                    <dd>{getNestedProperty(patient, "contact.phone")}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-muted-foreground flex items-center">
                       <Mail className="mr-2 h-4 w-4" /> Email
                     </dt>
-                    <dd>{patient.contact.email}</dd>
+                    <dd>{getNestedProperty(patient, "contact.email")}</dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-muted-foreground flex items-center">
                       <AlertCircle className="mr-2 h-4 w-4" /> Emergency Contact
                     </dt>
                     <dd>
-                      {patient.contact.emergency_contact_name} ({patient.contact.emergency_contact_relationship})<br />
-                      {patient.contact.emergency_contact_phone}
+                      {getNestedProperty(patient, "contact.emergency_contact_name")} (
+                      {getNestedProperty(patient, "contact.emergency_contact_relationship")})<br />
+                      {getNestedProperty(patient, "contact.emergency_contact_phone")}
                     </dd>
                   </div>
                 </dl>
@@ -300,19 +438,19 @@ export default function PatientDetailPage() {
               <dl className="space-y-4">
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Primary Condition</dt>
-                  <dd>{patient.medical_information.primary_condition}</dd>
+                  <dd>{getNestedProperty(patient, "medical_information.primary_condition")}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Primary Care Provider</dt>
                   <dd>
-                    {patient.medical_information.primary_care_provider} |{" "}
-                    {patient.medical_information.primary_care_provider_contact}
+                    {getNestedProperty(patient, "medical_information.primary_care_provider")} |{" "}
+                    {getNestedProperty(patient, "medical_information.primary_care_provider_contact")}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Allergies</dt>
                   <dd>
-                    {patient.medical_information.allergies.length > 0 ? (
+                    {patient.medical_information?.allergies && patient.medical_information.allergies.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {patient.medical_information.allergies.map((allergy, index) => (
                           <Badge key={index} variant="outline" className="bg-red-50">
@@ -338,7 +476,7 @@ export default function PatientDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {patient.medications.length > 0 ? (
+                {patient.medications && patient.medications.length > 0 ? (
                   <ul className="space-y-2">
                     {patient.medications.map((medication, index) => (
                       <li key={index} className="border-b pb-2 last:border-0 last:pb-0">
@@ -365,7 +503,8 @@ export default function PatientDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {patient.appointments.filter((app) => new Date(app.date) > new Date() && app.status === "scheduled")
+                {patient.appointments &&
+                patient.appointments.filter((app) => new Date(app.date) > new Date() && app.status === "scheduled")
                   .length > 0 ? (
                   <ul className="space-y-2">
                     {patient.appointments
@@ -406,31 +545,43 @@ export default function PatientDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="border rounded-lg p-4">
                   <div className="text-sm font-medium text-muted-foreground">Height</div>
-                  <div className="text-2xl font-bold">{patient.medical_information.height} cm</div>
+                  <div className="text-2xl font-bold">
+                    {getNestedProperty(patient, "medical_information.height", "N/A")}{" "}
+                    {patient.medical_information?.height ? "cm" : ""}
+                  </div>
                 </div>
                 <div className="border rounded-lg p-4">
                   <div className="text-sm font-medium text-muted-foreground">Weight</div>
-                  <div className="text-2xl font-bold">{patient.medical_information.weight} kg</div>
+                  <div className="text-2xl font-bold">
+                    {getNestedProperty(patient, "medical_information.weight", "N/A")}{" "}
+                    {patient.medical_information?.weight ? "kg" : ""}
+                  </div>
                 </div>
                 <div className="border rounded-lg p-4">
                   <div className="text-sm font-medium text-muted-foreground">BMI</div>
-                  <div className="text-2xl font-bold">{patient.medical_information.bmi.toFixed(1)}</div>
-                  <div className="text-xs text-muted-foreground">{getBMICategory(patient.medical_information.bmi)}</div>
+                  <div className="text-2xl font-bold">
+                    {patient.medical_information?.bmi ? patient.medical_information.bmi.toFixed(1) : "N/A"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {patient.medical_information?.bmi ? getBMICategory(patient.medical_information.bmi) : ""}
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Blood Type</div>
-                  <div className="font-medium">{patient.medical_information.blood_type}</div>
+                  <div className="font-medium">{getNestedProperty(patient, "medical_information.blood_type")}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Smoking Status</div>
-                  <div className="font-medium">{patient.medical_information.smoking_status}</div>
+                  <div className="font-medium">{getNestedProperty(patient, "medical_information.smoking_status")}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Alcohol Consumption</div>
-                  <div className="font-medium">{patient.medical_information.alcohol_consumption}</div>
+                  <div className="font-medium">
+                    {getNestedProperty(patient, "medical_information.alcohol_consumption")}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -455,7 +606,7 @@ export default function PatientDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {patient.medications.length > 0 ? (
+                  {patient.medications && patient.medications.length > 0 ? (
                     patient.medications.map((medication, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-medium">{medication.name}</TableCell>
@@ -492,72 +643,77 @@ export default function PatientDetailPage() {
                   <ClipboardList className="mr-2 h-5 w-5" />
                   Care Plan
                 </CardTitle>
-                <div className="text-sm text-muted-foreground">
-                  Last updated: {format(new Date(patient.care_plan.updated_date), "PPP")}
-                </div>
+                {patient.care_plan?.updated_date && (
+                  <div className="text-sm text-muted-foreground">
+                    Last updated: {format(new Date(patient.care_plan.updated_date), "PPP")}
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Goals</h3>
-                  <ul className="space-y-2">
-                    {patient.care_plan.goals.map((goal, index) => (
-                      <li key={index} className="flex items-start">
-                        <div className="mr-2 mt-1 h-4 w-4 rounded-full border-2 border-primary flex items-center justify-center">
-                          <div className="h-2 w-2 rounded-full bg-primary"></div>
-                        </div>
-                        {goal}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              {patient.care_plan ? (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Goals</h3>
+                    <ul className="space-y-2">
+                      {patient.care_plan.goals?.map((goal, index) => (
+                        <li key={index} className="flex items-start">
+                          <div className="mr-2 mt-1 h-4 w-4 rounded-full border-2 border-primary flex items-center justify-center">
+                            <div className="h-2 w-2 rounded-full bg-primary"></div>
+                          </div>
+                          {goal}
+                        </li>
+                      )) || <p>No goals defined</p>}
+                    </ul>
+                  </div>
 
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Interventions</h3>
-                  <ul className="space-y-2">
-                    {patient.care_plan.interventions.map((intervention, index) => (
-                      <li key={index} className="flex items-start">
-                        <div className="mr-2 mt-1 h-4 w-4 rounded-full border-2 border-primary flex items-center justify-center">
-                          <div className="h-2 w-2 rounded-full bg-primary"></div>
-                        </div>
-                        {intervention}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Interventions</h3>
+                    <ul className="space-y-2">
+                      {patient.care_plan.interventions?.map((intervention, index) => (
+                        <li key={index} className="flex items-start">
+                          <div className="mr-2 mt-1 h-4 w-4 rounded-full border-2 border-primary flex items-center justify-center">
+                            <div className="h-2 w-2 rounded-full bg-primary"></div>
+                          </div>
+                          {intervention}
+                        </li>
+                      )) || <p>No interventions defined</p>}
+                    </ul>
+                  </div>
 
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Assigned Care Professionals</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {patient.care_plan.assigned_care_professionals.map((cp, index) => (
-                      <div key={index} className="flex items-center p-3 border rounded-md">
-                        <Avatar className="h-10 w-10 mr-3">
-                          <AvatarFallback>
-                            {cp.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{cp.name}</div>
-                          <div className="text-sm text-muted-foreground">{cp.role}</div>
-                        </div>
-                      </div>
-                    ))}
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Assigned Care Professionals</h3>
+                    {patient.care_plan.assigned_care_professionals &&
+                    patient.care_plan.assigned_care_professionals.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Role</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {patient.care_plan.assigned_care_professionals.map((professional) => (
+                            <TableRow key={professional.id}>
+                              <TableCell className="font-medium">{professional.name}</TableCell>
+                              <TableCell>{professional.role}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p>No care professionals assigned</p>
+                    )}
                   </div>
                 </div>
-              </div>
+              ) : (
+                <p>No care plan available</p>
+              )}
             </CardContent>
-            <CardFooter className="flex flex-col sm:flex-row gap-2">
-              <Button>
+            <CardFooter>
+              <Button variant="outline" size="sm">
                 <Edit className="mr-2 h-4 w-4" />
-                Update Care Plan
-              </Button>
-              <Button variant="outline">
-                <FileText className="mr-2 h-4 w-4" />
-                Export Care Plan
+                Edit Care Plan
               </Button>
             </CardFooter>
           </Card>
@@ -566,190 +722,88 @@ export default function PatientDetailPage() {
         <TabsContent value="appointments" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
-                <CardTitle className="flex items-center">
-                  <Calendar className="mr-2 h-5 w-5" />
-                  Appointments
-                </CardTitle>
-                <Button size="sm">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Schedule Appointment
-                </Button>
-              </div>
+              <CardTitle className="flex items-center">
+                <Calendar className="mr-2 h-5 w-5" />
+                Appointments
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="upcoming" className="w-full">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                  <TabsTrigger value="past">Past</TabsTrigger>
-                  <TabsTrigger value="all">All</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="upcoming">
-                  <AppointmentsList
-                    appointments={patient.appointments.filter(
-                      (app) => new Date(app.date) > new Date() && app.status === "scheduled",
-                    )}
-                  />
-                </TabsContent>
-
-                <TabsContent value="past">
-                  <AppointmentsList
-                    appointments={patient.appointments.filter(
-                      (app) => new Date(app.date) < new Date() || app.status === "completed",
-                    )}
-                  />
-                </TabsContent>
-
-                <TabsContent value="all">
-                  <AppointmentsList appointments={patient.appointments} />
-                </TabsContent>
-              </Tabs>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Care Professional</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {patient.appointments && patient.appointments.length > 0 ? (
+                    patient.appointments.map((appointment) => (
+                      <TableRow key={appointment.id}>
+                        <TableCell>{format(new Date(appointment.date), "PPP")}</TableCell>
+                        <TableCell>{appointment.type}</TableCell>
+                        <TableCell>{appointment.care_professional}</TableCell>
+                        <TableCell>{appointment.location}</TableCell>
+                        <TableCell>{appointment.status}</TableCell>
+                        <TableCell>{appointment.notes}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center">
+                        No appointments recorded
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
+            <CardFooter>
+              <Button variant="outline" size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Schedule Appointment
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
 
         <TabsContent value="notes" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
-                <CardTitle className="flex items-center">
-                  <FileText className="mr-2 h-5 w-5" />
-                  Clinical Notes
-                </CardTitle>
-                <Button size="sm">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Add Note
-                </Button>
-              </div>
+              <CardTitle className="flex items-center">
+                <FileText className="mr-2 h-5 w-5" />
+                Notes
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              {patient.notes.length > 0 ? (
-                <div className="space-y-4">
-                  {patient.notes
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .map((note, index) => (
-                      <div key={index} className="border rounded-md p-4">
-                        <div className="flex flex-col md:flex-row justify-between md:items-center mb-2">
-                          <div className="font-medium">{note.author}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {format(new Date(note.date), "PPP 'at' p")}
-                          </div>
-                        </div>
-                        <p className="text-sm">{note.content}</p>
+              {patient.notes && patient.notes.length > 0 ? (
+                <ul className="space-y-4">
+                  {patient.notes.map((note) => (
+                    <li key={note.id} className="border rounded-md p-4">
+                      <div className="mb-2">
+                        <div className="font-medium">{note.author}</div>
+                        <div className="text-sm text-muted-foreground">{format(new Date(note.date), "PPP p")}</div>
                       </div>
-                    ))}
-                </div>
+                      <p>{note.content}</p>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <div className="text-center py-8">
-                  <p>No clinical notes recorded</p>
-                </div>
+                <p>No notes recorded</p>
               )}
             </CardContent>
+            <CardFooter>
+              <Button variant="outline" size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Note
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
   )
-}
-
-function AppointmentsList({ appointments }: { appointments: any[] }) {
-  if (appointments.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p>No appointments found</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-4">
-      {appointments
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .map((appointment, index) => (
-          <div key={index} className="border rounded-md p-4">
-            <div className="flex flex-col md:flex-row justify-between md:items-center mb-2">
-              <div className="font-medium">{appointment.type}</div>
-              <Badge variant={appointment.status === "scheduled" ? "outline" : "secondary"}>{appointment.status}</Badge>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-              <div className="flex items-center">
-                <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                {format(new Date(appointment.date), "PPP")}
-              </div>
-              <div className="flex items-center">
-                <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                {format(new Date(appointment.date), "p")}
-              </div>
-              <div className="flex items-center">
-                <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                {appointment.care_professional}
-              </div>
-              <div className="flex items-center">
-                <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                {appointment.location}
-              </div>
-            </div>
-            {appointment.notes && (
-              <div className="mt-2 text-sm">
-                <div className="font-medium">Notes:</div>
-                <p className="text-muted-foreground">{appointment.notes}</p>
-              </div>
-            )}
-          </div>
-        ))}
-    </div>
-  )
-}
-
-function PatientDetailSkeleton() {
-  return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="mb-6 flex items-center justify-between">
-        <Skeleton className="h-9 w-32" />
-        <div className="flex gap-2">
-          <Skeleton className="h-9 w-32" />
-          <Skeleton className="h-9 w-40" />
-        </div>
-      </div>
-
-      <Skeleton className="h-40 w-full mb-6" />
-
-      <div className="mb-4">
-        <Skeleton className="h-10 w-96" />
-      </div>
-
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-        <Skeleton className="h-80 w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function calculateAge(dateOfBirth: string): number {
-  const today = new Date()
-  const birthDate = new Date(dateOfBirth)
-  let age = today.getFullYear() - birthDate.getFullYear()
-  const monthDifference = today.getMonth() - birthDate.getMonth()
-
-  if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
-    age--
-  }
-
-  return age
-}
-
-function getBMICategory(bmi: number): string {
-  if (bmi < 18.5) return "Underweight"
-  if (bmi < 25) return "Normal weight"
-  if (bmi < 30) return "Overweight"
-  return "Obese"
 }
