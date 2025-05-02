@@ -1,36 +1,74 @@
-import { createClient } from "@upstash/redis"
+import { Redis } from "@upstash/redis"
 
-// Create Redis client
-export const redis = createClient({
-  url: process.env.REDIS_URL || process.env.KV_URL || "",
-  token: process.env.REDIS_TOKEN || process.env.KV_REST_API_TOKEN || "",
-})
+// Initialize Redis client
+const getRedisClient = () => {
+  // Check if we're using the KV_URL environment variable (Vercel KV)
+  if (process.env.KV_URL) {
+    return new Redis({
+      url: process.env.KV_URL,
+      token: process.env.KV_REST_API_TOKEN || "",
+    })
+  }
 
-/**
- * Safely execute a Redis operation with error handling
- * @param operation Function that performs a Redis operation
- * @param fallback Fallback value to return if the operation fails
- * @returns Result of the operation or fallback value
- */
-export async function safeRedisOperation<T>(operation: () => Promise<T>, fallback: T): Promise<T> {
+  // Fallback to REDIS_URL if available
+  if (process.env.REDIS_URL) {
+    return new Redis({
+      url: process.env.REDIS_URL,
+      token: process.env.REDIS_TOKEN || "",
+    })
+  }
+
+  // Default configuration
+  return new Redis({
+    url: "https://eu2-careful-mole-30498.upstash.io",
+    token: process.env.REDIS_TOKEN || "",
+  })
+}
+
+// Create Redis client instance
+export const redis = getRedisClient()
+
+// Safe Redis operation wrapper
+export async function safeRedisOperation<T>(
+  operation: () => Promise<T>,
+  fallback: T,
+  errorMessage = "Redis operation failed",
+): Promise<T> {
   try {
     return await operation()
   } catch (error) {
-    console.error("Redis operation failed:", error)
+    console.error(`${errorMessage}:`, error)
     return fallback
   }
 }
 
-/**
- * Test the Redis connection
- * @returns A boolean indicating if the connection was successful
- */
-export async function testRedisConnection(): Promise<boolean> {
-  return await safeRedisOperation(async () => {
-    const pong = await redis.ping()
-    return pong === "PONG"
-  }, false)
+// Helper function to generate cache keys
+export function generateCacheKey(prefix: string, identifier: string): string {
+  return `${prefix}:${identifier}`
 }
 
-// Export the Redis client
-export default redis
+// Helper function to set cache with expiration
+export async function setCacheWithExpiry<T>(key: string, data: T, expirySeconds = 3600): Promise<void> {
+  await safeRedisOperation(
+    () => redis.set(key, JSON.stringify(data), { ex: expirySeconds }),
+    undefined,
+    `Failed to set cache for key: ${key}`,
+  )
+}
+
+// Helper function to get cache data
+export async function getCacheData<T>(key: string): Promise<T | null> {
+  return safeRedisOperation(
+    async () => {
+      const data = await redis.get(key)
+      return data ? (JSON.parse(data as string) as T) : null
+    },
+    null,
+    `Failed to get cache for key: ${key}`,
+  )
+}
+
+// Helper function to delete cache
+export async function deleteCache(key: string): Promise<void> {
+  await safeRedisOperation(() => redis.del(key), undefined, `Failed to delete cache for key: ${key}`)
+}
