@@ -106,3 +106,14 @@ export async function getTenantUsers(tenantId: string): Promise<User[]> {
     throw error
   }
 }
+
+// Add the missing exported function
+export async function getTenantById(id: string): Promise<{ id: string } | null> {
+  try {
+    const tenants = await executeQuery<{ id: string }>(`SELECT id FROM tenants WHERE id = $1 LIMIT 1`, [id])
+    return tenants.length > 0 ? tenants[0] : null
+  } catch (error) {
+    console.error(`Error fetching tenant with ID ${id}:`, error)
+    return null
+  }
+}

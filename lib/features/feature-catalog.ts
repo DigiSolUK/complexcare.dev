@@ -441,3 +441,15 @@ export function calculateCustomPrice(selectedFeatures: string[]): number {
 
   return price
 }
+
+// Export a feature catalog object for compatibility
+export const featureCatalog = {
+  features,
+  featurePlans,
+  getFeatureById,
+  getFeaturesByCategory,
+  getFeaturesByTier,
+  getPlanById,
+  calculatePlanPrice,
+  calculateCustomPrice,
+}

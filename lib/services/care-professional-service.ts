@@ -335,6 +335,11 @@ export async function getCareProfessionals(tenantId: string, searchQuery?: strin
   }
 }
 
+// Add the missing export
+export const getCareProfessionalById = async (id: string, tenantId: string) => {
+  return CareProfessionalService.getCareProfessionalById(id, tenantId)
+}
+
 export async function getCareProfessionalByIdOld(id: string, tenantId: string) {
   const cacheKey = `${CACHE_PREFIX}${id}:${tenantId}`
 

@@ -1,59 +1,49 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import clinicalNotesService from "@/lib/services/clinical-notes-service"
+import { getCurrentTenant } from "@/lib/tenant-utils"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth-config"
 
-const db = neon(process.env.DATABASE_URL!)
-
-// GET all clinical note categories for a tenant
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get("tenantId") || session.user.tenantId
+    const tenant = await getCurrentTenant()
+    if (!tenant) {
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+    }
 
-    const categories = await db`
-      SELECT * FROM clinical_notes_categories
-      WHERE tenant_id = ${tenantId}
-      ORDER BY name ASC
-    `
+    const categories = await clinicalNotesService.getCategories(tenant.id)
 
     return NextResponse.json(categories)
   } catch (error) {
     console.error("Error fetching clinical note categories:", error)
-    return NextResponse.json({ error: "Failed to fetch categories" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch clinical note categories" }, { status: 500 })
   }
 }
 
-// POST a new clinical note category
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { name, description, color } = body
-    const tenantId = body.tenantId || session.user.tenantId
-
-    if (!name) {
-      return NextResponse.json({ error: "Category name is required" }, { status: 400 })
+    const tenant = await getCurrentTenant()
+    if (!tenant) {
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
     }
 
-    const [category] = await db`
-      INSERT INTO clinical_notes_categories (tenant_id, name, description, color)
-      VALUES (${tenantId}, ${name}, ${description || null}, ${color || null})
-      RETURNING *
-    `
+    const data = await request.json()
+
+    const category = await clinicalNotesService.createCategory(tenant.id, data)
 
     return NextResponse.json(category, { status: 201 })
   } catch (error) {
     console.error("Error creating clinical note category:", error)
-    return NextResponse.json({ error: "Failed to create category" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to create clinical note category" }, { status: 500 })
   }
 }

@@ -1,16 +1,35 @@
-import { neon } from "@neondatabase/serverless"
+import { neon as neonClient } from "@neondatabase/serverless"
 import { sql } from "@vercel/postgres"
 
-// Create a SQL client with your connection string
-const neonClient = neon(process.env.DATABASE_URL!)
+// Export the neon client for direct use
+export const neon = neonClient(process.env.DATABASE_URL!)
 
 // Export the sql function for direct SQL queries
 export { sql }
 
+// Database utility object for backward compatibility
+export const db = {
+  query: async <T = any>(query: string, params: any[] = []): Promise<T[]> => {
+    return executeQuery<T>(query, params)
+  },
+  getById: async <T = any>(table: string, id: string): Promise<T | null> => {
+    return getById<T>(table, id)
+  },
+  insert: async <T = any>(table: string, data: Record<string, any>): Promise<T> => {
+    return insert<T>(table, data)
+  },
+  update: async <T = any>(table: string, id: string, data: Record<string, any>): Promise<T> => {
+    return update<T>(table, id, data)
+  },
+  remove: async (table: string, id: string): Promise<boolean> => {
+    return remove(table, id)
+  },
+}
+
 // Execute a query with parameters
 export async function executeQuery<T = any>(query: string, params: any[] = []): Promise<T[]> {
   try {
-    const result = await neonClient(query, params)
+    const result = await neon(query, params)
     return result as T[]
   } catch (error) {
     console.error("Database query error:", error)

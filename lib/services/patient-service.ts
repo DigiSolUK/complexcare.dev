@@ -1,5 +1,7 @@
 import { db } from "../db"
 import { PatientCache } from "../redis/patient-cache"
+import { withErrorHandling, tryCatchAsync } from "@/lib/error-utils"
+import { captureException } from "@/lib/services/error-logging-service"
 
 export class PatientService {
   /**
@@ -209,5 +211,116 @@ export class PatientService {
     await PatientCache.setAllPatients(result.rows)
 
     return result.rows.length
+  }
+}
+
+// Add the missing exported functions
+export async function getPatients(tenantId: string) {
+  return PatientService.getAllPatients(tenantId)
+}
+
+export async function validatePatientsTable(): Promise<boolean> {
+  try {
+    await db.query("SELECT COUNT(*) FROM patients LIMIT 1")
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
+export async function countAllPatients(): Promise<number> {
+  try {
+    const result = await db.query("SELECT COUNT(*) as total FROM patients")
+    return Number.parseInt(result.rows[0].total, 10)
+  } catch (error) {
+    console.error("Error counting patients:", error)
+    return 0
+  }
+}
+
+export async function getTenantsWithPatients(): Promise<any[]> {
+  try {
+    const result = await db.query(`
+      SELECT tenant_id, COUNT(*) as patient_count 
+      FROM patients 
+      GROUP BY tenant_id
+      ORDER BY patient_count DESC
+    `)
+    return result.rows
+  } catch (error) {
+    console.error("Error getting tenants with patients:", error)
+    return []
+  }
+}
+
+export async function createTestPatient(tenantId: string): Promise<any> {
+  try {
+    const result = await db.query(
+      `
+      INSERT INTO patients (
+        tenant_id, first_name, last_name, date_of_birth, gender, 
+        address, phone, email, created_at, updated_at
+      ) VALUES (
+        $1, 'Test', 'Patient', '2000-01-01', 'Other',
+        '123 Test Street', '555-1234', 'test@example.com', NOW(), NOW()
+      ) RETURNING *
+    `,
+      [tenantId],
+    )
+
+    return result.rows[0]
+  } catch (error) {
+    console.error("Error creating test patient:", error)
+    throw error
+  }
+}
+
+// Wrap the getPatient function with error handling
+export const getPatientSafe = withErrorHandling(
+  async (id: string) => {
+    // Original implementation
+    const response = await fetch(`/api/patients/${id}`)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch patient with ID ${id}`)
+    }
+    return await response.json()
+  },
+  { service: "PatientService", method: "getPatient" },
+)
+
+// Example of a function using the tryCatchAsync utility
+export async function getPatientWithFallback(patientId: string) {
+  const result = await tryCatchAsync(
+    async () => {
+      const response = await fetch(`/api/patients/${patientId}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch patient: ${response.status}`)
+      }
+      return await response.json()
+    },
+    // Fallback data if the API call fails
+    {
+      id: patientId,
+      name: "Unknown Patient",
+      status: "error",
+      message: "Could not load patient data",
+    },
+  )
+
+  return result.data
+}
+
+// Example of a function that will propagate errors to be caught by error boundaries
+export async function getPatientById(patientId: string) {
+  try {
+    const response = await fetch(`/api/patients/${patientId}`)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch patient: ${response.status}`)
+    }
+    return await response.json()
+  } catch (error) {
+    // Log the error but still throw it to be caught by error boundaries
+    captureException(error, { patientId, operation: "getPatientById" })
+    throw error
   }
 }

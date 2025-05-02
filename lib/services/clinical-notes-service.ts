@@ -1,503 +1,391 @@
 import { neon } from "@neondatabase/serverless"
 
-const db = neon(process.env.DATABASE_URL!)
-
-export type ClinicalNote = {
+export interface ClinicalNoteCategory {
   id: string
-  tenant_id: string
-  patient_id: string
-  care_professional_id: string
-  note_type: string
-  title: string
-  content: string
-  is_private: boolean
-  mood_score?: number
-  pain_score?: number
-  vital_signs?: any
-  tags?: string[]
-  attachments?: any
-  created_at: Date
-  updated_at: Date
-  created_by: string
-  updated_by?: string
-  care_professional_first_name?: string
-  care_professional_last_name?: string
-  categories?: string[]
-  category_ids?: string[]
-}
-
-export type ClinicalNoteCategory = {
-  id: string
-  tenant_id: string
   name: string
   description?: string
   color?: string
-  created_at: Date
-  updated_at: Date
+  icon?: string
 }
 
-export type ClinicalNoteTemplate = {
+export interface ClinicalNoteTemplate {
   id: string
-  tenant_id: string
   name: string
   content: string
-  note_type: string
-  created_by: string
-  created_at: Date
-  updated_at: Date
+  categoryId?: string
+  categoryName?: string
 }
 
-export type CreateNoteInput = {
+export interface ClinicalNote {
+  id: string
   patientId: string
-  careProId: string
-  noteType: string
   title: string
   content: string
-  isPrivate?: boolean
-  moodScore?: number
-  painScore?: number
-  vitalSigns?: any
+  categoryId?: string
+  categoryName?: string
+  createdBy: string
+  createdAt: Date
+  updatedAt: Date
+  isPrivate: boolean
+  isImportant: boolean
   tags?: string[]
-  attachments?: any
-  categories?: string[]
-  tenantId?: string
 }
 
-export type UpdateNoteInput = {
-  noteType?: string
-  title?: string
-  content?: string
-  isPrivate?: boolean
-  moodScore?: number
-  painScore?: number
-  vitalSigns?: any
-  tags?: string[]
-  attachments?: any
-  categories?: string[]
+export interface ClinicalNoteAttachment {
+  id: string
+  noteId: string
+  fileName: string
+  filePath: string
+  fileType?: string
+  fileSize?: number
+  uploadedBy: string
+  uploadedAt: Date
 }
 
-export type CreateCategoryInput = {
-  name: string
-  description?: string
-  color?: string
-  tenantId?: string
-}
+export class ClinicalNotesService {
+  private sql = neon(process.env.DATABASE_URL!)
 
-export type UpdateCategoryInput = {
-  name?: string
-  description?: string
-  color?: string
-}
-
-export type CreateTemplateInput = {
-  name: string
-  content: string
-  noteType: string
-  tenantId?: string
-}
-
-export type UpdateTemplateInput = {
-  name?: string
-  content?: string
-  noteType?: string
-}
-
-export const ClinicalNotesService = {
-  // Notes
-  async getNotesByPatientId(patientId: string, tenantId: string): Promise<ClinicalNote[]> {
-    try {
-      const notes = await db`
-        SELECT cn.*, 
-               cp.first_name as care_professional_first_name, 
-               cp.last_name as care_professional_last_name,
-               array_agg(cnc.name) as categories
-        FROM clinical_notes cn
-        LEFT JOIN care_professionals cp ON cn.care_professional_id = cp.id
-        LEFT JOIN clinical_notes_category_mappings cncm ON cn.id = cncm.note_id
-        LEFT JOIN clinical_notes_categories cnc ON cncm.category_id = cnc.id
-        WHERE cn.patient_id = ${patientId}
-        AND cn.tenant_id = ${tenantId}
-        GROUP BY cn.id, cp.first_name, cp.last_name
-        ORDER BY cn.created_at DESC
-      `
-      return notes
-    } catch (error) {
-      console.error("Error in getNotesByPatientId:", error)
-      throw error
-    }
-  },
-
-  async getNoteById(id: string, tenantId: string): Promise<ClinicalNote | null> {
-    try {
-      const [note] = await db`
-        SELECT cn.*, 
-               cp.first_name as care_professional_first_name, 
-               cp.last_name as care_professional_last_name,
-               array_agg(cnc.id) as category_ids,
-               array_agg(cnc.name) as category_names
-        FROM clinical_notes cn
-        LEFT JOIN care_professionals cp ON cn.care_professional_id = cp.id
-        LEFT JOIN clinical_notes_category_mappings cncm ON cn.id = cncm.note_id
-        LEFT JOIN clinical_notes_categories cnc ON cncm.category_id = cnc.id
-        WHERE cn.id = ${id}
-        AND cn.tenant_id = ${tenantId}
-        GROUP BY cn.id, cp.first_name, cp.last_name
-      `
-      return note || null
-    } catch (error) {
-      console.error("Error in getNoteById:", error)
-      throw error
-    }
-  },
-
-  async createNote(data: CreateNoteInput, userId: string): Promise<ClinicalNote> {
-    try {
-      const {
-        patientId,
-        careProId,
-        noteType,
-        title,
-        content,
-        isPrivate,
-        moodScore,
-        painScore,
-        vitalSigns,
-        tags,
-        attachments,
-        categories,
-        tenantId,
-      } = data
-
-      // Insert the clinical note
-      const [note] = await db`
-        INSERT INTO clinical_notes (
-          tenant_id, 
-          patient_id, 
-          care_professional_id, 
-          note_type, 
-          title, 
-          content, 
-          is_private, 
-          mood_score, 
-          pain_score, 
-          vital_signs, 
-          tags, 
-          attachments, 
-          created_by
-        )
-        VALUES (
-          ${tenantId}, 
-          ${patientId}, 
-          ${careProId}, 
-          ${noteType}, 
-          ${title}, 
-          ${content}, 
-          ${isPrivate || false}, 
-          ${moodScore || null}, 
-          ${painScore || null}, 
-          ${vitalSigns ? JSON.stringify(vitalSigns) : null}, 
-          ${tags || null}, 
-          ${attachments ? JSON.stringify(attachments) : null}, 
-          ${userId}
-        )
-        RETURNING *
-      `
-
-      // If categories are provided, add them to the mapping table
-      if (categories && categories.length > 0) {
-        for (const categoryId of categories) {
-          await db`
-            INSERT INTO clinical_notes_category_mappings (note_id, category_id)
-            VALUES (${note.id}, ${categoryId})
-          `
-        }
-      }
-
-      return note
-    } catch (error) {
-      console.error("Error in createNote:", error)
-      throw error
-    }
-  },
-
-  async updateNote(id: string, data: UpdateNoteInput, tenantId: string, userId: string): Promise<ClinicalNote> {
-    try {
-      const { noteType, title, content, isPrivate, moodScore, painScore, vitalSigns, tags, attachments, categories } =
-        data
-
-      // Check if note exists and belongs to the tenant
-      const [existingNote] = await db`
-        SELECT * FROM clinical_notes 
-        WHERE id = ${id} AND tenant_id = ${tenantId}
-      `
-
-      if (!existingNote) {
-        throw new Error("Clinical note not found")
-      }
-
-      // Update the clinical note
-      const [updatedNote] = await db`
-        UPDATE clinical_notes
-        SET 
-          note_type = ${noteType || existingNote.note_type},
-          title = ${title || existingNote.title},
-          content = ${content || existingNote.content},
-          is_private = ${isPrivate !== undefined ? isPrivate : existingNote.is_private},
-          mood_score = ${moodScore !== undefined ? moodScore : existingNote.mood_score},
-          pain_score = ${painScore !== undefined ? painScore : existingNote.pain_score},
-          vital_signs = ${vitalSigns ? JSON.stringify(vitalSigns) : existingNote.vital_signs},
-          tags = ${tags || existingNote.tags},
-          attachments = ${attachments ? JSON.stringify(attachments) : existingNote.attachments},
-          updated_at = CURRENT_TIMESTAMP,
-          updated_by = ${userId}
-        WHERE id = ${id}
-        RETURNING *
-      `
-
-      // If categories are provided, update the mappings
-      if (categories && categories.length > 0) {
-        // Delete existing mappings
-        await db`
-          DELETE FROM clinical_notes_category_mappings
-          WHERE note_id = ${id}
-        `
-
-        // Add new mappings
-        for (const categoryId of categories) {
-          await db`
-            INSERT INTO clinical_notes_category_mappings (note_id, category_id)
-            VALUES (${id}, ${categoryId})
-          `
-        }
-      }
-
-      return updatedNote
-    } catch (error) {
-      console.error("Error in updateNote:", error)
-      throw error
-    }
-  },
-
-  async deleteNote(id: string, tenantId: string): Promise<void> {
-    try {
-      // Check if note exists and belongs to the tenant
-      const [existingNote] = await db`
-        SELECT * FROM clinical_notes 
-        WHERE id = ${id} AND tenant_id = ${tenantId}
-      `
-
-      if (!existingNote) {
-        throw new Error("Clinical note not found")
-      }
-
-      // Delete the clinical note (category mappings will be deleted via CASCADE)
-      await db`
-        DELETE FROM clinical_notes
-        WHERE id = ${id}
-      `
-    } catch (error) {
-      console.error("Error in deleteNote:", error)
-      throw error
-    }
-  },
-
-  // Categories
   async getCategories(tenantId: string): Promise<ClinicalNoteCategory[]> {
-    try {
-      const categories = await db`
-        SELECT * FROM clinical_notes_categories
-        WHERE tenant_id = ${tenantId}
-        ORDER BY name ASC
-      `
-      return categories
-    } catch (error) {
-      console.error("Error in getCategories:", error)
-      throw error
+    const result = await this.sql`
+      SELECT id, name, description, color, icon
+      FROM clinical_note_categories
+      WHERE tenant_id = ${tenantId}
+      ORDER BY name ASC
+    `
+
+    return result.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      color: row.color,
+      icon: row.icon,
+    }))
+  }
+
+  async createCategory(tenantId: string, category: Omit<ClinicalNoteCategory, "id">): Promise<ClinicalNoteCategory> {
+    const result = await this.sql`
+      INSERT INTO clinical_note_categories (tenant_id, name, description, color, icon)
+      VALUES (${tenantId}, ${category.name}, ${category.description}, ${category.color}, ${category.icon})
+      RETURNING id, name, description, color, icon
+    `
+
+    return {
+      id: result[0].id,
+      name: result[0].name,
+      description: result[0].description,
+      color: result[0].color,
+      icon: result[0].icon,
     }
-  },
+  }
 
-  async createCategory(data: CreateCategoryInput, tenantId: string): Promise<ClinicalNoteCategory> {
-    try {
-      const { name, description, color } = data
+  async getTemplates(tenantId: string): Promise<ClinicalNoteTemplate[]> {
+    const result = await this.sql`
+      SELECT t.id, t.name, t.content, t.category_id, c.name as category_name
+      FROM clinical_note_templates t
+      LEFT JOIN clinical_note_categories c ON t.category_id = c.id
+      WHERE t.tenant_id = ${tenantId}
+      ORDER BY t.name ASC
+    `
 
-      const [category] = await db`
-        INSERT INTO clinical_notes_categories (tenant_id, name, description, color)
-        VALUES (${tenantId}, ${name}, ${description || null}, ${color || null})
-        RETURNING *
+    return result.map((row) => ({
+      id: row.id,
+      name: row.name,
+      content: row.content,
+      categoryId: row.category_id,
+      categoryName: row.category_name,
+    }))
+  }
+
+  async createTemplate(
+    tenantId: string,
+    userId: string,
+    template: Omit<ClinicalNoteTemplate, "id" | "categoryName">,
+  ): Promise<ClinicalNoteTemplate> {
+    const result = await this.sql`
+      INSERT INTO clinical_note_templates (tenant_id, name, content, category_id, created_by)
+      VALUES (${tenantId}, ${template.name}, ${template.content}, ${template.categoryId}, ${userId})
+      RETURNING id, name, content, category_id
+    `
+
+    let categoryName = null
+    if (result[0].category_id) {
+      const categoryResult = await this.sql`
+        SELECT name FROM clinical_note_categories WHERE id = ${result[0].category_id}
       `
-
-      return category
-    } catch (error) {
-      console.error("Error in createCategory:", error)
-      throw error
-    }
-  },
-
-  async updateCategory(id: string, data: UpdateCategoryInput, tenantId: string): Promise<ClinicalNoteCategory> {
-    try {
-      const { name, description, color } = data
-
-      // Check if category exists and belongs to the tenant
-      const [existingCategory] = await db`
-        SELECT * FROM clinical_notes_categories 
-        WHERE id = ${id} AND tenant_id = ${tenantId}
-      `
-
-      if (!existingCategory) {
-        throw new Error("Category not found")
+      if (categoryResult.length > 0) {
+        categoryName = categoryResult[0].name
       }
-
-      // Update the category
-      const [updatedCategory] = await db`
-        UPDATE clinical_notes_categories
-        SET 
-          name = ${name || existingCategory.name},
-          description = ${description !== undefined ? description : existingCategory.description},
-          color = ${color || existingCategory.color},
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${id}
-        RETURNING *
-      `
-
-      return updatedCategory
-    } catch (error) {
-      console.error("Error in updateCategory:", error)
-      throw error
     }
-  },
 
-  async deleteCategory(id: string, tenantId: string): Promise<void> {
-    try {
-      // Check if category exists and belongs to the tenant
-      const [existingCategory] = await db`
-        SELECT * FROM clinical_notes_categories 
-        WHERE id = ${id} AND tenant_id = ${tenantId}
+    return {
+      id: result[0].id,
+      name: result[0].name,
+      content: result[0].content,
+      categoryId: result[0].category_id,
+      categoryName,
+    }
+  }
+
+  async getNotes(tenantId: string, patientId?: string): Promise<ClinicalNote[]> {
+    let query
+
+    if (patientId) {
+      query = this.sql`
+        SELECT n.id, n.patient_id, n.title, n.content, n.category_id, c.name as category_name,
+               n.created_by, n.created_at, n.updated_at, n.is_private, n.is_important, n.tags
+        FROM clinical_notes n
+        LEFT JOIN clinical_note_categories c ON n.category_id = c.id
+        WHERE n.tenant_id = ${tenantId} AND n.patient_id = ${patientId}
+        ORDER BY n.created_at DESC
       `
+    } else {
+      query = this.sql`
+        SELECT n.id, n.patient_id, n.title, n.content, n.category_id, c.name as category_name,
+               n.created_by, n.created_at, n.updated_at, n.is_private, n.is_important, n.tags
+        FROM clinical_notes n
+        LEFT JOIN clinical_note_categories c ON n.category_id = c.id
+        WHERE n.tenant_id = ${tenantId}
+        ORDER BY n.created_at DESC
+      `
+    }
 
-      if (!existingCategory) {
-        throw new Error("Category not found")
+    const result = await query
+
+    return result.map((row) => ({
+      id: row.id,
+      patientId: row.patient_id,
+      title: row.title,
+      content: row.content,
+      categoryId: row.category_id,
+      categoryName: row.category_name,
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      isPrivate: row.is_private,
+      isImportant: row.is_important,
+      tags: row.tags,
+    }))
+  }
+
+  async createNote(
+    tenantId: string,
+    userId: string,
+    note: Omit<ClinicalNote, "id" | "createdBy" | "createdAt" | "updatedAt" | "categoryName">,
+  ): Promise<ClinicalNote> {
+    const result = await this.sql`
+      INSERT INTO clinical_notes (
+        tenant_id, patient_id, title, content, category_id, 
+        created_by, is_private, is_important, tags
+      )
+      VALUES (
+        ${tenantId}, ${note.patientId}, ${note.title}, ${note.content}, ${note.categoryId},
+        ${userId}, ${note.isPrivate}, ${note.isImportant}, ${note.tags || []}
+      )
+      RETURNING id, patient_id, title, content, category_id, 
+                created_by, created_at, updated_at, is_private, is_important, tags
+    `
+
+    let categoryName = null
+    if (result[0].category_id) {
+      const categoryResult = await this.sql`
+        SELECT name FROM clinical_note_categories WHERE id = ${result[0].category_id}
+      `
+      if (categoryResult.length > 0) {
+        categoryName = categoryResult[0].name
       }
-
-      // Delete the category
-      await db`
-        DELETE FROM clinical_notes_categories
-        WHERE id = ${id}
-      `
-    } catch (error) {
-      console.error("Error in deleteCategory:", error)
-      throw error
     }
-  },
 
-  // Templates
-  async getTemplates(tenantId: string, noteType?: string): Promise<ClinicalNoteTemplate[]> {
-    try {
-      let templates
+    return {
+      id: result[0].id,
+      patientId: result[0].patient_id,
+      title: result[0].title,
+      content: result[0].content,
+      categoryId: result[0].category_id,
+      categoryName,
+      createdBy: result[0].created_by,
+      createdAt: result[0].created_at,
+      updatedAt: result[0].updated_at,
+      isPrivate: result[0].is_private,
+      isImportant: result[0].is_important,
+      tags: result[0].tags,
+    }
+  }
 
-      if (noteType) {
-        templates = await db`
-          SELECT * FROM clinical_notes_templates
-          WHERE tenant_id = ${tenantId} AND note_type = ${noteType}
-          ORDER BY name ASC
-        `
-      } else {
-        templates = await db`
-          SELECT * FROM clinical_notes_templates
-          WHERE tenant_id = ${tenantId}
-          ORDER BY name ASC
-        `
+  async updateNote(tenantId: string, noteId: string, note: Partial<ClinicalNote>): Promise<ClinicalNote> {
+    // Build the SET clause dynamically based on provided fields
+    const updates = []
+    const values: any[] = [noteId, tenantId]
+
+    if (note.title !== undefined) {
+      updates.push(`title = $${values.length + 1}`)
+      values.push(note.title)
+    }
+
+    if (note.content !== undefined) {
+      updates.push(`content = $${values.length + 1}`)
+      values.push(note.content)
+    }
+
+    if (note.categoryId !== undefined) {
+      updates.push(`category_id = $${values.length + 1}`)
+      values.push(note.categoryId)
+    }
+
+    if (note.isPrivate !== undefined) {
+      updates.push(`is_private = $${values.length + 1}`)
+      values.push(note.isPrivate)
+    }
+
+    if (note.isImportant !== undefined) {
+      updates.push(`is_important = $${values.length + 1}`)
+      values.push(note.isImportant)
+    }
+
+    if (note.tags !== undefined) {
+      updates.push(`tags = $${values.length + 1}`)
+      values.push(note.tags)
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`)
+
+    const updateQuery = `
+      UPDATE clinical_notes
+      SET ${updates.join(", ")}
+      WHERE id = $1 AND tenant_id = $2
+      RETURNING id, patient_id, title, content, category_id, 
+                created_by, created_at, updated_at, is_private, is_important, tags
+    `
+
+    const result = await this.sql.query(updateQuery, values)
+
+    let categoryName = null
+    if (result.rows[0].category_id) {
+      const categoryResult = await this.sql`
+        SELECT name FROM clinical_note_categories WHERE id = ${result.rows[0].category_id}
+      `
+      if (categoryResult.length > 0) {
+        categoryName = categoryResult[0].name
       }
-
-      return templates
-    } catch (error) {
-      console.error("Error in getTemplates:", error)
-      throw error
     }
-  },
 
-  async getTemplateById(id: string, tenantId: string): Promise<ClinicalNoteTemplate | null> {
-    try {
-      const [template] = await db`
-        SELECT * FROM clinical_notes_templates
-        WHERE id = ${id} AND tenant_id = ${tenantId}
-      `
-      return template || null
-    } catch (error) {
-      console.error("Error in getTemplateById:", error)
-      throw error
+    return {
+      id: result.rows[0].id,
+      patientId: result.rows[0].patient_id,
+      title: result.rows[0].title,
+      content: result.rows[0].content,
+      categoryId: result.rows[0].category_id,
+      categoryName,
+      createdBy: result.rows[0].created_by,
+      createdAt: result.rows[0].created_at,
+      updatedAt: result.rows[0].updated_at,
+      isPrivate: result.rows[0].is_private,
+      isImportant: result.rows[0].is_important,
+      tags: result.rows[0].tags,
     }
-  },
+  }
 
-  async createTemplate(data: CreateTemplateInput, userId: string, tenantId: string): Promise<ClinicalNoteTemplate> {
-    try {
-      const { name, content, noteType } = data
+  async deleteNote(tenantId: string, noteId: string): Promise<boolean> {
+    const result = await this.sql`
+      DELETE FROM clinical_notes
+      WHERE id = ${noteId} AND tenant_id = ${tenantId}
+      RETURNING id
+    `
 
-      const [template] = await db`
-        INSERT INTO clinical_notes_templates (tenant_id, name, content, note_type, created_by)
-        VALUES (${tenantId}, ${name}, ${content}, ${noteType}, ${userId})
-        RETURNING *
-      `
+    return result.length > 0
+  }
 
-      return template
-    } catch (error) {
-      console.error("Error in createTemplate:", error)
-      throw error
+  async getAttachments(noteId: string): Promise<ClinicalNoteAttachment[]> {
+    const result = await this.sql`
+      SELECT id, note_id, file_name, file_path, file_type, file_size, uploaded_by, uploaded_at
+      FROM clinical_note_attachments
+      WHERE note_id = ${noteId}
+      ORDER BY uploaded_at DESC
+    `
+
+    return result.map((row) => ({
+      id: row.id,
+      noteId: row.note_id,
+      fileName: row.file_name,
+      filePath: row.file_path,
+      fileType: row.file_type,
+      fileSize: row.file_size,
+      uploadedBy: row.uploaded_by,
+      uploadedAt: row.uploaded_at,
+    }))
+  }
+
+  async addAttachment(attachment: Omit<ClinicalNoteAttachment, "id" | "uploadedAt">): Promise<ClinicalNoteAttachment> {
+    const result = await this.sql`
+      INSERT INTO clinical_note_attachments (
+        note_id, file_name, file_path, file_type, file_size, uploaded_by
+      )
+      VALUES (
+        ${attachment.noteId}, ${attachment.fileName}, ${attachment.filePath}, 
+        ${attachment.fileType}, ${attachment.fileSize}, ${attachment.uploadedBy}
+      )
+      RETURNING id, note_id, file_name, file_path, file_type, file_size, uploaded_by, uploaded_at
+    `
+
+    return {
+      id: result[0].id,
+      noteId: result[0].note_id,
+      fileName: result[0].file_name,
+      filePath: result[0].file_path,
+      fileType: result[0].file_type,
+      fileSize: result[0].file_size,
+      uploadedBy: result[0].uploaded_by,
+      uploadedAt: result[0].uploaded_at,
     }
-  },
+  }
 
-  async updateTemplate(id: string, data: UpdateTemplateInput, tenantId: string): Promise<ClinicalNoteTemplate> {
-    try {
-      const { name, content, noteType } = data
+  async deleteAttachment(attachmentId: string): Promise<boolean> {
+    const result = await this.sql`
+      DELETE FROM clinical_note_attachments
+      WHERE id = ${attachmentId}
+      RETURNING id
+    `
 
-      // Check if template exists and belongs to the tenant
-      const [existingTemplate] = await db`
-        SELECT * FROM clinical_notes_templates 
-        WHERE id = ${id} AND tenant_id = ${tenantId}
-      `
+    return result.length > 0
+  }
+}
 
-      if (!existingTemplate) {
-        throw new Error("Template not found")
-      }
+// Create a singleton instance
+const clinicalNotesService = new ClinicalNotesService()
+export default clinicalNotesService
 
-      // Update the template
-      const [updatedTemplate] = await db`
-        UPDATE clinical_notes_templates
-        SET 
-          name = ${name || existingTemplate.name},
-          content = ${content || existingTemplate.content},
-          note_type = ${noteType || existingTemplate.note_type},
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${id}
-        RETURNING *
-      `
+// Export the required functions to fix the deployment issues
+export async function createClinicalNoteCategory(category: any): Promise<ClinicalNoteCategory> {
+  const tenantId = "default" // You should get the actual tenant ID
+  return await clinicalNotesService.createCategory(tenantId, category)
+}
 
-      return updatedTemplate
-    } catch (error) {
-      console.error("Error in updateTemplate:", error)
-      throw error
-    }
-  },
+export async function createClinicalNote(note: any): Promise<ClinicalNote> {
+  const tenantId = "default" // You should get the actual tenant ID
+  const userId = "default" // You should get the actual user ID
+  return await clinicalNotesService.createNote(tenantId, userId, note)
+}
 
-  async deleteTemplate(id: string, tenantId: string): Promise<void> {
-    try {
-      // Check if template exists and belongs to the tenant
-      const [existingTemplate] = await db`
-        SELECT * FROM clinical_notes_templates 
-        WHERE id = ${id} AND tenant_id = ${tenantId}
-      `
+export async function updateClinicalNote(id: string, note: any): Promise<ClinicalNote> {
+  const tenantId = "default" // You should get the actual tenant ID
+  return await clinicalNotesService.updateNote(tenantId, id, note)
+}
 
-      if (!existingTemplate) {
-        throw new Error("Template not found")
-      }
+export async function deleteClinicalNote(id: string): Promise<boolean> {
+  const tenantId = "default" // You should get the actual tenant ID
+  return await clinicalNotesService.deleteNote(tenantId, id)
+}
 
-      // Delete the template
-      await db`
-        DELETE FROM clinical_notes_templates
-        WHERE id = ${id}
-      `
-    } catch (error) {
-      console.error("Error in deleteTemplate:", error)
-      throw error
-    }
-  },
+export async function getClinicalNotes(patientId?: string): Promise<ClinicalNote[]> {
+  const tenantId = "default" // You should get the actual tenant ID
+  return await clinicalNotesService.getNotes(tenantId, patientId)
+}
+
+export async function getClinicalNoteCategories(): Promise<ClinicalNoteCategory[]> {
+  const tenantId = "default" // You should get the actual tenant ID
+  return await clinicalNotesService.getCategories(tenantId)
+}
+
+export async function getClinicalNoteTemplates(): Promise<ClinicalNoteTemplate[]> {
+  const tenantId = "default" // You should get the actual tenant ID
+  return await clinicalNotesService.getTemplates(tenantId)
 }

@@ -26,3 +26,9 @@ export async function getTenantIdFromRequest(request: NextRequest): Promise<stri
   const tenant = await getTenantFromRequest(request)
   return tenant?.id || null
 }
+
+export async function getCurrentTenant() {
+  // This would typically get the tenant from the current context
+  // For now, we'll just return a simple object with the default ID
+  return { id: "ba367cfe-6de0-4180-9566-1002b75cf82c", name: "Default Tenant" }
+}

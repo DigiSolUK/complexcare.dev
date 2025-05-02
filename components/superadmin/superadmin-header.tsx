@@ -17,3 +17,6 @@ export function SuperadminHeader() {
     </header>
   )
 }
+
+// Add default export
+export default SuperadminHeader
