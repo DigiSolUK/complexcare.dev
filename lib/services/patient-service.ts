@@ -3,25 +3,6 @@ import { PatientCache } from "../redis/patient-cache"
 import { withErrorHandling, tryCatchAsync } from "@/lib/error-utils"
 import { captureException } from "@/lib/services/error-logging-service"
 
-export interface Patient {
-  id: string
-  tenant_id: string
-  first_name: string
-  last_name: string
-  date_of_birth: string
-  gender?: string
-  contact_number?: string
-  email?: string
-  address?: string
-  medical_record_number?: string
-  primary_care_provider?: string
-  created_at: string
-  updated_at: string
-  avatar_url?: string
-  last_accessed_at?: string
-  deleted_at?: string | null
-}
-
 export class PatientService {
   /**
    * Get all patients with caching
@@ -234,7 +215,7 @@ export class PatientService {
 }
 
 // Add the missing exported functions
-export async function getPatients(tenantId: string, limit?: number) {
+export async function getPatients(tenantId: string) {
   return PatientService.getAllPatients(tenantId)
 }
 
@@ -330,7 +311,7 @@ export async function getPatientWithFallback(patientId: string) {
 }
 
 // Example of a function that will propagate errors to be caught by error boundaries
-export async function getPatientById(patientId: string, tenantId: string) {
+export async function getPatientById(patientId: string) {
   try {
     const response = await fetch(`/api/patients/${patientId}`)
     if (!response.ok) {

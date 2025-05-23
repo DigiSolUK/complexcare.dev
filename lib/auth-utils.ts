@@ -1,7 +1,23 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getClientTenantId } from "./tenant"
+
+// Server-side function to get current user
+export async function getCurrentUser() {
+  try {
+    // This would typically fetch from a database or auth service
+    // For now, returning a placeholder user
+    return {
+      id: "current-user-id",
+      name: "Current User",
+      email: "user@example.com",
+      role: "admin",
+    }
+  } catch (error) {
+    console.error("Error getting current user:", error)
+    return null
+  }
+}
 
 // Client-side authentication utilities
 export function useAuth() {
@@ -9,7 +25,7 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Fetch user data from an API endpoint instead of using headers directly
+    // Fetch user data from an API endpoint
     async function fetchUser() {
       try {
         const res = await fetch("/api/auth/me")
@@ -30,27 +46,33 @@ export function useAuth() {
   return { user, isLoading }
 }
 
-// Client-side tenant utilities
-export function useTenant() {
-  const [tenantId, setTenantId] = useState(() => getClientTenantId())
-
-  useEffect(() => {
-    // Sync with localStorage
-    const storedTenantId = localStorage.getItem("tenantId")
-    if (storedTenantId && storedTenantId !== tenantId) {
-      setTenantId(storedTenantId)
+// Additional auth utility functions
+export const authenticateUser = async (credentials: any) => {
+  try {
+    // Simulate authentication logic (replace with actual implementation)
+    if (credentials.username === "testuser" && credentials.password === "password") {
+      return { success: true, message: "Authentication successful", user: { username: "testuser" } }
+    } else {
+      return { success: false, message: "Invalid credentials" }
     }
+  } catch (error) {
+    console.error("Error during authentication:", error)
+    return { success: false, message: "Authentication failed" }
+  }
+}
 
-    // Listen for changes
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "tenantId" && e.newValue) {
-        setTenantId(e.newValue)
-      }
+export const authorizeRequest = async (request: any, requiredRole: string) => {
+  try {
+    // Simulate authorization logic (replace with actual implementation)
+    const userRole = request.user?.role || "guest" // Assuming user info is attached to the request
+
+    if (userRole === requiredRole || requiredRole === "guest") {
+      return { success: true, message: "Authorization successful" }
+    } else {
+      return { success: false, message: "Unauthorized" }
     }
-
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
-  }, [tenantId])
-
-  return { tenantId }
+  } catch (error) {
+    console.error("Error during authorization:", error)
+    return { success: false, message: "Authorization failed" }
+  }
 }

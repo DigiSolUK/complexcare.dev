@@ -1,34 +1,40 @@
-import type { NextRequest } from "next/server"
-import { getTenantById } from "@/lib/services/user-service"
+// lib/tenant-utils.ts
 
-// Extract tenant ID from request headers or subdomain
-export async function getTenantFromRequest(request: NextRequest): Promise<{ id: string } | null> {
-  const hostname = request.headers.get("host")
-  const subdomain = hostname ? hostname.split(".")[0] : null
+/**
+ * Get tenant ID from request headers or default
+ */
+export function getTenantIdFromRequest(req: Request): string {
+  // Try to get from headers first
+  const tenantId = req.headers.get("x-tenant-id")
+  if (tenantId) return tenantId
 
-  if (subdomain) {
-    const tenant = await getTenantById(subdomain)
-    return tenant
-  }
-
-  // Fallback to header or cookie if subdomain is not available
-  const tenantId = request.headers.get("x-tenant-id") || request.cookies.get("tenantId")?.value
-
-  if (tenantId) {
-    const tenant = await getTenantById(tenantId)
-    return tenant
-  }
-
-  return null
+  // Default to a hard-coded tenant ID
+  return "ba367cfe-6de0-4180-9566-1002b75cf82c" // DEFAULT_TENANT_ID
 }
 
-export async function getTenantIdFromRequest(request: NextRequest): Promise<string | null> {
-  const tenant = await getTenantFromRequest(request)
-  return tenant?.id || null
+/**
+ * Get tenant object from request
+ */
+export function getTenantFromRequest(req: Request): { id: string } {
+  const tenantId = getTenantIdFromRequest(req)
+  return { id: tenantId }
 }
 
-export async function getCurrentTenant() {
-  // This would typically get the tenant from the current context
-  // For now, we'll just return a simple object with the default ID
-  return { id: "ba367cfe-6de0-4180-9566-1002b75cf82c", name: "Default Tenant" }
+/**
+ * Get current tenant object
+ */
+export function getCurrentTenant(): { id: string } {
+  // In a real implementation, this would get the tenant from context or cookies
+  // For now, return the default tenant ID
+  return { id: "ba367cfe-6de0-4180-9566-1002b75cf82c" }
+}
+
+// Additional utility functions can be added here
+export function formatTenantId(id: string): string {
+  return id.substring(0, 8)
+}
+
+export function isPublicPath(path: string): boolean {
+  const publicPaths = ["/login", "/register", "/forgot-password", "/api/auth", "/api/public"]
+  return publicPaths.some((p) => path.startsWith(p))
 }

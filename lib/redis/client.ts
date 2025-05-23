@@ -2,31 +2,112 @@ import { Redis } from "@upstash/redis"
 
 // Initialize Redis client
 const getRedisClient = () => {
-  // Check if we're using the KV_URL environment variable (Vercel KV)
-  if (process.env.KV_URL) {
-    return new Redis({
-      url: process.env.KV_URL,
-      token: process.env.KV_REST_API_TOKEN || "",
-    })
-  }
+  try {
+    // For Upstash Redis on Vercel, use KV_URL and KV_REST_API_TOKEN
+    if (process.env.KV_URL && process.env.KV_REST_API_TOKEN) {
+      return new Redis({
+        url: process.env.KV_URL,
+        token: process.env.KV_REST_API_TOKEN,
+      })
+    }
 
-  // Fallback to REDIS_URL if available
-  if (process.env.REDIS_URL) {
-    return new Redis({
-      url: process.env.REDIS_URL,
-      token: process.env.REDIS_TOKEN || "",
-    })
-  }
+    // For Upstash Redis with REST API (not Redis protocol)
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      return new Redis({
+        url: process.env.KV_REST_API_URL,
+        token: process.env.KV_REST_API_TOKEN,
+      })
+    }
 
-  // Default configuration
-  return new Redis({
-    url: "https://eu2-careful-mole-30498.upstash.io",
-    token: process.env.REDIS_TOKEN || "",
-  })
+    // For Redis URL in the format rediss://, convert to proper Upstash format
+    // or use in-memory fallback
+    console.warn("Using in-memory Redis mock (no valid Upstash REST API credentials found)")
+    return createMockRedisClient()
+  } catch (error) {
+    console.error("Failed to initialize Redis client:", error)
+    return createMockRedisClient()
+  }
+}
+
+// Create a mock Redis client for development/fallback
+function createMockRedisClient() {
+  const store = new Map<string, string>()
+
+  return {
+    get: async (key: string) => {
+      return store.get(key) || null
+    },
+    set: async (key: string, value: any, options?: { ex?: number }) => {
+      store.set(key, JSON.stringify(value))
+      return "OK"
+    },
+    del: async (key: string) => {
+      return store.delete(key) ? 1 : 0
+    },
+    incr: async (key: string) => {
+      const value = store.get(key)
+      const num = value ? Number.parseInt(value, 10) : 0
+      store.set(key, (num + 1).toString())
+      return num + 1
+    },
+    hget: async (key: string, field: string) => {
+      const hash = store.get(key)
+      if (!hash) return null
+      try {
+        const parsed = JSON.parse(hash)
+        return parsed[field] || null
+      } catch {
+        return null
+      }
+    },
+    hset: async (key: string, field: string, value: any) => {
+      const hash = store.get(key)
+      const parsed = hash ? JSON.parse(hash) : {}
+      parsed[field] = value
+      store.set(key, JSON.stringify(parsed))
+      return 1
+    },
+    hmget: async (key: string, ...fields: string[]) => {
+      const hash = store.get(key)
+      if (!hash) return fields.map(() => null)
+      try {
+        const parsed = JSON.parse(hash)
+        return fields.map((field) => parsed[field] || null)
+      } catch {
+        return fields.map(() => null)
+      }
+    },
+    hmset: async (key: string, fieldValues: Record<string, any>) => {
+      const hash = store.get(key)
+      const parsed = hash ? JSON.parse(hash) : {}
+      Object.assign(parsed, fieldValues)
+      store.set(key, JSON.stringify(parsed))
+      return "OK"
+    },
+    expire: async (key: string, seconds: number) => {
+      if (!store.has(key)) return 0
+      setTimeout(() => {
+        store.delete(key)
+      }, seconds * 1000)
+      return 1
+    },
+    ping: async () => "PONG",
+  } as unknown as Redis
 }
 
 // Create Redis client instance
 export const redis = getRedisClient()
+
+// Test Redis connection
+export async function testRedisConnection(): Promise<boolean> {
+  try {
+    const pong = await redis.ping()
+    return pong === "PONG"
+  } catch (error) {
+    console.error("Redis connection test failed:", error)
+    return false
+  }
+}
 
 // Safe Redis operation wrapper
 export async function safeRedisOperation<T>(
@@ -72,3 +153,6 @@ export async function getCacheData<T>(key: string): Promise<T | null> {
 export async function deleteCache(key: string): Promise<void> {
   await safeRedisOperation(() => redis.del(key), undefined, `Failed to delete cache for key: ${key}`)
 }
+
+// Export the Redis client as default
+export default redis

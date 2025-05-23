@@ -1,6 +1,9 @@
 import { neon } from "@neondatabase/serverless"
 import { v4 as uuidv4 } from "uuid"
 
+// Hard-coded default tenant ID
+const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
+
 function isValidUUID(uuid: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(uuid)
 }
@@ -8,9 +11,10 @@ function isValidUUID(uuid: string) {
 // Execute a query for a specific tenant
 export async function tenantQuery<T>(tenantId: string, queryText: string, params: any[] = []): Promise<T[]> {
   if (!isValidUUID(tenantId)) {
-    console.warn("Invalid tenant ID provided. Skipping query execution.")
-    return []
+    console.warn("Invalid tenant ID provided. Using default tenant ID instead.")
+    tenantId = DEFAULT_TENANT_ID
   }
+
   try {
     // Get the database URL from environment variables
     const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL

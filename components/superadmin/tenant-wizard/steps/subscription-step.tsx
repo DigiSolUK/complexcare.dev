@@ -8,13 +8,10 @@ import { CardDescription, CardTitle } from "@/components/ui/card"
 import { Check } from "lucide-react"
 
 export function SubscriptionStep() {
-  const { state, updateSubscription } = useWizardContext();
+  const { state, updateSubscription } = useWizardContext()
 
   return (
-    <WizardStep
-      title="Subscription Plan"
-      description="Choose a subscription plan for this tenant"
-    >
+    <WizardStep title="Subscription Plan" description="Choose a subscription plan for this tenant">
       <div className="space-y-6">
         <div className="space-y-4">
           <Label>Select a Plan</Label>
@@ -24,19 +21,13 @@ export function SubscriptionStep() {
             className="grid grid-cols-1 md:grid-cols-2 gap-4"
           >
             <div>
-              <RadioGroupItem
-                value="basic"
-                id="basic"
-                className="peer sr-only"
-              />
+              <RadioGroupItem value="basic" id="basic" className="peer sr-only" />
               <Label
                 htmlFor="basic"
                 className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
               >
                 <CardTitle>Basic</CardTitle>
-                <CardDescription className="mt-2">
-                  For small organizations just getting started
-                </CardDescription>
+                <CardDescription className="mt-2">For small organizations just getting started</CardDescription>
                 <div className="mt-4 text-2xl font-bold">£99/mo</div>
                 <ul className="mt-4 space-y-2 text-sm">
                   <li className="flex items-center">
@@ -56,19 +47,13 @@ export function SubscriptionStep() {
             </div>
 
             <div>
-              <RadioGroupItem
-                value="standard"
-                id="standard"
-                className="peer sr-only"
-              />
+              <RadioGroupItem value="standard" id="standard" className="peer sr-only" />
               <Label
                 htmlFor="standard"
                 className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
               >
                 <CardTitle>Standard</CardTitle>
-                <CardDescription className="mt-2">
-                  For growing organizations with more needs
-                </CardDescription>
+                <CardDescription className="mt-2">For growing organizations with more needs</CardDescription>
                 <div className="mt-4 text-2xl font-bold">£199/mo</div>
                 <ul className="mt-4 space-y-2 text-sm">
                   <li className="flex items-center">
@@ -92,19 +77,13 @@ export function SubscriptionStep() {
             </div>
 
             <div>
-              <RadioGroupItem
-                value="premium"
-                id="premium"
-                className="peer sr-only"
-              />
+              <RadioGroupItem value="premium" id="premium" className="peer sr-only" />
               <Label
                 htmlFor="premium"
                 className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
               >
                 <CardTitle>Premium</CardTitle>
-                <CardDescription className="mt-2">
-                  For established organizations with complex needs
-                </CardDescription>
+                <CardDescription className="mt-2">For established organizations with complex needs</CardDescription>
                 <div className="mt-4 text-2xl font-bold">£399/mo</div>
                 <ul className="mt-4 space-y-2 text-sm">
                   <li className="flex items-center">
@@ -132,7 +111,41 @@ export function SubscriptionStep() {
             </div>
 
             <div>
-              <RadioGroupItem
-                value="enterprise"
-                id="enterprise"
-              />\
+              <RadioGroupItem value="enterprise" id="enterprise" className="peer sr-only" />
+              <Label
+                htmlFor="enterprise"
+                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+              >
+                <CardTitle>Enterprise</CardTitle>
+                <CardDescription className="mt-2">For large organizations with custom requirements</CardDescription>
+                <div className="mt-4 text-2xl font-bold">Contact Us</div>
+                <ul className="mt-4 space-y-2 text-sm">
+                  <li className="flex items-center">
+                    <Check className="mr-2 h-4 w-4" />
+                    <span>Unlimited users</span>
+                  </li>
+                  <li className="flex items-center">
+                    <Check className="mr-2 h-4 w-4" />
+                    <span>All Premium features</span>
+                  </li>
+                  <li className="flex items-center">
+                    <Check className="mr-2 h-4 w-4" />
+                    <span>Custom integrations</span>
+                  </li>
+                  <li className="flex items-center">
+                    <Check className="mr-2 h-4 w-4" />
+                    <span>Dedicated account manager</span>
+                  </li>
+                  <li className="flex items-center">
+                    <Check className="mr-2 h-4 w-4" />
+                    <span>SLA guarantees</span>
+                  </li>
+                </ul>
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
+      </div>
+    </WizardStep>
+  )
+}

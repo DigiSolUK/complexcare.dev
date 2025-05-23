@@ -5,6 +5,8 @@ import { CacheService } from "@/lib/redis/cache-service"
 import { neon } from "@/lib/db"
 import { v4 as uuidv4 } from "uuid"
 import { neon as neonDatabase } from "@neondatabase/serverless"
+import { sql } from "@vercel/postgres"
+import type { CareProfessional as CareProfessionalInterface } from "@/types"
 
 // Cache key prefix for care professionals
 const CACHE_PREFIX = "care-professional:"
@@ -21,7 +23,7 @@ function validateDate(dateString: string): string {
 }
 
 // Demo care professionals
-const demoCareProfessionals: CareProfessionalType[] = [
+const demoCareProfessionals: CareProfessionalInterface[] = [
   {
     id: "1",
     first_name: "Emma",
@@ -281,6 +283,161 @@ export class CareProfessionalService {
   }
 }
 
+export async function getAllCareProfessionals(tenantId: string) {
+  try {
+    const careProfessionals = await sql`
+      SELECT * FROM care_professionals 
+      WHERE tenant_id = ${tenantId}
+      ORDER BY last_name, first_name
+    `
+    return { careProfessionals, error: null }
+  } catch (error) {
+    console.error("Error fetching care professionals:", error)
+    return { careProfessionals: [], error: "Failed to fetch care professionals" }
+  }
+}
+
+export async function getCareProfessionalByIdSql(id: string, tenantId: string) {
+  try {
+    const [careProfessional] = await sql`
+      SELECT * FROM care_professionals 
+      WHERE id = ${id} AND tenant_id = ${tenantId}
+    `
+    return careProfessional
+  } catch (error) {
+    console.error(`Error fetching care professional with ID ${id}:`, error)
+    return null
+  }
+}
+
+export async function createCareProfessional(tenantId: string, data: Partial<CareProfessionalInterface>) {
+  try {
+    const [careProfessional] = await sql`
+      INSERT INTO care_professionals (
+        tenant_id, first_name, last_name, email, phone, role, specialization, 
+        qualification, license_number, address, start_date, employment_status,
+        notes, emergency_contact_name, emergency_contact_phone, avatar_url
+      ) VALUES (
+        ${tenantId}, ${data.first_name}, ${data.last_name}, ${data.email}, 
+        ${data.phone}, ${data.role}, ${data.specialization}, ${data.qualification}, 
+        ${data.license_number}, ${data.address}, ${data.start_date}, ${data.employment_status},
+        ${data.notes}, ${data.emergency_contact_name}, ${data.emergency_contact_phone}, 
+        ${data.avatar_url}
+      )
+      RETURNING *
+    `
+    return { careProfessional, error: null }
+  } catch (error) {
+    console.error("Error creating care professional:", error)
+    return { careProfessional: null, error: "Failed to create care professional" }
+  }
+}
+
+export async function updateCareProfessional(id: string, tenantId: string, data: Partial<CareProfessionalInterface>) {
+  try {
+    const [careProfessional] = await sql`
+      UPDATE care_professionals
+      SET
+        first_name = COALESCE(${data.first_name}, first_name),
+        last_name = COALESCE(${data.last_name}, last_name),
+        email = COALESCE(${data.email}, email),
+        phone = COALESCE(${data.phone}, phone),
+        role = COALESCE(${data.role}, role),
+        specialization = COALESCE(${data.specialization}, specialization),
+        qualification = COALESCE(${data.qualification}, qualification),
+        license_number = COALESCE(${data.license_number}, license_number),
+        address = COALESCE(${data.address}, address),
+        start_date = COALESCE(${data.start_date}, start_date),
+        employment_status = COALESCE(${data.employment_status}, employment_status),
+        notes = COALESCE(${data.notes}, notes),
+        emergency_contact_name = COALESCE(${data.emergency_contact_name}, emergency_contact_name),
+        emergency_contact_phone = COALESCE(${data.emergency_contact_phone}, emergency_contact_phone),
+        avatar_url = COALESCE(${data.avatar_url}, avatar_url),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id} AND tenant_id = ${tenantId}
+      RETURNING *
+    `
+    return { careProfessional, error: null }
+  } catch (error) {
+    console.error(`Error updating care professional with ID ${id}:`, error)
+    return { careProfessional: null, error: "Failed to update care professional" }
+  }
+}
+
+export async function deleteCareProfessional(id: string, tenantId: string) {
+  try {
+    await sql`
+      DELETE FROM care_professionals
+      WHERE id = ${id} AND tenant_id = ${tenantId}
+    `
+    return { success: true, error: null }
+  } catch (error) {
+    console.error(`Error deleting care professional with ID ${id}:`, error)
+    return { success: false, error: "Failed to delete care professional" }
+  }
+}
+
+export async function getCareProfessionalAppointments(id: string, tenantId: string) {
+  try {
+    const appointments = await sql`
+      SELECT a.* 
+      FROM appointments a
+      WHERE a.care_professional_id = ${id} AND a.tenant_id = ${tenantId}
+      ORDER BY a.appointment_date DESC
+    `
+    return { appointments, error: null }
+  } catch (error) {
+    console.error(`Error fetching appointments for care professional with ID ${id}:`, error)
+    return { appointments: [], error: "Failed to fetch care professional appointments" }
+  }
+}
+
+export async function getCareProfessionalPatients(id: string, tenantId: string) {
+  try {
+    const patients = await sql`
+      SELECT DISTINCT p.* 
+      FROM patients p
+      JOIN appointments a ON p.id = a.patient_id
+      WHERE a.care_professional_id = ${id} AND p.tenant_id = ${tenantId}
+      ORDER BY p.last_name, p.first_name
+    `
+    return { patients, error: null }
+  } catch (error) {
+    console.error(`Error fetching patients for care professional with ID ${id}:`, error)
+    return { patients: [], error: "Failed to fetch care professional patients" }
+  }
+}
+
+export async function getCareProfessionalTasks(id: string, tenantId: string) {
+  try {
+    const tasks = await sql`
+      SELECT t.* 
+      FROM tasks t
+      WHERE t.assigned_to = ${id} AND t.tenant_id = ${tenantId}
+      ORDER BY t.due_date ASC
+    `
+    return { tasks, error: null }
+  } catch (error) {
+    console.error(`Error fetching tasks for care professional with ID ${id}:`, error)
+    return { tasks: [], error: "Failed to fetch care professional tasks" }
+  }
+}
+
+export async function getCareProfessionalCredentials(id: string, tenantId: string) {
+  try {
+    const credentials = await sql`
+      SELECT c.* 
+      FROM credentials c
+      WHERE c.care_professional_id = ${id} AND c.tenant_id = ${tenantId}
+      ORDER BY c.expiry_date ASC
+    `
+    return { credentials, error: null }
+  } catch (error) {
+    console.error(`Error fetching credentials for care professional with ID ${id}:`, error)
+    return { credentials: [], error: "Failed to fetch care professional credentials" }
+  }
+}
+
 export async function getCareProfessionals(tenantId: string, searchQuery?: string) {
   const cacheKey = `${CACHE_PREFIX}list:${tenantId}`
 
@@ -369,24 +526,20 @@ export async function getCareProfessionals(tenantId: string, searchQuery?: strin
 /**
  * Get a care professional by ID
  * @param id The ID of the care professional to retrieve
- * @returns The care professional data or null if not found
+ * @returns The care professional data
  */
 export async function getCareProfessionalById(id: string) {
   try {
-    const sql = neon(process.env.DATABASE_URL || "")
+    const sql = neon(process.env.DATABASE_URL!)
     const result = await sql`
-      SELECT * FROM care_professionals 
+      SELECT * FROM care_professionals
       WHERE id = ${id}
     `
 
-    if (result && result.length > 0) {
-      return result[0]
-    }
-
-    return null
+    return result.length > 0 ? result[0] : null
   } catch (error) {
     console.error("Error fetching care professional by ID:", error)
-    return null
+    throw new Error("Failed to fetch care professional")
   }
 }
 

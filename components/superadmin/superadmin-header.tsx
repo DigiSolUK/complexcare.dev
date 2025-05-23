@@ -18,10 +18,11 @@ interface SuperadminHeaderProps {
   notificationCount?: number
 }
 
-export const SuperadminHeader = ({
+// Named export for SuperadminHeader
+export function SuperadminHeader({
   user = { name: "Admin User", email: "admin@example.com" },
   notificationCount = 0,
-}: SuperadminHeaderProps) => {
+}: SuperadminHeaderProps) {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -127,5 +128,5 @@ export const SuperadminHeader = ({
   )
 }
 
-// Also export as default for flexibility
+// Also export as default for compatibility
 export default SuperadminHeader

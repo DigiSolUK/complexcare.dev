@@ -1,8 +1,18 @@
 import { cookies } from "next/headers"
 import { cache } from "react"
 
-// Default tenant ID to use when none is specified
-export const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || "11111111-1111-1111-1111-111111111111"
+// Hard-coded default tenant ID as requested
+export const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
+
+// Get the default tenant ID
+export function getDefaultTenantId(): string {
+  return DEFAULT_TENANT_ID
+}
+
+// Ensure a valid tenant ID is used
+export function ensureTenantId(tenantId?: string | null): string {
+  return tenantId || DEFAULT_TENANT_ID
+}
 
 // Get the current tenant ID from cookies or use default
 export const getCurrentTenantId = cache(() => {
@@ -16,16 +26,6 @@ export const getCurrentTenantId = cache(() => {
   }
 })
 
-// Get the default tenant ID
-export function getDefaultTenantId(): string {
-  return DEFAULT_TENANT_ID
-}
-
-// Ensure a valid tenant ID is used
-export function ensureTenantId(tenantId?: string | null): string {
-  return tenantId || DEFAULT_TENANT_ID
-}
-
 // Get current tenant details (placeholder - would fetch from DB in real app)
 export async function getCurrentTenant() {
   const tenantId = getCurrentTenantId()
@@ -33,7 +33,7 @@ export async function getCurrentTenant() {
   // In a real app, you would fetch tenant details from the database
   return {
     id: tenantId,
-    name: `Tenant ${tenantId.substring(0, 8)}`,
+    name: `Complex Care UK`,
     isActive: true,
     createdAt: new Date().toISOString(),
     settings: {
@@ -61,5 +61,5 @@ export async function setTenantId(tenantId: string): Promise<void> {
 // Function to validate if a tenant exists
 export async function validateTenantExists(tenantId: string): Promise<boolean> {
   // In a real app, this would check the database
-  return tenantId.length === 36 // Simple UUID validation
+  return tenantId === DEFAULT_TENANT_ID || tenantId.length === 36 // Simple UUID validation
 }

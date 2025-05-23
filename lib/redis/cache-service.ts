@@ -92,9 +92,9 @@ export class CacheService {
 
 // Simple cache interface for backward compatibility
 export const cache = {\
-  get: async <T>(key: string): Promise<T | null> => CacheService.get<T>(key),
-  set: async <T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> =>
-    CacheService.set(key, value, ttlSeconds),
-  delete: async (key: string): Promise<boolean> => CacheService.delete(key),
-  exists: async (key: string): Promise<boolean> => CacheService.exists(key)
+  get: <T>(key: string): Promise<T | null> => CacheService.get<T>(key),
+  set: <T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> =>
+    CacheService.set<T>(key, value, ttlSeconds),
+  delete: (key: string): Promise<boolean> => CacheService.delete(key),
+  exists: (key: string): Promise<boolean> => CacheService.exists(key)
 }
