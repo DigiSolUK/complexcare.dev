@@ -93,7 +93,6 @@
     "react-big-calendar": "latest",
     "react-day-picker": "latest",
     "react-dom": "^19",
-    "react-error-boundary": "latest",
     "react-hook-form": "latest",
     "react-resizable-panels": "^2.1.7",
     "recharts": "latest",

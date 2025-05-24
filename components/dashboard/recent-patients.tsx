@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 interface RecentPatientsProps {
@@ -79,46 +78,29 @@ export function RecentPatients({ showAll = false }: RecentPatientsProps) {
   const displayPatients = showAll ? patients : patients.slice(0, 5)
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Recent Patients</CardTitle>
-          <CardDescription>You have seen 12 patients this week</CardDescription>
-        </div>
-        {!showAll && (
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/patients">View all</Link>
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {displayPatients.map((patient) => (
-            <div key={patient.id} className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-muted">{patient.initials}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-medium leading-none">{patient.name}</p>
-                  <p className="text-xs text-muted-foreground">NHS #: {patient.nhsNumber}</p>
-                </div>
-              </div>
-              <Badge variant="outline" className="ml-auto">
-                <div className={`mr-1.5 h-2 w-2 rounded-full ${patient.statusColor}`} />
-                {patient.status}
-              </Badge>
+    <div className="space-y-4">
+      {displayPatients.map((patient) => (
+        <div key={patient.id} className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-9 w-9">
+              <AvatarFallback className="bg-muted">{patient.initials}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm font-medium leading-none">{patient.name}</p>
+              <p className="text-xs text-muted-foreground">NHS #: {patient.nhsNumber}</p>
             </div>
-          ))}
-        </div>
-        {showAll && (
-          <div className="mt-4 flex justify-center">
-            <Button variant="outline" size="sm">
-              Load More
-            </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <Badge variant="outline" className="ml-auto">
+            <div className={`mr-1.5 h-2 w-2 rounded-full ${patient.statusColor}`} />
+            {patient.status}
+          </Badge>
+        </div>
+      ))}
+      {!showAll && (
+        <Button variant="outline" size="sm" className="w-full" asChild>
+          <Link href="/patients">View all patients</Link>
+        </Button>
+      )}
+    </div>
   )
 }

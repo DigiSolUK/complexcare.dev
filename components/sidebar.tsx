@@ -1,165 +1,201 @@
 "use client"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import {
   LayoutDashboard,
   Users,
-  UserCheck,
-  FileText,
   Calendar,
-  Pill,
   ClipboardList,
-  Clock,
-  CreditCard,
-  FileSpreadsheet,
-  Shield,
-  BarChart3,
-  Brain,
+  FileText,
   Settings,
-  ChevronLeft,
-  ChevronRight,
+  Shield,
+  BarChart,
   Building2,
-  UserCog,
+  Brain,
+  Stethoscope,
+  UserCheck,
+  DollarSign,
+  Clock,
+  FileSpreadsheet,
+  Activity,
+  Pill,
+  CreditCard,
+  Briefcase,
+  FileEdit,
+  ChevronLeft,
+  Menu,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { useState } from "react"
 
-interface SidebarProps {
-  className?: string
-  isCollapsed?: boolean
-  onToggle?: () => void
-  userRole?: string
-}
-
+// Navigation items with correct routes
 const navigationItems = [
   {
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["admin", "user", "super_admin"],
   },
   {
     title: "Patients",
-    href: "/dashboard/patients",
+    href: "/patients",
     icon: Users,
-    roles: ["admin", "user", "super_admin"],
   },
   {
     title: "Care Professionals",
-    href: "/dashboard/care-professionals",
+    href: "/care-professionals",
     icon: UserCheck,
-    roles: ["admin", "user", "super_admin"],
-  },
-  {
-    title: "Clinical Notes",
-    href: "/dashboard/clinical-notes",
-    icon: FileText,
-    roles: ["admin", "user", "super_admin"],
   },
   {
     title: "Appointments",
-    href: "/dashboard/appointments",
+    href: "/appointments",
     icon: Calendar,
-    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Clinical Notes",
+    href: "/clinical-notes",
+    icon: Stethoscope,
   },
   {
     title: "Care Plans",
-    href: "/dashboard/care-plans",
+    href: "/care-plans",
     icon: ClipboardList,
-    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Tasks",
+    href: "/tasks",
+    icon: ClipboardList,
   },
   {
     title: "Medications",
-    href: "/dashboard/medications",
+    href: "/medications",
     icon: Pill,
-    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Documents",
+    href: "/documents",
+    icon: FileText,
   },
   {
     title: "Timesheets",
-    href: "/dashboard/timesheets",
+    href: "/timesheets",
     icon: Clock,
-    roles: ["admin", "user", "super_admin"],
   },
   {
     title: "Invoicing",
-    href: "/dashboard/invoicing",
+    href: "/invoicing",
     icon: CreditCard,
-    roles: ["admin", "super_admin"],
   },
   {
     title: "Payroll",
-    href: "/dashboard/payroll",
+    href: "/payroll/providers",
     icon: FileSpreadsheet,
-    roles: ["admin", "super_admin"],
+  },
+  {
+    title: "Finances",
+    href: "/finances",
+    icon: DollarSign,
   },
   {
     title: "Compliance",
-    href: "/dashboard/compliance",
+    href: "/compliance",
     icon: Shield,
-    roles: ["admin", "super_admin"],
   },
   {
     title: "Analytics",
-    href: "/dashboard/analytics",
-    icon: BarChart3,
-    roles: ["admin", "super_admin"],
+    href: "/analytics",
+    icon: BarChart,
+  },
+  {
+    title: "Reports",
+    href: "/reports",
+    icon: FileText,
   },
   {
     title: "AI Tools",
-    href: "/dashboard/ai-tools",
+    href: "/ai-tools",
     icon: Brain,
-    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Recruitment",
+    href: "/recruitment",
+    icon: Briefcase,
+  },
+  {
+    title: "Content",
+    href: "/content",
+    icon: FileEdit,
+  },
+]
+
+const adminItems = [
+  {
+    title: "Tenant Management",
+    href: "/admin/tenant-management",
+    icon: Building2,
+  },
+  {
+    title: "System Health",
+    href: "/admin/system-health",
+    icon: Activity,
   },
 ]
 
 const superAdminItems = [
   {
-    title: "Tenant Management",
-    href: "/superadmin/tenants",
-    icon: Building2,
-    roles: ["super_admin"],
+    title: "Super Admin",
+    href: "/superadmin",
+    icon: UserCheck,
   },
   {
-    title: "System Admin",
-    href: "/superadmin",
-    icon: UserCog,
-    roles: ["super_admin"],
+    title: "All Tenants",
+    href: "/superadmin/tenants",
+    icon: Building2,
   },
 ]
 
-export function Sidebar({ className, isCollapsed = false, onToggle, userRole = "user" }: SidebarProps) {
+interface SidebarProps {
+  className?: string
+}
+
+export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
-
-  const filteredNavItems = navigationItems.filter((item) => item.roles.includes(userRole))
-
-  const filteredSuperAdminItems = superAdminItems.filter((item) => item.roles.includes(userRole))
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const isSuperAdmin = pathname?.startsWith("/superadmin")
 
   return (
-    <div className={cn("flex h-full flex-col border-r bg-background", className)}>
-      <div className="flex h-14 items-center justify-between px-4">
-        {!isCollapsed && <h2 className="text-lg font-semibold">ComplexCare CRM</h2>}
-        {onToggle && (
-          <Button variant="ghost" size="sm" onClick={onToggle} className="h-8 w-8 p-0">
-            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </Button>
+    <div
+      className={cn(
+        "relative flex h-full flex-col border-r bg-background transition-all duration-300",
+        isCollapsed ? "w-16" : "w-64",
+        className,
+      )}
+    >
+      <div className="flex h-14 items-center justify-between px-4 border-b">
+        {!isCollapsed && (
+          <Link href="/dashboard" className="flex items-center space-x-2">
+            <span className="font-bold">ComplexCare CRM</span>
+          </Link>
         )}
+        <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className="h-8 w-8">
+          {isCollapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </Button>
       </div>
 
-      <Separator />
-
       <ScrollArea className="flex-1 px-3">
-        <div className="space-y-2 py-4">
-          {filteredNavItems.map((item) => {
+        <div className="space-y-1 py-4">
+          {navigationItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
 
             return (
               <Link key={item.href} href={item.href}>
                 <Button
                   variant={isActive ? "secondary" : "ghost"}
-                  className={cn("w-full justify-start", isCollapsed && "px-2", isActive && "bg-secondary")}
+                  className={cn("w-full justify-start", isCollapsed && "px-2")}
+                  title={isCollapsed ? item.title : undefined}
                 >
                   <Icon className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
                   {!isCollapsed && item.title}
@@ -169,24 +205,51 @@ export function Sidebar({ className, isCollapsed = false, onToggle, userRole = "
           })}
         </div>
 
-        {filteredSuperAdminItems.length > 0 && (
+        {adminItems.length > 0 && (
           <>
-            <Separator className="my-4" />
-            <div className="space-y-2 py-4">
+            <div className="my-2 border-t" />
+            <div className="space-y-1 py-2">
               {!isCollapsed && (
-                <h3 className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Super Admin
-                </h3>
+                <p className="px-2 text-xs font-semibold text-muted-foreground uppercase">Administration</p>
               )}
-              {filteredSuperAdminItems.map((item) => {
+              {adminItems.map((item) => {
                 const Icon = item.icon
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
 
                 return (
                   <Link key={item.href} href={item.href}>
                     <Button
                       variant={isActive ? "secondary" : "ghost"}
-                      className={cn("w-full justify-start", isCollapsed && "px-2", isActive && "bg-secondary")}
+                      className={cn("w-full justify-start", isCollapsed && "px-2")}
+                      title={isCollapsed ? item.title : undefined}
+                    >
+                      <Icon className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+                      {!isCollapsed && item.title}
+                    </Button>
+                  </Link>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {isSuperAdmin && superAdminItems.length > 0 && (
+          <>
+            <div className="my-2 border-t" />
+            <div className="space-y-1 py-2">
+              {!isCollapsed && (
+                <p className="px-2 text-xs font-semibold text-muted-foreground uppercase">Super Admin</p>
+              )}
+              {superAdminItems.map((item) => {
+                const Icon = item.icon
+                const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
+
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <Button
+                      variant={isActive ? "secondary" : "ghost"}
+                      className={cn("w-full justify-start", isCollapsed && "px-2")}
+                      title={isCollapsed ? item.title : undefined}
                     >
                       <Icon className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
                       {!isCollapsed && item.title}
@@ -199,11 +262,13 @@ export function Sidebar({ className, isCollapsed = false, onToggle, userRole = "
         )}
       </ScrollArea>
 
-      <Separator />
-
-      <div className="p-4">
-        <Link href="/dashboard/settings">
-          <Button variant="ghost" className={cn("w-full justify-start", isCollapsed && "px-2")}>
+      <div className="border-t p-4">
+        <Link href="/settings">
+          <Button
+            variant="ghost"
+            className={cn("w-full justify-start", isCollapsed && "px-2")}
+            title={isCollapsed ? "Settings" : undefined}
+          >
             <Settings className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
             {!isCollapsed && "Settings"}
           </Button>

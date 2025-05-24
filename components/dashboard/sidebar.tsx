@@ -116,7 +116,7 @@ export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <div className={cn("hidden border-r md:block", className)}>
+    <div className={cn("hidden h-full border-r bg-background md:flex md:w-64 md:flex-col", className)}>
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
           <div className="space-y-1">
