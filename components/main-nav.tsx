@@ -22,28 +22,28 @@ export function MainNav() {
           Dashboard
         </Link>
         <Link
-          href="/patients"
+          href="/dashboard/patients"
           className={cn(
             "transition-colors hover:text-foreground/80",
-            pathname?.startsWith("/patients") ? "text-foreground" : "text-foreground/60",
+            pathname?.startsWith("/dashboard/patients") ? "text-foreground" : "text-foreground/60",
           )}
         >
           Patients
         </Link>
         <Link
-          href="/appointments"
+          href="/dashboard/appointments"
           className={cn(
             "transition-colors hover:text-foreground/80",
-            pathname?.startsWith("/appointments") ? "text-foreground" : "text-foreground/60",
+            pathname?.startsWith("/dashboard/appointments") ? "text-foreground" : "text-foreground/60",
           )}
         >
           Appointments
         </Link>
         <Link
-          href="/tasks"
+          href="/dashboard/tasks"
           className={cn(
             "transition-colors hover:text-foreground/80",
-            pathname?.startsWith("/tasks") ? "text-foreground" : "text-foreground/60",
+            pathname?.startsWith("/dashboard/tasks") ? "text-foreground" : "text-foreground/60",
           )}
         >
           Tasks

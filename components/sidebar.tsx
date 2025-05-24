@@ -1,190 +1,216 @@
 "use client"
-
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import {
   LayoutDashboard,
   Users,
-  Calendar,
-  ClipboardList,
-  FileText,
-  Settings,
-  Shield,
-  BarChart,
-  Building2,
-  Brain,
-  Stethoscope,
   UserCheck,
-  DollarSign,
+  FileText,
+  Calendar,
+  Pill,
+  ClipboardList,
   Clock,
+  CreditCard,
   FileSpreadsheet,
-  Activity,
+  Shield,
+  BarChart3,
+  Brain,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  UserCog,
 } from "lucide-react"
-
-// Super admin sidebar items
-const superAdminItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Tenants",
-    href: "/superadmin/tenants",
-    icon: Building2,
-  },
-  {
-    title: "System Health",
-    href: "/superadmin/system",
-    icon: Activity,
-  },
-  {
-    title: "Settings",
-    href: "/superadmin/settings",
-    icon: Settings,
-  },
-]
-
-// Tenant admin sidebar items
-const tenantAdminItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Patients",
-    href: "/patients",
-    icon: Users,
-  },
-  {
-    title: "Care Professionals",
-    href: "/care-professionals",
-    icon: UserCheck,
-  },
-  {
-    title: "Appointments",
-    href: "/appointments",
-    icon: Calendar,
-  },
-  {
-    title: "Clinical Notes",
-    href: "/clinical-notes",
-    icon: Stethoscope,
-  },
-  {
-    title: "Care Plans",
-    href: "/care-plans",
-    icon: ClipboardList,
-  },
-  {
-    title: "Tasks",
-    href: "/tasks",
-    icon: ClipboardList,
-  },
-  {
-    title: "Medications",
-    href: "/medications",
-    icon: FileText,
-  },
-  {
-    title: "Documents",
-    href: "/documents",
-    icon: FileText,
-  },
-  {
-    title: "Timesheets",
-    href: "/timesheets",
-    icon: Clock,
-  },
-  {
-    title: "Invoicing",
-    href: "/invoicing",
-    icon: DollarSign,
-  },
-  {
-    title: "Payroll",
-    href: "/payroll",
-    icon: FileSpreadsheet,
-  },
-  {
-    title: "Compliance",
-    href: "/compliance",
-    icon: Shield,
-  },
-  {
-    title: "Analytics",
-    href: "/analytics",
-    icon: BarChart,
-  },
-  {
-    title: "Reports",
-    href: "/reports",
-    icon: BarChart,
-  },
-  {
-    title: "AI Tools",
-    href: "/ai-tools",
-    icon: Brain,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-]
 
 interface SidebarProps {
   className?: string
+  isCollapsed?: boolean
+  onToggle?: () => void
+  userRole?: string
 }
 
-export function Sidebar({ className }: SidebarProps) {
+const navigationItems = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Patients",
+    href: "/dashboard/patients",
+    icon: Users,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Care Professionals",
+    href: "/dashboard/care-professionals",
+    icon: UserCheck,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Clinical Notes",
+    href: "/dashboard/clinical-notes",
+    icon: FileText,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Appointments",
+    href: "/dashboard/appointments",
+    icon: Calendar,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Care Plans",
+    href: "/dashboard/care-plans",
+    icon: ClipboardList,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Medications",
+    href: "/dashboard/medications",
+    icon: Pill,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Timesheets",
+    href: "/dashboard/timesheets",
+    icon: Clock,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Invoicing",
+    href: "/dashboard/invoicing",
+    icon: CreditCard,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    title: "Payroll",
+    href: "/dashboard/payroll",
+    icon: FileSpreadsheet,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    title: "Compliance",
+    href: "/dashboard/compliance",
+    icon: Shield,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    title: "Analytics",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    title: "AI Tools",
+    href: "/dashboard/ai-tools",
+    icon: Brain,
+    roles: ["admin", "user", "super_admin"],
+  },
+]
+
+const superAdminItems = [
+  {
+    title: "Tenant Management",
+    href: "/superadmin/tenants",
+    icon: Building2,
+    roles: ["super_admin"],
+  },
+  {
+    title: "System Admin",
+    href: "/superadmin",
+    icon: UserCog,
+    roles: ["super_admin"],
+  },
+]
+
+export function Sidebar({ className, isCollapsed = false, onToggle, userRole = "user" }: SidebarProps) {
   const pathname = usePathname()
 
-  // For this implementation, we'll assume the current user is a tenant admin
-  // In a real implementation, you would check the user's role from the session
-  const isSuperAdmin = pathname?.startsWith("/superadmin")
-  const sidebarNavItems = isSuperAdmin ? superAdminItems : tenantAdminItems
+  const filteredNavItems = navigationItems.filter((item) => item.roles.includes(userRole))
+
+  const filteredSuperAdminItems = superAdminItems.filter((item) => item.roles.includes(userRole))
 
   return (
-    <div className={cn("hidden border-r md:block", className)}>
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          {isSuperAdmin && (
-            <div className="mb-4 px-4">
-              <div className="rounded-md bg-primary/10 p-2 text-center">
-                <span className="text-xs font-semibold text-primary">SUPER ADMIN</span>
-              </div>
-            </div>
-          )}
-          <div className="space-y-1">
-            <h2 className="mb-2 px-4 text-xl font-semibold tracking-tight">
-              {isSuperAdmin ? "System Admin" : "ComplexCare CRM"}
-            </h2>
-            <nav className="flex flex-col space-y-1">
-              {sidebarNavItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    pathname === item.href || (pathname?.startsWith(item.href) && item.href !== "/dashboard")
-                      ? "bg-accent text-accent-foreground"
-                      : "transparent",
-                  )}
+    <div className={cn("flex h-full flex-col border-r bg-background", className)}>
+      <div className="flex h-14 items-center justify-between px-4">
+        {!isCollapsed && <h2 className="text-lg font-semibold">ComplexCare CRM</h2>}
+        {onToggle && (
+          <Button variant="ghost" size="sm" onClick={onToggle} className="h-8 w-8 p-0">
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+        )}
+      </div>
+
+      <Separator />
+
+      <ScrollArea className="flex-1 px-3">
+        <div className="space-y-2 py-4">
+          {filteredNavItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+
+            return (
+              <Link key={item.href} href={item.href}>
+                <Button
+                  variant={isActive ? "secondary" : "ghost"}
+                  className={cn("w-full justify-start", isCollapsed && "px-2", isActive && "bg-secondary")}
                 >
-                  <item.icon className="mr-2 h-4 w-4" />
-                  <span>{item.title}</span>
-                </Link>
-              ))}
-            </nav>
-          </div>
+                  <Icon className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+                  {!isCollapsed && item.title}
+                </Button>
+              </Link>
+            )
+          })}
         </div>
+
+        {filteredSuperAdminItems.length > 0 && (
+          <>
+            <Separator className="my-4" />
+            <div className="space-y-2 py-4">
+              {!isCollapsed && (
+                <h3 className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Super Admin
+                </h3>
+              )}
+              {filteredSuperAdminItems.map((item) => {
+                const Icon = item.icon
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <Button
+                      variant={isActive ? "secondary" : "ghost"}
+                      className={cn("w-full justify-start", isCollapsed && "px-2", isActive && "bg-secondary")}
+                    >
+                      <Icon className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+                      {!isCollapsed && item.title}
+                    </Button>
+                  </Link>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </ScrollArea>
+
+      <Separator />
+
+      <div className="p-4">
+        <Link href="/dashboard/settings">
+          <Button variant="ghost" className={cn("w-full justify-start", isCollapsed && "px-2")}>
+            <Settings className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+            {!isCollapsed && "Settings"}
+          </Button>
+        </Link>
       </div>
     </div>
   )
 }
 
-// Make sure to export as default as well
 export default Sidebar
