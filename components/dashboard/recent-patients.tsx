@@ -1,106 +1,120 @@
+"use client"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import type { RecentPatient } from "@/lib/actions/dashboard-actions"
 
 interface RecentPatientsProps {
-  showAll?: boolean
+  patients?: RecentPatient[]
+  isLoading?: boolean
 }
 
-export function RecentPatients({ showAll = false }: RecentPatientsProps) {
-  const patients = [
-    {
-      id: "P001",
-      initials: "JD",
-      name: "John Doe",
-      nhsNumber: "123-456-7890",
-      status: "Diabetes Review",
-      statusColor: "bg-yellow-500",
-    },
-    {
-      id: "P002",
-      initials: "JL",
-      name: "Jane Lewis",
-      nhsNumber: "234-567-8901",
-      status: "Blood Pressure",
-      statusColor: "bg-blue-500",
-    },
-    {
-      id: "P003",
-      initials: "RB",
-      name: "Robert Brown",
-      nhsNumber: "345-678-9012",
-      status: "Medication Review",
-      statusColor: "bg-purple-500",
-    },
-    {
-      id: "P004",
-      initials: "ST",
-      name: "Sarah Thompson",
-      nhsNumber: "456-789-0123",
-      status: "Annual Check-up",
-      statusColor: "bg-green-500",
-    },
-    {
-      id: "P005",
-      initials: "MP",
-      name: "Michael Parker",
-      nhsNumber: "567-890-1234",
-      status: "Physiotherapy",
-      statusColor: "bg-red-500",
-    },
-    {
-      id: "P006",
-      initials: "EJ",
-      name: "Emma Johnson",
-      nhsNumber: "678-901-2345",
-      status: "Mental Health",
-      statusColor: "bg-indigo-500",
-    },
-    {
-      id: "P007",
-      initials: "DW",
-      name: "David Wilson",
-      nhsNumber: "789-012-3456",
-      status: "Respiratory",
-      statusColor: "bg-teal-500",
-    },
-    {
-      id: "P008",
-      initials: "LM",
-      name: "Laura Miller",
-      nhsNumber: "890-123-4567",
-      status: "Cardiology",
-      statusColor: "bg-pink-500",
-    },
-  ]
+export function RecentPatients({ patients, isLoading = false }: RecentPatientsProps) {
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-[200px]" />
+              <Skeleton className="h-3 w-[150px]" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
-  const displayPatients = showAll ? patients : patients.slice(0, 5)
+  if (!patients || patients.length === 0) {
+    return (
+      <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed p-8 text-center">
+        <div>
+          <p className="text-sm text-muted-foreground">No recent patients found</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
-      {displayPatients.map((patient) => (
-        <div key={patient.id} className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-9 w-9">
-              <AvatarFallback className="bg-muted">{patient.initials}</AvatarFallback>
+      {patients.map((patient) => {
+        // Get initials from patient name
+        const initials = patient.name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .substring(0, 2)
+
+        // Format date
+        const lastUpdated = new Date(patient.lastUpdated)
+        const timeAgo = getTimeAgo(lastUpdated)
+
+        return (
+          <Link
+            key={patient.id}
+            href={`/patients/${patient.id}`}
+            className="flex items-center gap-4 rounded-lg p-2 transition-colors hover:bg-muted"
+          >
+            <Avatar>
+              <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
-            <div>
-              <p className="text-sm font-medium leading-none">{patient.name}</p>
-              <p className="text-xs text-muted-foreground">NHS #: {patient.nhsNumber}</p>
+            <div className="flex-1 space-y-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium leading-none">{patient.name}</p>
+                <PatientStatusBadge status={patient.status} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Updated {timeAgo} • DOB: {new Date(patient.dateOfBirth).toLocaleDateString()}
+              </p>
             </div>
-          </div>
-          <Badge variant="outline" className="ml-auto">
-            <div className={`mr-1.5 h-2 w-2 rounded-full ${patient.statusColor}`} />
-            {patient.status}
-          </Badge>
-        </div>
-      ))}
-      {!showAll && (
-        <Button variant="outline" size="sm" className="w-full" asChild>
-          <Link href="/patients">View all patients</Link>
-        </Button>
-      )}
+          </Link>
+        )
+      })}
     </div>
   )
+}
+
+function PatientStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case "active":
+      return <Badge variant="default">Active</Badge>
+    case "inactive":
+      return <Badge variant="secondary">Inactive</Badge>
+    case "pending":
+      return <Badge variant="outline">Pending</Badge>
+    case "discharged":
+      return <Badge variant="destructive">Discharged</Badge>
+    default:
+      return null
+  }
+}
+
+function getTimeAgo(date: Date): string {
+  const now = new Date()
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+  if (diffInSeconds < 60) {
+    return `${diffInSeconds} seconds ago`
+  }
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60)
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes} ${diffInMinutes === 1 ? "minute" : "minutes"} ago`
+  }
+
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  if (diffInHours < 24) {
+    return `${diffInHours} ${diffInHours === 1 ? "hour" : "hours"} ago`
+  }
+
+  const diffInDays = Math.floor(diffInHours / 24)
+  if (diffInDays < 30) {
+    return `${diffInDays} ${diffInDays === 1 ? "day" : "days"} ago`
+  }
+
+  const diffInMonths = Math.floor(diffInDays / 30)
+  return `${diffInMonths} ${diffInMonths === 1 ? "month" : "months"} ago`
 }

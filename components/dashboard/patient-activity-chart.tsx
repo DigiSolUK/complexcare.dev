@@ -1,65 +1,81 @@
 "use client"
 
-import type React from "react"
+import { useEffect, useState } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getPatientActivityData } from "@/lib/actions/dashboard-actions"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 
-import { useTheme } from "next-themes"
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts"
+interface ActivityData {
+  date: string
+  visits: number
+  assessments: number
+  medications: number
+}
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+export function PatientActivityChart() {
+  const [data, setData] = useState<ActivityData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-const data = [
-  { name: "Jan", visits: 130 },
-  { name: "Feb", visits: 160 },
-  { name: "Mar", visits: 180 },
-  { name: "Apr", visits: 165 },
-  { name: "May", visits: 190 },
-  { name: "Jun", visits: 220 },
-  { name: "Jul", visits: 205 },
-  { name: "Aug", visits: 230 },
-  { name: "Sep", visits: 215 },
-  { name: "Oct", visits: 240 },
-  { name: "Nov", visits: 225 },
-  { name: "Dec", visits: 235 },
-]
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const activityData = await getPatientActivityData()
+        setData(activityData)
+      } catch (err) {
+        console.error("Failed to fetch patient activity data:", err)
+        setError("Failed to load patient activity data")
+      } finally {
+        setLoading(false)
+      }
+    }
 
-interface PatientActivityChartProps extends React.HTMLAttributes<HTMLDivElement> {}
+    fetchData()
+  }, [])
 
-export function PatientActivityChart({ className, ...props }: PatientActivityChartProps) {
-  const { theme } = useTheme()
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+  }
+
+  if (loading) {
+    return <Skeleton className="h-[300px] w-full" />
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-[300px] w-full items-center justify-center rounded-md border border-dashed p-8 text-center">
+        <div>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <button onClick={() => window.location.reload()} className="mt-4 text-sm text-blue-500 hover:text-blue-700">
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <Card className={className} {...props}>
-      <CardHeader>
-        <CardTitle>Patient Activity</CardTitle>
-        <CardDescription>Daily patient visits over the past year</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis
-                stroke="#888888"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `${value}`}
-              />
-              <Tooltip
-                cursor={{ fill: "transparent" }}
-                contentStyle={{
-                  backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
-                  border: "none",
-                  borderRadius: "4px",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                }}
-              />
-              <Bar dataKey="visits" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart
+        data={data}
+        margin={{
+          top: 5,
+          right: 30,
+          left: 20,
+          bottom: 5,
+        }}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="date" tickFormatter={formatDate} />
+        <YAxis />
+        <Tooltip formatter={(value: number) => [value, ""]} labelFormatter={(label) => formatDate(label)} />
+        <Legend />
+        <Line type="monotone" dataKey="visits" stroke="#8884d8" activeDot={{ r: 8 }} name="Visits" />
+        <Line type="monotone" dataKey="assessments" stroke="#82ca9d" name="Assessments" />
+        <Line type="monotone" dataKey="medications" stroke="#ffc658" name="Medications" />
+      </LineChart>
+    </ResponsiveContainer>
   )
 }

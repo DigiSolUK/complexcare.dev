@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,9 @@ import { PatientActivityChart } from "@/components/dashboard/patient-activity-ch
 import { RecentPatients } from "@/components/dashboard/recent-patients"
 import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments"
 import { TasksList } from "@/components/dashboard/tasks-list"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle, RefreshCw } from "lucide-react"
 import {
   Users,
   Calendar,
@@ -27,6 +30,7 @@ import {
   PlusCircle,
   ArrowRight,
 } from "lucide-react"
+import { getDashboardData, type DashboardData } from "@/lib/actions/dashboard-actions"
 
 const quickActions = [
   {
@@ -180,22 +184,34 @@ const navigationCards = [
 
 export function DashboardClientPage() {
   const [activeTab, setActiveTab] = useState("overview")
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
-  // Optional: You can define dashboard data here if you want to pass it explicitly
-  const dashboardData = {
-    patientCount: 248,
-    patientGrowth: 4,
-    appointmentsToday: 8,
-    appointmentsPending: 3,
-    carePlansActive: 187,
-    carePlansReview: 12,
-    staffCompliance: 92,
-    certificationsExpiring: 5,
-    tasksAssigned: 24,
-    tasksCompleted: 18,
-    outstandingInvoices: 12500,
-    overduePayments: 3,
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await getDashboardData()
+      setDashboardData(data)
+    } catch (err) {
+      console.error("Failed to fetch dashboard data:", err)
+      setError("Failed to load dashboard data")
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await fetchDashboardData()
+    setRefreshing(false)
+  }
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -205,6 +221,16 @@ export function DashboardClientPage() {
           <p className="text-muted-foreground">Welcome to your ComplexCare CRM dashboard</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-1"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/reports/new">Generate Report</Link>
           </Button>
@@ -217,6 +243,13 @@ export function DashboardClientPage() {
         </div>
       </div>
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -225,8 +258,11 @@ export function DashboardClientPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          {/* Pass the data explicitly, though it's now optional */}
-          <DashboardStats data={dashboardData} />
+          {loading ? (
+            <Skeleton className="h-[200px] w-full" />
+          ) : (
+            dashboardData && <DashboardStats data={dashboardData} />
+          )}
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {quickActions.map((action) => {
@@ -266,7 +302,7 @@ export function DashboardClientPage() {
                 <CardDescription>Latest patient updates</CardDescription>
               </CardHeader>
               <CardContent>
-                <RecentPatients />
+                <RecentPatients patients={dashboardData?.recentPatients} isLoading={loading} />
               </CardContent>
             </Card>
           </div>
@@ -278,7 +314,7 @@ export function DashboardClientPage() {
                 <CardDescription>Next 24 hours</CardDescription>
               </CardHeader>
               <CardContent>
-                <UpcomingAppointments />
+                <UpcomingAppointments appointments={dashboardData?.upcomingAppointments} isLoading={loading} />
               </CardContent>
             </Card>
 
@@ -288,7 +324,7 @@ export function DashboardClientPage() {
                 <CardDescription>Tasks requiring attention</CardDescription>
               </CardHeader>
               <CardContent>
-                <TasksList />
+                <TasksList tasks={dashboardData?.pendingTasks} isLoading={loading} />
               </CardContent>
             </Card>
           </div>
@@ -329,36 +365,39 @@ export function DashboardClientPage() {
                 <CardDescription>Latest system updates</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">New patient registered</p>
-                      <p className="text-xs text-muted-foreground">John Doe - 2 minutes ago</p>
+                {loading ? (
+                  <div className="space-y-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-4">
+                        <Skeleton className="h-2 w-2 rounded-full" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-[200px]" />
+                          <Skeleton className="h-3 w-[150px]" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : dashboardData?.recentActivity && dashboardData.recentActivity.length > 0 ? (
+                  <div className="space-y-4">
+                    {dashboardData.recentActivity.slice(0, 4).map((activity) => (
+                      <div key={activity.id} className="flex items-center gap-4">
+                        <div className={`w-2 h-2 ${getActivityColor(activity.type)} rounded-full`} />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{activity.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {activity.user} - {formatActivityTime(activity.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed p-8 text-center">
+                    <div>
+                      <p className="text-sm text-muted-foreground">No recent activity</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="w-2 h-2 bg-green-500 rounded-full" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Care plan updated</p>
-                      <p className="text-xs text-muted-foreground">Jane Smith - 15 minutes ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Appointment scheduled</p>
-                      <p className="text-xs text-muted-foreground">Robert Brown - 1 hour ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Clinical note added</p>
-                      <p className="text-xs text-muted-foreground">Emily Wilson - 2 hours ago</p>
-                    </div>
-                  </div>
-                </div>
+                )}
                 <Button variant="outline" size="sm" className="w-full mt-4" asChild>
                   <Link href="/activity">View all activity</Link>
                 </Button>
@@ -372,29 +411,41 @@ export function DashboardClientPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Credential expiring soon</p>
-                      <p className="text-xs text-muted-foreground">
-                        Dr. Sarah Johnson's NMC registration expires in 30 days
-                      </p>
+                  {dashboardData?.certificationsExpiring ? (
+                    <div className="flex items-start gap-4">
+                      <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Credentials expiring soon</p>
+                        <p className="text-xs text-muted-foreground">
+                          {dashboardData.certificationsExpiring} certifications expire in the next 30 days
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Compliance review due</p>
-                      <p className="text-xs text-muted-foreground">Monthly compliance report due in 5 days</p>
+                  ) : null}
+
+                  {dashboardData?.carePlansReview ? (
+                    <div className="flex items-start gap-4">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-1.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Care plans need review</p>
+                        <p className="text-xs text-muted-foreground">
+                          {dashboardData.carePlansReview} care plans require review
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">System update available</p>
-                      <p className="text-xs text-muted-foreground">Version 2.1.0 includes new AI features</p>
+                  ) : null}
+
+                  {dashboardData?.overduePayments ? (
+                    <div className="flex items-start gap-4">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Overdue payments</p>
+                        <p className="text-xs text-muted-foreground">
+                          {dashboardData.overduePayments} payments are overdue
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
                 </div>
                 <Button variant="outline" size="sm" className="w-full mt-4" asChild>
                   <Link href="/notifications">View all notifications</Link>
@@ -406,4 +457,49 @@ export function DashboardClientPage() {
       </Tabs>
     </div>
   )
+}
+
+function getActivityColor(type: string): string {
+  switch (type) {
+    case "patient":
+      return "bg-blue-500"
+    case "appointment":
+      return "bg-green-500"
+    case "task":
+      return "bg-yellow-500"
+    case "note":
+      return "bg-purple-500"
+    case "medication":
+      return "bg-red-500"
+    default:
+      return "bg-gray-500"
+  }
+}
+
+function formatActivityTime(timestamp: string): string {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+  if (diffInSeconds < 60) {
+    return `${diffInSeconds} seconds ago`
+  }
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60)
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes} ${diffInMinutes === 1 ? "minute" : "minutes"} ago`
+  }
+
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  if (diffInHours < 24) {
+    return `${diffInHours} ${diffInHours === 1 ? "hour" : "hours"} ago`
+  }
+
+  const diffInDays = Math.floor(diffInHours / 24)
+  if (diffInDays < 30) {
+    return `${diffInDays} ${diffInDays === 1 ? "day" : "days"} ago`
+  }
+
+  const diffInMonths = Math.floor(diffInDays / 30)
+  return `${diffInMonths} ${diffInMonths === 1 ? "month" : "months"} ago`
 }
