@@ -8,6 +8,11 @@ interface PatientDetailPageProps {
   }
 }
 
+export const metadata = {
+  title: "Patient Details | ComplexCare CRM",
+  description: "View and manage patient details",
+}
+
 export default function PatientDetailPage({ params }: PatientDetailPageProps) {
   return (
     <div className="container mx-auto py-6">
