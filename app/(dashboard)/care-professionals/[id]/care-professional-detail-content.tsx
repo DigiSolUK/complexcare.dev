@@ -4,86 +4,76 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ChevronLeft, AlertCircle } from "lucide-react"
+import { PageHeader } from "@/components/page-header"
 import { CareProfessionalDetails } from "@/components/care-professionals/care-professional-details"
 import { CareProfessionalCredentials } from "@/components/care-professionals/care-professional-credentials"
 import { CareProfessionalAppointments } from "@/components/care-professionals/care-professional-appointments"
 import { CareProfessionalTasks } from "@/components/care-professionals/care-professional-tasks"
-import { PatientAssignmentList } from "@/components/care-professionals/patient-assignment-list"
+import { ChevronLeft, Pencil, Trash2, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Skeleton } from "@/components/ui/skeleton"
+import type { CareProfessional } from "@/types"
 
 interface CareProfessionalDetailContentProps {
-  id: string
-  tenantId?: string
+  careProfessionalId: string
 }
 
-export default function CareProfessionalDetailContent({ id, tenantId }: CareProfessionalDetailContentProps) {
+export default function CareProfessionalDetailContent({ careProfessionalId }: CareProfessionalDetailContentProps) {
   const router = useRouter()
-  const [professional, setProfessional] = useState<any>(null)
+  const [professional, setProfessional] = useState<CareProfessional | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("details")
 
   useEffect(() => {
     const fetchCareProfessional = async () => {
+      setIsLoading(true)
+      setError(null)
       try {
-        setIsLoading(true)
-        setError(null)
-
-        const response = await fetch(`/api/care-professionals/${id}${tenantId ? `?tenantId=${tenantId}` : ""}`)
+        const response = await fetch(`/api/care-professionals/${careProfessionalId}`)
 
         if (!response.ok) {
-          throw new Error(`Error ${response.status}: ${response.statusText}`)
+          throw new Error(`Failed to fetch care professional: ${response.status}`)
         }
 
         const data = await response.json()
-        setProfessional(data.data)
+        setProfessional(data)
       } catch (err) {
         console.error("Error fetching care professional:", err)
-        setError("Failed to load care professional details")
+        setError("Failed to load care professional details. Please try again.")
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchCareProfessional()
-  }, [id, tenantId])
+  }, [careProfessionalId])
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center">
-          <Button variant="ghost" className="mr-2" onClick={() => router.back()} disabled>
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <Skeleton className="h-9 w-60" />
-        </div>
-
-        <Skeleton className="h-[500px] w-full rounded-md" />
-      </div>
-    )
+  const handleBack = () => {
+    router.push("/care-professionals")
   }
 
-  if (error || !professional) {
+  const handleEdit = () => {
+    // Implement edit functionality
+    console.log("Edit care professional:", careProfessionalId)
+  }
+
+  const handleDelete = () => {
+    // Implement delete functionality
+    console.log("Delete care professional:", careProfessionalId)
+  }
+
+  if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center">
-          <Button variant="ghost" className="mr-2" onClick={() => router.back()}>
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-bold">Care Professional Details</h1>
-        </div>
+        <Button variant="ghost" onClick={handleBack} className="mb-4">
+          <ChevronLeft className="mr-2 h-4 w-4" />
+          Back to Care Professionals
+        </Button>
 
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error || "Failed to load care professional details. Please try again."}</AlertDescription>
-          <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
-            Retry
-          </Button>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       </div>
     )
@@ -91,54 +81,64 @@ export default function CareProfessionalDetailContent({ id, tenantId }: CareProf
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <Button variant="ghost" className="mr-2" onClick={() => router.back()}>
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-bold">
-            {professional.title ? `${professional.title} ` : ""}
-            {professional.first_name} {professional.last_name}
-          </h1>
+      <Button variant="ghost" onClick={handleBack} className="mb-4">
+        <ChevronLeft className="mr-2 h-4 w-4" />
+        Back to Care Professionals
+      </Button>
+
+      {isLoading ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-8 w-64" />
+            <div className="flex space-x-2">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-24" />
+            </div>
+          </div>
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-[400px] w-full" />
         </div>
-      </div>
-
-      <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="patients">Patients</TabsTrigger>
-          <TabsTrigger value="credentials">Credentials</TabsTrigger>
-          <TabsTrigger value="appointments">Appointments</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="details" className="mt-0">
-          <CareProfessionalDetails professional={professional} />
-        </TabsContent>
-
-        <TabsContent value="patients" className="mt-0">
-          <PatientAssignmentList
-            careProfessionalId={id}
-            tenantId={tenantId}
-            includeEnded={false}
-            allowAdd={true}
-            allowRemove={true}
+      ) : professional ? (
+        <>
+          <PageHeader
+            title={`${professional.first_name} ${professional.last_name}`}
+            description={professional.role || "Care Professional"}
+            actions={
+              <>
+                <Button variant="outline" onClick={handleEdit}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+                <Button variant="destructive" onClick={handleDelete}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              </>
+            }
           />
-        </TabsContent>
 
-        <TabsContent value="credentials" className="mt-0">
-          <CareProfessionalCredentials careProfessionalId={id} tenantId={tenantId} />
-        </TabsContent>
-
-        <TabsContent value="appointments" className="mt-0">
-          <CareProfessionalAppointments careProfessionalId={id} tenantId={tenantId} />
-        </TabsContent>
-
-        <TabsContent value="tasks" className="mt-0">
-          <CareProfessionalTasks careProfessionalId={id} tenantId={tenantId} />
-        </TabsContent>
-      </Tabs>
+          <Tabs defaultValue="details">
+            <TabsList className="mb-4">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="credentials">Credentials</TabsTrigger>
+              <TabsTrigger value="appointments">Appointments</TabsTrigger>
+              <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            </TabsList>
+            <TabsContent value="details">
+              <CareProfessionalDetails professional={professional} />
+            </TabsContent>
+            <TabsContent value="credentials">
+              <CareProfessionalCredentials careProfessionalId={careProfessionalId} />
+            </TabsContent>
+            <TabsContent value="appointments">
+              <CareProfessionalAppointments careProfessionalId={careProfessionalId} />
+            </TabsContent>
+            <TabsContent value="tasks">
+              <CareProfessionalTasks careProfessionalId={careProfessionalId} />
+            </TabsContent>
+          </Tabs>
+        </>
+      ) : null}
     </div>
   )
 }
