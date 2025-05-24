@@ -13,8 +13,13 @@ import {
   Shield,
   BarChart,
   Building2,
-  CreditCard,
   Brain,
+  Stethoscope,
+  UserCheck,
+  DollarSign,
+  Clock,
+  FileSpreadsheet,
+  Activity,
 } from "lucide-react"
 
 // Super admin sidebar items
@@ -26,22 +31,17 @@ const superAdminItems = [
   },
   {
     title: "Tenants",
-    href: "/tenants",
+    href: "/superadmin/tenants",
     icon: Building2,
   },
   {
-    title: "Billing",
-    href: "/billing",
-    icon: CreditCard,
-  },
-  {
-    title: "AI Tools",
-    href: "/ai-tools",
-    icon: Brain,
+    title: "System Health",
+    href: "/superadmin/system",
+    icon: Activity,
   },
   {
     title: "Settings",
-    href: "/settings",
+    href: "/superadmin/settings",
     icon: Settings,
   },
 ]
@@ -59,9 +59,24 @@ const tenantAdminItems = [
     icon: Users,
   },
   {
+    title: "Care Professionals",
+    href: "/care-professionals",
+    icon: UserCheck,
+  },
+  {
     title: "Appointments",
     href: "/appointments",
     icon: Calendar,
+  },
+  {
+    title: "Clinical Notes",
+    href: "/clinical-notes",
+    icon: Stethoscope,
+  },
+  {
+    title: "Care Plans",
+    href: "/care-plans",
+    icon: ClipboardList,
   },
   {
     title: "Tasks",
@@ -69,14 +84,39 @@ const tenantAdminItems = [
     icon: ClipboardList,
   },
   {
+    title: "Medications",
+    href: "/medications",
+    icon: FileText,
+  },
+  {
     title: "Documents",
     href: "/documents",
     icon: FileText,
   },
   {
+    title: "Timesheets",
+    href: "/timesheets",
+    icon: Clock,
+  },
+  {
+    title: "Invoicing",
+    href: "/invoicing",
+    icon: DollarSign,
+  },
+  {
+    title: "Payroll",
+    href: "/payroll",
+    icon: FileSpreadsheet,
+  },
+  {
     title: "Compliance",
     href: "/compliance",
     icon: Shield,
+  },
+  {
+    title: "Analytics",
+    href: "/analytics",
+    icon: BarChart,
   },
   {
     title: "Reports",
@@ -95,16 +135,20 @@ const tenantAdminItems = [
   },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  className?: string
+}
+
+export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
 
-  // For this implementation, we'll assume the current user is a superadmin
+  // For this implementation, we'll assume the current user is a tenant admin
   // In a real implementation, you would check the user's role from the session
-  const isSuperAdmin = true
+  const isSuperAdmin = pathname?.startsWith("/superadmin")
   const sidebarNavItems = isSuperAdmin ? superAdminItems : tenantAdminItems
 
   return (
-    <div className="hidden border-r md:block">
+    <div className={cn("hidden border-r md:block", className)}>
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
           {isSuperAdmin && (
@@ -115,7 +159,9 @@ export function Sidebar() {
             </div>
           )}
           <div className="space-y-1">
-            <h2 className="mb-2 px-4 text-xl font-semibold tracking-tight">Menu</h2>
+            <h2 className="mb-2 px-4 text-xl font-semibold tracking-tight">
+              {isSuperAdmin ? "System Admin" : "ComplexCare CRM"}
+            </h2>
             <nav className="flex flex-col space-y-1">
               {sidebarNavItems.map((item) => (
                 <Link
@@ -123,7 +169,7 @@ export function Sidebar() {
                   href={item.href}
                   className={cn(
                     "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    pathname === item.href || (pathname?.startsWith(item.href) && item.href !== "/")
+                    pathname === item.href || (pathname?.startsWith(item.href) && item.href !== "/dashboard")
                       ? "bg-accent text-accent-foreground"
                       : "transparent",
                   )}
@@ -139,3 +185,6 @@ export function Sidebar() {
     </div>
   )
 }
+
+// Make sure to export as default as well
+export default Sidebar

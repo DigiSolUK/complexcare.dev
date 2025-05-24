@@ -1,5 +1,5 @@
-import { PatientDetailClient } from "./patient-detail-client"
+import ComprehensivePatientDetail from "./comprehensive-patient-detail"
 
 export default function PatientDetailPage({ params }: { params: { id: string } }) {
-  return <PatientDetailClient patientId={params.id} />
+  return <ComprehensivePatientDetail patientId={params.id} />
 }

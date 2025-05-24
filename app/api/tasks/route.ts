@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { tenantQuery } from "@/lib/db-utils"
 
 // Demo data for tasks
 const demoTasks = [
@@ -65,24 +66,25 @@ const demoTasks = [
   },
 ]
 
-export async function GET(request: Request) {
+const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
+
+export async function GET(request: NextRequest) {
   try {
-    // Check for demo mode
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      return NextResponse.json(demoTasks)
+    const searchParams = request.nextUrl.searchParams
+    const patientId = searchParams.get("patientId")
+
+    let query = `SELECT * FROM tasks WHERE tenant_id = $1`
+    const params = [DEFAULT_TENANT_ID]
+
+    // Filter by patient if patientId is provided
+    if (patientId) {
+      query += ` AND related_to_type = 'patient' AND related_to_id = $2`
+      params.push(patientId)
     }
 
-    // Get tenant ID from request
-    const url = new URL(request.url)
-    const tenantId =
-      request.headers.get("x-tenant-id") || url.searchParams.get("tenantId") || process.env.DEFAULT_TENANT_ID
+    query += ` ORDER BY due_date ASC`
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
-    }
-
-    // Query tasks from database using the new API
-    const tasks = await sql.query("SELECT * FROM tasks WHERE tenant_id = $1 ORDER BY created_at DESC", [tenantId])
+    const tasks = await tenantQuery(DEFAULT_TENANT_ID, query, params)
 
     return NextResponse.json(tasks)
   } catch (error) {

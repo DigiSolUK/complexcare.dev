@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { GlobalErrorHandler } from "@/components/global-error-handler"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ErrorTrackingProvider } from "@/components/error-tracking-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -22,8 +23,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <GlobalErrorHandler />
-          {children}
+          <ErrorTrackingProvider>
+            <GlobalErrorHandler />
+            {children}
+          </ErrorTrackingProvider>
         </ThemeProvider>
       </body>
     </html>

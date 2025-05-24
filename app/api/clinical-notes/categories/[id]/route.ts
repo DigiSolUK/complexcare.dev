@@ -1,82 +1,109 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
+import { DEFAULT_TENANT_ID } from "@/lib/constants"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
+import { authOptions } from "@/lib/auth"
 
-const db = neon(process.env.DATABASE_URL!)
-
-// PUT to update a clinical note category
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const id = params.id
-    const tenantId = session.user.tenantId
-    const body = await request.json()
-    const { name, description, color } = body
+    const searchParams = request.nextUrl.searchParams
+    const tenantId = searchParams.get("tenantId") || DEFAULT_TENANT_ID
 
-    // Check if category exists and belongs to the tenant
-    const [existingCategory] = await db`
-      SELECT * FROM clinical_notes_categories 
+    const sql = neon(process.env.DATABASE_URL!)
+    const result = await sql`
+      SELECT * FROM clinical_note_categories
       WHERE id = ${id} AND tenant_id = ${tenantId}
     `
 
-    if (!existingCategory) {
+    if (result.length === 0) {
       return NextResponse.json({ error: "Category not found" }, { status: 404 })
     }
 
-    // Update the category
-    const [updatedCategory] = await db`
-      UPDATE clinical_notes_categories
-      SET 
-        name = ${name || existingCategory.name},
-        description = ${description !== undefined ? description : existingCategory.description},
-        color = ${color || existingCategory.color},
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-      RETURNING *
-    `
-
-    return NextResponse.json(updatedCategory)
+    return NextResponse.json(result[0])
   } catch (error) {
-    console.error("Error updating clinical note category:", error)
-    return NextResponse.json({ error: "Failed to update category" }, { status: 500 })
+    console.error(`Error in GET /api/clinical-notes/categories/${params.id}:`, error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
 
-// DELETE a clinical note category
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const id = params.id
-    const tenantId = session.user.tenantId
+    const data = await request.json()
+    const tenantId = data.tenant_id || DEFAULT_TENANT_ID
 
-    // Check if category exists and belongs to the tenant
-    const [existingCategory] = await db`
-      SELECT * FROM clinical_notes_categories 
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      UPDATE clinical_note_categories
+      SET 
+        name = ${data.name || null},
+        description = ${data.description || null},
+        color = ${data.color || null},
+        icon = ${data.icon || null},
+        updated_at = NOW()
       WHERE id = ${id} AND tenant_id = ${tenantId}
+      RETURNING *
     `
 
-    if (!existingCategory) {
+    if (result.length === 0) {
       return NextResponse.json({ error: "Category not found" }, { status: 404 })
     }
 
-    // Delete the category
-    await db`
-      DELETE FROM clinical_notes_categories
-      WHERE id = ${id}
+    return NextResponse.json(result[0])
+  } catch (error) {
+    console.error(`Error in PUT /api/clinical-notes/categories/${params.id}:`, error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const id = params.id
+    const searchParams = request.nextUrl.searchParams
+    const tenantId = searchParams.get("tenantId") || DEFAULT_TENANT_ID
+
+    const sql = neon(process.env.DATABASE_URL!)
+
+    // Check if category is in use
+    const notesUsingCategory = await sql`
+      SELECT COUNT(*) as count FROM clinical_notes
+      WHERE category_id = ${id} AND tenant_id = ${tenantId}
     `
 
-    return NextResponse.json({ message: "Category deleted successfully" })
+    if (Number.parseInt(notesUsingCategory[0].count) > 0) {
+      return NextResponse.json(
+        {
+          error: "Cannot delete category that is in use by clinical notes",
+        },
+        { status: 400 },
+      )
+    }
+
+    await sql`
+      DELETE FROM clinical_note_categories
+      WHERE id = ${id} AND tenant_id = ${tenantId}
+    `
+
+    return NextResponse.json({ success: true, message: "Category deleted successfully" })
   } catch (error) {
-    console.error("Error deleting clinical note category:", error)
-    return NextResponse.json({ error: "Failed to delete category" }, { status: 500 })
+    console.error(`Error in DELETE /api/clinical-notes/categories/${params.id}:`, error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

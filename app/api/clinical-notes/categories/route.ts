@@ -1,49 +1,51 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clinicalNotesService from "@/lib/services/clinical-notes-service"
-import { getCurrentTenant } from "@/lib/tenant-utils"
+import { getClinicalNoteCategories, createClinicalNoteCategory } from "@/lib/services/clinical-notes-service"
+import { DEFAULT_TENANT_ID } from "@/lib/constants"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
+import { authOptions } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
-    }
+    const searchParams = request.nextUrl.searchParams
+    const tenantId = searchParams.get("tenantId") || DEFAULT_TENANT_ID
 
-    const categories = await clinicalNotesService.getCategories(tenant.id)
-
+    const categories = await getClinicalNoteCategories(tenantId)
     return NextResponse.json(categories)
   } catch (error) {
-    console.error("Error fetching clinical note categories:", error)
-    return NextResponse.json({ error: "Failed to fetch clinical note categories" }, { status: 500 })
+    console.error("Error in GET /api/clinical-notes/categories:", error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+    const data = await request.json()
+    const tenantId = data.tenant_id || DEFAULT_TENANT_ID
+
+    // Validate required fields
+    if (!data.name) {
+      return NextResponse.json({ error: "Category name is required" }, { status: 400 })
     }
 
-    const data = await request.json()
+    const category = await createClinicalNoteCategory(data, tenantId)
 
-    const category = await clinicalNotesService.createCategory(tenant.id, data)
+    if (!category) {
+      return NextResponse.json({ error: "Failed to create category" }, { status: 500 })
+    }
 
     return NextResponse.json(category, { status: 201 })
   } catch (error) {
-    console.error("Error creating clinical note category:", error)
-    return NextResponse.json({ error: "Failed to create clinical note category" }, { status: 500 })
+    console.error("Error in POST /api/clinical-notes/categories:", error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

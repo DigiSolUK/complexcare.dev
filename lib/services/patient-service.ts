@@ -2,6 +2,26 @@ import { db } from "../db"
 import { PatientCache } from "../redis/patient-cache"
 import { withErrorHandling, tryCatchAsync } from "@/lib/error-utils"
 import { captureException } from "@/lib/services/error-logging-service"
+import { neon } from "@neondatabase/serverless"
+import { DEFAULT_TENANT_ID } from "@/lib/constants"
+
+export interface Patient {
+  id: string
+  tenant_id: string
+  first_name: string
+  last_name: string
+  email: string
+  status: string
+  date_of_birth: string
+  gender: string
+  contact_number: string
+  address: string
+  medical_record_number: string
+  primary_care_provider: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
 
 export class PatientService {
   /**
@@ -215,8 +235,23 @@ export class PatientService {
 }
 
 // Add the missing exported functions
-export async function getPatients(tenantId: string) {
-  return PatientService.getAllPatients(tenantId)
+export async function getPatients(tenantId: string = DEFAULT_TENANT_ID, limit = 10): Promise<Patient[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM patients 
+      WHERE tenant_id = ${tenantId} 
+      AND deleted_at IS NULL 
+      ORDER BY updated_at DESC 
+      LIMIT ${limit}
+    `
+
+    return result as Patient[]
+  } catch (error) {
+    console.error("Error fetching patients:", error)
+    return []
+  }
 }
 
 export async function validatePatientsTable(): Promise<boolean> {
@@ -311,7 +346,7 @@ export async function getPatientWithFallback(patientId: string) {
 }
 
 // Example of a function that will propagate errors to be caught by error boundaries
-export async function getPatientById(patientId: string) {
+export async function getPatientByIdWithErrorHandling(patientId: string) {
   try {
     const response = await fetch(`/api/patients/${patientId}`)
     if (!response.ok) {
@@ -322,5 +357,23 @@ export async function getPatientById(patientId: string) {
     // Log the error but still throw it to be caught by error boundaries
     captureException(error, { patientId, operation: "getPatientById" })
     throw error
+  }
+}
+
+export async function getPatientById(patientId: string, tenantId: string = DEFAULT_TENANT_ID): Promise<Patient | null> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM patients 
+      WHERE id = ${patientId} 
+      AND tenant_id = ${tenantId} 
+      AND deleted_at IS NULL
+    `
+
+    return result.length > 0 ? (result[0] as Patient) : null
+  } catch (error) {
+    console.error("Error fetching patient:", error)
+    return null
   }
 }

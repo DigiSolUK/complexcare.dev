@@ -1,14 +1,16 @@
 "use client"
 
-import React, { useState } from "react"
+import type React from "react"
+
+import { Component, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { AlertTriangle, RefreshCw } from "lucide-react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { AlertTriangle } from "lucide-react"
 
 interface DataErrorBoundaryProps {
-  children: React.ReactNode
-  fallback?: React.ReactNode
+  children: ReactNode
   onRetry?: () => void
+  fallback?: ReactNode
 }
 
 interface DataErrorBoundaryState {
@@ -16,25 +18,18 @@ interface DataErrorBoundaryState {
   error: Error | null
 }
 
-class DataErrorBoundaryClass extends React.Component<DataErrorBoundaryProps, DataErrorBoundaryState> {
+export class DataErrorBoundary extends Component<DataErrorBoundaryProps, DataErrorBoundaryState> {
   constructor(props: DataErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false, error: null }
   }
 
-  static getDerivedStateFromError(error: Error) {
+  static getDerivedStateFromError(error: Error): DataErrorBoundaryState {
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Data fetching error:", error, errorInfo)
-  }
-
-  handleRetry = () => {
-    this.setState({ hasError: false, error: null })
-    if (this.props.onRetry) {
-      this.props.onRetry()
-    }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    console.error("DataErrorBoundary caught an error:", error, errorInfo)
   }
 
   render() {
@@ -44,20 +39,31 @@ class DataErrorBoundaryClass extends React.Component<DataErrorBoundaryProps, Dat
       }
 
       return (
-        <Card className="w-full my-4">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center justify-center text-center p-4">
-              <AlertTriangle className="h-10 w-10 text-yellow-500 mb-4" />
-              <h3 className="text-lg font-medium mb-2">Data Loading Error</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {this.state.error?.message || "Failed to load data. Please try again."}
-              </p>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <CardTitle>Error Loading Data</CardTitle>
+            </div>
+            <CardDescription>
+              There was a problem loading the data. This could be due to a network issue or a server problem.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-muted-foreground">
+              <p>Error details: {this.state.error?.message || "Unknown error"}</p>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-center">
-            <Button onClick={this.handleRetry}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Retry
+          <CardFooter>
+            <Button
+              onClick={() => {
+                this.setState({ hasError: false, error: null })
+                if (this.props.onRetry) {
+                  this.props.onRetry()
+                }
+              }}
+            >
+              Try Again
             </Button>
           </CardFooter>
         </Card>
@@ -66,17 +72,4 @@ class DataErrorBoundaryClass extends React.Component<DataErrorBoundaryProps, Dat
 
     return this.props.children
   }
-}
-
-export function DataErrorBoundary(props: DataErrorBoundaryProps) {
-  const [key, setKey] = useState(0)
-
-  const handleRetry = () => {
-    setKey((prev) => prev + 1)
-    if (props.onRetry) {
-      props.onRetry()
-    }
-  }
-
-  return <DataErrorBoundaryClass key={key} {...props} onRetry={handleRetry} />
 }

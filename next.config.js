@@ -10,6 +10,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Enable source maps in production
+  productionBrowserSourceMaps: true,
   async headers() {
     return [
       {

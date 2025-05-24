@@ -1,70 +1,49 @@
 "use client"
 
-import {
-  Line,
-  LineChart as RechartsLineChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts"
+import { Line, LineChart as RechartsLineChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
+import { useTheme } from "next-themes"
 
 interface LineChartProps {
-  data: Array<{
+  data: {
     name: string
     value: number
-  }>
-  xAxisKey: string
-  yAxisKey: string
-  categories: string[]
+  }[]
   colors?: string[]
-  valueFormatter?: (value: number) => string
 }
 
-export function LineChart({
-  data,
-  xAxisKey,
-  yAxisKey,
-  categories,
-  colors = ["#0ea5e9"],
-  valueFormatter = (value: number) => `${value}`,
-}: LineChartProps) {
+export function LineChart({ data, colors = ["#3b82f6"] }: LineChartProps) {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <RechartsLineChart
-        data={data}
-        margin={{
-          top: 5,
-          right: 30,
-          left: 20,
-          bottom: 5,
-        }}
-      >
-        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-        <XAxis dataKey={xAxisKey} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-        <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={valueFormatter} />
-        <Tooltip
-          formatter={valueFormatter}
-          contentStyle={{
-            backgroundColor: "hsl(var(--background))",
-            borderColor: "hsl(var(--border))",
-            borderRadius: "var(--radius)",
-          }}
+      <RechartsLineChart data={data}>
+        <XAxis dataKey="name" stroke={isDark ? "#888888" : "#888888"} fontSize={12} tickLine={false} axisLine={false} />
+        <YAxis
+          stroke={isDark ? "#888888" : "#888888"}
+          fontSize={12}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(value) => `${value}`}
         />
-        <Legend />
-        {categories.map((category, index) => (
-          <Line
-            key={category}
-            type="monotone"
-            dataKey={yAxisKey}
-            stroke={colors[index % colors.length]}
-            strokeWidth={2}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-        ))}
+        <Tooltip
+          cursor={{ fill: "transparent" }}
+          contentStyle={{
+            backgroundColor: isDark ? "#1f2937" : "#ffffff",
+            border: "none",
+            borderRadius: "4px",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+          }}
+          formatter={(value: number) => [`${value}`, "Count"]}
+        />
+        <Line
+          type="monotone"
+          dataKey="value"
+          stroke={colors[0]}
+          strokeWidth={2}
+          dot={{ r: 4, strokeWidth: 2 }}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+        />
       </RechartsLineChart>
     </ResponsiveContainer>
   )

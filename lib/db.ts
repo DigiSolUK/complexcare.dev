@@ -1,143 +1,196 @@
 import { neon } from "@neondatabase/serverless"
+import { DEFAULT_TENANT_ID } from "./constants"
 
-// Export the neon client for direct use
-export const sql = neon(process.env.DATABASE_URL!)
-
-// Database utility object for backward compatibility
-export const db = {
-  query: async <T = any>(query: string, params: any[] = []): Promise<{ rows: T[] }> => {
-    try {
-      const result = await sql.query(query, params)
-      return { rows: result as T[] }
-    } catch (error) {
-      console.error("Database query error:", error)
-      throw error
+// Create a SQL client using the Neon serverless driver
+export const sql = process.env.DATABASE_URL
+  ? neon(process.env.DATABASE_URL)
+  : {
+      // Provide a mock implementation when DATABASE_URL is not available
+      query: async () => {
+        console.warn("No DATABASE_URL provided, mock SQL client being used")
+        return { rows: [] }
+      },
     }
-  },
-  getById: async <T = any>(table: string, id: string): Promise<T | null> => {
-    return getById<T>(table, id)
-  },
-  insert: async <T = any>(table: string, data: Record<string, any>): Promise<T> => {
-    return insert<T>(table, data)
-  },
-  update: async <T = any>(table: string, id: string, data: Record<string, any>): Promise<T> => {
-    return update<T>(table, id, data)
-  },
-  remove: async (table: string, id: string): Promise<boolean> => {
-    return remove(table, id)
-  },
-}
 
-// Execute a query with parameters using the new API
-export async function executeQuery<T = any>(query: string, params: any[] = []): Promise<T[]> {
+// Legacy alias for compatibility
+export const db = sql
+
+// Helper function to execute queries with tenant context
+export async function executeQuery(
+  query: string,
+  params: any[] = [],
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<any[]> {
+  if (!process.env.DATABASE_URL) {
+    console.warn("No DATABASE_URL provided, returning empty result")
+    return []
+  }
+
   try {
     const result = await sql.query(query, params)
-    return result as T[]
+    return result.rows || []
   } catch (error) {
     console.error("Database query error:", error)
     throw error
   }
 }
 
-// Get a single record by ID
-export async function getById<T = any>(table: string, id: string): Promise<T | null> {
+// Helper function to get a connection with tenant context
+export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
+  return {
+    query: async (text: string, params: any[] = []) => {
+      try {
+        const result = await sql.query(text, params)
+        return result
+      } catch (error) {
+        console.error("Database query error:", error)
+        throw error
+      }
+    },
+  }
+}
+
+// Helper function to execute a transaction
+export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
   try {
-    const result = await executeQuery<T>(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id])
-    return result.length > 0 ? result[0] : null
+    await sql.query("BEGIN")
+    const result = await callback(sql)
+    await sql.query("COMMIT")
+    return result
   } catch (error) {
-    console.error(`Error fetching ${table} with ID ${id}:`, error)
+    await sql.query("ROLLBACK")
+    console.error("Transaction error:", error)
     throw error
   }
 }
 
-// Insert a record and return the created record
-export async function insert<T = any>(table: string, data: Record<string, any>): Promise<T> {
+// Generic CRUD operations
+export async function getById(table: string, id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<any | null> {
   try {
-    const keys = Object.keys(data)
-    const values = Object.values(data)
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ")
-    const columns = keys.join(", ")
+    const result = await sql`
+      SELECT * FROM ${sql(table)}
+      WHERE id = ${id}
+      AND tenant_id = ${tenantId}
+      AND deleted_at IS NULL
+    `
+    return result[0] || null
+  } catch (error) {
+    console.error(`Error getting ${table} by ID:`, error)
+    return null
+  }
+}
+
+export async function insert(
+  table: string,
+  data: Record<string, any>,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<any | null> {
+  try {
+    const dataWithTenant = { ...data, tenant_id: tenantId }
+    const columns = Object.keys(dataWithTenant)
+    const values = Object.values(dataWithTenant)
 
     const query = `
-      INSERT INTO ${table} (${columns}) 
-      VALUES (${placeholders})
+      INSERT INTO ${table} (${columns.join(", ")})
+      VALUES (${columns.map((_, i) => `$${i + 1}`).join(", ")})
       RETURNING *
     `
 
-    const result = await executeQuery<T>(query, values)
-    return result[0]
+    const result = await sql.query(query, values)
+    return result.rows[0] || null
   } catch (error) {
     console.error(`Error inserting into ${table}:`, error)
     throw error
   }
 }
 
-// Update a record and return the updated record
-export async function update<T = any>(table: string, id: string, data: Record<string, any>): Promise<T> {
+export async function update(
+  table: string,
+  id: string,
+  data: Record<string, any>,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<any | null> {
   try {
-    const keys = Object.keys(data)
-    const values = Object.values(data)
-
-    const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(", ")
+    const updateFields = Object.keys(data)
+      .map((key, i) => `${key} = $${i + 3}`)
+      .join(", ")
 
     const query = `
       UPDATE ${table}
-      SET ${setClause}
-      WHERE id = $${keys.length + 1}
+      SET ${updateFields}, updated_at = NOW()
+      WHERE id = $1 AND tenant_id = $2
       RETURNING *
     `
 
-    const result = await executeQuery<T>(query, [...values, id])
-
-    if (result.length === 0) {
-      throw new Error(`Record with ID ${id} not found in ${table}`)
-    }
-
-    return result[0]
+    const values = [id, tenantId, ...Object.values(data)]
+    const result = await sql.query(query, values)
+    return result.rows[0] || null
   } catch (error) {
-    console.error(`Error updating ${table} with ID ${id}:`, error)
+    console.error(`Error updating ${table}:`, error)
     throw error
   }
 }
 
-// Delete a record (soft delete if deleted_at column exists)
-export async function remove(table: string, id: string): Promise<boolean> {
+export async function remove(
+  table: string,
+  id: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  softDelete = true,
+): Promise<boolean> {
   try {
-    // Check if the table has a deleted_at column
-    const tableInfo = await executeQuery(
-      `
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = $1 AND column_name = 'deleted_at'
-    `,
-      [table],
-    )
-
-    let query
-    if (tableInfo.length > 0) {
-      // Soft delete
-      query = `
-        UPDATE ${table}
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-        RETURNING id
+    if (softDelete) {
+      await sql`
+        UPDATE ${sql(table)}
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE id = ${id} AND tenant_id = ${tenantId}
       `
     } else {
-      // Hard delete
-      query = `
-        DELETE FROM ${table}
-        WHERE id = $1
-        RETURNING id
+      await sql`
+        DELETE FROM ${sql(table)}
+        WHERE id = ${id} AND tenant_id = ${tenantId}
       `
     }
-
-    const result = await executeQuery(query, [id])
-    return result.length > 0
+    return true
   } catch (error) {
-    console.error(`Error deleting from ${table} with ID ${id}:`, error)
-    throw error
+    console.error(`Error removing from ${table}:`, error)
+    return false
   }
 }
 
-// Export neon for backward compatibility
-// export const neon = sql
+// Helper function to sanitize SQL inputs
+export function sanitize(input: string): string {
+  if (!input) return ""
+  return input.replace(/'/g, "''")
+}
+
+// Helper function to build a WHERE clause with filters
+export function buildWhereClause(
+  filters: Record<string, any>,
+  tenantId = DEFAULT_TENANT_ID,
+): {
+  whereClause: string
+  params: any[]
+} {
+  const conditions: string[] = ["tenant_id = $1", "deleted_at IS NULL"]
+  const params: any[] = [tenantId]
+
+  let paramIndex = 2
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== null && value !== "") {
+      if (typeof value === "string" && value.includes("%")) {
+        // Handle LIKE queries
+        conditions.push(`${key} ILIKE $${paramIndex}`)
+      } else {
+        conditions.push(`${key} = $${paramIndex}`)
+      }
+      params.push(value)
+      paramIndex++
+    }
+  }
+
+  return {
+    whereClause: conditions.join(" AND "),
+    params,
+  }
+}

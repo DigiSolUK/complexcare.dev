@@ -3,6 +3,26 @@ import { executeQuery } from "@/lib/db"
 import { redirect } from "next/navigation"
 import bcrypt from "bcryptjs"
 import { v4 as uuidv4 } from "uuid"
+import type { NextAuthOptions } from "next-auth"
+
+// NextAuth configuration
+export const authOptions: NextAuthOptions = {
+  providers: [
+    // Add your providers here
+  ],
+  callbacks: {
+    async session({ session, token }) {
+      return session
+    },
+    async jwt({ token, user }) {
+      return token
+    },
+  },
+  pages: {
+    signIn: "/auth/signin",
+    error: "/auth/error",
+  },
+}
 
 // Session management
 export async function getSession() {

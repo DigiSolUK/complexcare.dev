@@ -1,20 +1,20 @@
-import type { ReactNode } from "react"
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { TenantProvider } from "@/components/providers/tenant-provider"
+import type React from "react"
+import { Sidebar } from "@/components/sidebar"
+import { PageErrorBoundary } from "@/components/error-boundaries/page-error-boundary"
 
 export default function DashboardLayout({
   children,
 }: {
-  children: ReactNode
+  children: React.ReactNode
 }) {
   return (
-    <TenantProvider>
-      <div className="flex min-h-screen flex-col">
-        <div className="flex flex-1">
-          <Sidebar className="hidden md:block" />
-          <main className="flex-1 p-6 pt-4">{children}</main>
-        </div>
+    <PageErrorBoundary>
+      <div className="flex h-screen bg-gray-100">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto">
+          <div className="container mx-auto px-6 py-8">{children}</div>
+        </main>
       </div>
-    </TenantProvider>
+    </PageErrorBoundary>
   )
 }

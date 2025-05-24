@@ -1,5 +1,4 @@
-import type { Metadata } from "next"
-import { TenantUsersManagement } from "@/components/superadmin/tenant-users-management"
+import { TenantUserManagement } from "@/components/superadmin/tenant-user-management"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
@@ -10,38 +9,23 @@ interface TenantUsersPageProps {
   }
 }
 
-export const metadata: Metadata = {
-  title: "Tenant Users Management",
-  description: "Manage users for a specific tenant",
-}
-
-async function getTenantDetails(id: string) {
-  // In a real application, you would fetch this from your API
-  return {
-    id,
-    name: `Tenant ${id}`,
-    domain: `tenant-${id}.example.com`,
-  }
-}
-
-export default async function TenantUsersPage({ params }: TenantUsersPageProps) {
-  const tenant = await getTenantDetails(params.id)
-
+export default function TenantUsersPage({ params }: TenantUsersPageProps) {
   return (
-    <div className="container mx-auto py-8">
-      <div className="mb-6">
-        <Button variant="outline" size="sm" asChild className="mb-4">
-          <Link href={`/superadmin/tenants/${params.id}`} className="flex items-center">
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            Back to Tenant Details
-          </Link>
-        </Button>
-
-        <h1 className="text-3xl font-bold">Tenant Users Management</h1>
-        <p className="text-muted-foreground mt-1">Manage users for tenant: {tenant.name}</p>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/superadmin/tenants">
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back to Tenants
+            </Link>
+          </Button>
+        </div>
+        <h1 className="text-3xl font-bold tracking-tight">Tenant Users</h1>
+        <p className="text-muted-foreground">Manage users for this tenant</p>
       </div>
 
-      <TenantUsersManagement tenantId={params.id} tenantName={tenant.name} />
+      <TenantUserManagement tenantId={params.id} />
     </div>
   )
 }

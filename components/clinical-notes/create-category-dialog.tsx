@@ -1,58 +1,74 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/components/ui/use-toast"
-import { createClinicalNoteCategory } from "@/lib/services/clinical-notes-service"
+import { Loader2 } from "lucide-react"
 
 interface CreateCategoryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCategoryCreated: (category: any) => void
+  onSuccess?: () => void
 }
 
-export default function CreateCategoryDialog({ open, onOpenChange, onCategoryCreated }: CreateCategoryDialogProps) {
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    color: "#6366f1", // Default color
-    icon: "",
-  })
+export function CreateCategoryDialog({ open, onOpenChange, onSuccess }: CreateCategoryDialogProps) {
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [color, setColor] = useState("#4B5563")
+  const [icon, setIcon] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+  const handleSubmit = async () => {
+    if (!name) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const response = await fetch("/api/clinical-notes/categories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          description: description || null,
+          color,
+          icon: icon || null,
+        }),
+      })
+
+      if (response.ok) {
+        onOpenChange(false)
+        resetForm()
+        if (onSuccess) {
+          onSuccess()
+        }
+      } else {
+        console.error("Failed to create category:", await response.json())
+      }
+    } catch (error) {
+      console.error("Error creating category:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      const newCategory = await createClinicalNoteCategory(formData)
-      toast({
-        title: "Category created",
-        description: "The category has been created successfully.",
-      })
-      onCategoryCreated(newCategory)
-    } catch (error: any) {
-      console.error("Error creating category:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create the category. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
+  const resetForm = () => {
+    setName("")
+    setDescription("")
+    setColor("#4B5563")
+    setIcon("")
   }
 
   return (
@@ -60,30 +76,80 @@ export default function CreateCategoryDialog({ open, onOpenChange, onCategoryCre
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New Category</DialogTitle>
+          <DialogDescription>Add a new category for organizing clinical notes.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" value={formData.name} onChange={handleChange} />
+
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Name
+            </Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="col-span-3"
+              placeholder="Enter category name"
+            />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" name="description" value={formData.description} onChange={handleChange} />
+
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="description" className="text-right pt-2">
+              Description
+            </Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="col-span-3"
+              placeholder="Enter category description (optional)"
+            />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="color">Color</Label>
-            <Input type="color" id="color" name="color" value={formData.color} onChange={handleChange} />
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="color" className="text-right">
+              Color
+            </Label>
+            <div className="col-span-3 flex items-center gap-2">
+              <Input
+                id="color"
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-12 h-8 p-1"
+              />
+              <Input
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="flex-1"
+                placeholder="#RRGGBB"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="icon">Icon</Label>
-            <Input id="icon" name="icon" value={formData.icon} onChange={handleChange} />
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="icon" className="text-right">
+              Icon
+            </Label>
+            <Input
+              id="icon"
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              className="col-span-3"
+              placeholder="Enter icon name (optional)"
+            />
           </div>
-          <DialogFooter>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create"}
-            </Button>
-          </DialogFooter>
-        </form>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting || !name}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Create Category
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
