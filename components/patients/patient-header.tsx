@@ -14,18 +14,28 @@ import {
 interface PatientHeaderProps {
   patient: {
     id: string
-    name: string
-    dateOfBirth: string
-    gender: string
-    status: string
+    name?: string
+    first_name?: string
+    last_name?: string
+    dateOfBirth?: string
+    date_of_birth?: string
+    gender?: string
+    status?: string
     nhsNumber?: string
+    nhs_number?: string
     avatar?: string
   }
 }
 
 export default function PatientHeader({ patient }: PatientHeaderProps) {
+  // Normalize patient data to handle different property names
+  const patientName = patient.name || `${patient.first_name || ""} ${patient.last_name || ""}`.trim()
+  const dateOfBirth = patient.dateOfBirth || patient.date_of_birth || ""
+  const status = patient.status || "Unknown"
+  const nhsNumber = patient.nhsNumber || patient.nhs_number
+
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch ((status || "").toLowerCase()) {
       case "active":
         return "bg-green-100 text-green-800"
       case "inactive":
@@ -39,27 +49,40 @@ export default function PatientHeader({ patient }: PatientHeaderProps) {
     }
   }
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase()
-      .substring(0, 2)
+  const getInitials = (name: string | undefined) => {
+    if (!name || typeof name !== "string") return "NA"
+
+    return (
+      name
+        .split(" ")
+        .filter((part) => part.length > 0)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase()
+        .substring(0, 2) || "NA"
+    )
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "Unknown"
+
     try {
       const date = new Date(dateString)
+      if (isNaN(date.getTime())) return "Invalid date"
       return date.toLocaleDateString()
     } catch (e) {
-      return dateString
+      console.error("Error formatting date:", e)
+      return "Error"
     }
   }
 
-  const calculateAge = (dateString: string) => {
+  const calculateAge = (dateString: string | undefined) => {
+    if (!dateString) return "Unknown"
+
     try {
       const birthDate = new Date(dateString)
+      if (isNaN(birthDate.getTime())) return "Unknown"
+
       const today = new Date()
       let age = today.getFullYear() - birthDate.getFullYear()
       const monthDiff = today.getMonth() - birthDate.getMonth()
@@ -70,6 +93,7 @@ export default function PatientHeader({ patient }: PatientHeaderProps) {
 
       return age
     } catch (e) {
+      console.error("Error calculating age:", e)
       return "Unknown"
     }
   }
@@ -79,10 +103,15 @@ export default function PatientHeader({ patient }: PatientHeaderProps) {
       <div className="flex flex-col md:flex-row gap-6">
         <div className="relative h-24 w-24 md:h-32 md:w-32 rounded-full overflow-hidden border-4 border-primary/10">
           {patient.avatar ? (
-            <Image src={patient.avatar || "/placeholder.svg"} alt={patient.name} fill className="object-cover" />
+            <Image
+              src={patient.avatar || "/placeholder.svg"}
+              alt={patientName || "Patient"}
+              fill
+              className="object-cover"
+            />
           ) : (
             <div className="absolute inset-0 bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary">
-              {getInitials(patient.name)}
+              {getInitials(patientName)}
             </div>
           )}
         </div>
@@ -90,10 +119,10 @@ export default function PatientHeader({ patient }: PatientHeaderProps) {
         <div className="flex-1">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold">{patient.name}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold">{patientName || "Unknown Patient"}</h1>
               <div className="flex flex-wrap items-center gap-2 mt-1">
-                <Badge className={getStatusColor(patient.status)}>{patient.status}</Badge>
-                {patient.nhsNumber && <span className="text-sm text-muted-foreground">NHS: {patient.nhsNumber}</span>}
+                <Badge className={getStatusColor(status)}>{status}</Badge>
+                {nhsNumber && <span className="text-sm text-muted-foreground">NHS: {nhsNumber}</span>}
               </div>
             </div>
 
@@ -137,12 +166,12 @@ export default function PatientHeader({ patient }: PatientHeaderProps) {
             <div>
               <p className="text-sm text-muted-foreground">Date of Birth</p>
               <p className="font-medium">
-                {formatDate(patient.dateOfBirth)} ({calculateAge(patient.dateOfBirth)} years)
+                {formatDate(dateOfBirth)} {dateOfBirth ? `(${calculateAge(dateOfBirth)} years)` : ""}
               </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Gender</p>
-              <p className="font-medium">{patient.gender}</p>
+              <p className="font-medium">{patient.gender || "Not specified"}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Last Updated</p>
