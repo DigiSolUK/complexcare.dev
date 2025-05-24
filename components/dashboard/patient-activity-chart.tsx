@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getPatientActivityData } from "@/lib/actions/dashboard-actions"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 
 interface ActivityData {
@@ -16,6 +17,7 @@ export function PatientActivityChart() {
   const [data, setData] = useState<ActivityData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isDemo, setIsDemo] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -23,6 +25,10 @@ export function PatientActivityChart() {
         setLoading(true)
         const activityData = await getPatientActivityData()
         setData(activityData)
+
+        // Check if this is likely demo data (all values are non-zero)
+        const hasRealData = activityData.some((day) => day.visits > 0 || day.assessments > 0 || day.medications > 0)
+        setIsDemo(hasRealData && !activityData.some((day) => day.visits === 0 && day.assessments === 0))
       } catch (err) {
         console.error("Failed to fetch patient activity data:", err)
         setError("Failed to load patient activity data")
@@ -57,25 +63,39 @@ export function PatientActivityChart() {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart
-        data={data}
-        margin={{
-          top: 5,
-          right: 30,
-          left: 20,
-          bottom: 5,
-        }}
-      >
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="date" tickFormatter={formatDate} />
-        <YAxis />
-        <Tooltip formatter={(value: number) => [value, ""]} labelFormatter={(label) => formatDate(label)} />
-        <Legend />
-        <Line type="monotone" dataKey="visits" stroke="#8884d8" activeDot={{ r: 8 }} name="Visits" />
-        <Line type="monotone" dataKey="assessments" stroke="#82ca9d" name="Assessments" />
-        <Line type="monotone" dataKey="medications" stroke="#ffc658" name="Medications" />
-      </LineChart>
-    </ResponsiveContainer>
+    <Card>
+      <CardHeader>
+        <CardTitle>Patient Activity</CardTitle>
+        <CardDescription>
+          {isDemo && (
+            <span className="text-xs text-amber-600">
+              Note: Using demonstration data. Activity logs table not found in database.
+            </span>
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart
+            data={data}
+            margin={{
+              top: 5,
+              right: 30,
+              left: 20,
+              bottom: 5,
+            }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" tickFormatter={formatDate} />
+            <YAxis />
+            <Tooltip formatter={(value: number) => [value, ""]} labelFormatter={(label) => formatDate(label)} />
+            <Legend />
+            <Line type="monotone" dataKey="visits" stroke="#8884d8" activeDot={{ r: 8 }} name="Visits" />
+            <Line type="monotone" dataKey="assessments" stroke="#82ca9d" name="Assessments" />
+            <Line type="monotone" dataKey="medications" stroke="#ffc658" name="Medications" />
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
   )
 }
