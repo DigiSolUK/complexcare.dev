@@ -1,18 +1,24 @@
 "use client"
 
-import type React from "react"
+import { createContext, useContext, type ReactNode } from "react"
 
-import { useEffect } from "react"
-import { setupGlobalErrorHandling } from "@/lib/error-tracking"
-
-interface ErrorTrackingProviderProps {
-  children: React.ReactNode
+interface ErrorTrackingContextType {
+  logError: (error: Error, context?: Record<string, any>) => void
 }
 
-export function ErrorTrackingProvider({ children }: ErrorTrackingProviderProps) {
-  useEffect(() => {
-    setupGlobalErrorHandling()
-  }, [])
+const ErrorTrackingContext = createContext<ErrorTrackingContextType>({
+  logError: () => {},
+})
 
-  return <>{children}</>
+export function ErrorTrackingProvider({ children }: { children: ReactNode }) {
+  const logError = (error: Error, context?: Record<string, any>) => {
+    console.error("Error logged:", error, context)
+    // In production, you would send this to your error tracking service
+  }
+
+  return <ErrorTrackingContext.Provider value={{ logError }}>{children}</ErrorTrackingContext.Provider>
+}
+
+export function useErrorTracking() {
+  return useContext(ErrorTrackingContext)
 }
