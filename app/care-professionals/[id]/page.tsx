@@ -4,6 +4,11 @@ import { getCareProfessionalByIdSql } from "@/lib/services/care-professional-ser
 import CareProfessionalDetailClient from "./care-professional-detail-client"
 import { Skeleton } from "@/components/ui/skeleton"
 
+export const metadata = {
+  title: "Care Professional Details | ComplexCare CRM",
+  description: "View and manage care professional details",
+}
+
 export default async function CareProfessionalDetailPage({
   params,
 }: {
