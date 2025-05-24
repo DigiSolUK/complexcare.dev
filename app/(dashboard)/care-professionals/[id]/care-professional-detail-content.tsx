@@ -1,144 +1,135 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { PageHeader } from "@/components/page-header"
-import { CareProfessionalDetails } from "@/components/care-professionals/care-professional-details"
-import { CareProfessionalCredentials } from "@/components/care-professionals/care-professional-credentials"
-import { CareProfessionalAppointments } from "@/components/care-professionals/care-professional-appointments"
-import { CareProfessionalTasks } from "@/components/care-professionals/care-professional-tasks"
-import { ChevronLeft, Pencil, Trash2, AlertCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Skeleton } from "@/components/ui/skeleton"
 import type { CareProfessional } from "@/types"
+import { Badge } from "@/components/ui/badge"
+import { format } from "date-fns"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { AppointmentList } from "@/components/care-professionals/appointment-list"
+import { AssignedPatientsList } from "@/components/care-professionals/assigned-patients-list"
 
 interface CareProfessionalDetailContentProps {
-  careProfessionalId: string
+  professional: CareProfessional
 }
 
-export default function CareProfessionalDetailContent({ careProfessionalId }: CareProfessionalDetailContentProps) {
-  const router = useRouter()
-  const [professional, setProfessional] = useState<CareProfessional | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchCareProfessional = async () => {
-      setIsLoading(true)
-      setError(null)
-      try {
-        const response = await fetch(`/api/care-professionals/${careProfessionalId}`)
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch care professional: ${response.status}`)
-        }
-
-        const data = await response.json()
-        setProfessional(data)
-      } catch (err) {
-        console.error("Error fetching care professional:", err)
-        setError("Failed to load care professional details. Please try again.")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchCareProfessional()
-  }, [careProfessionalId])
-
-  const handleBack = () => {
-    router.push("/care-professionals")
-  }
-
-  const handleEdit = () => {
-    // Implement edit functionality
-    console.log("Edit care professional:", careProfessionalId)
-  }
-
-  const handleDelete = () => {
-    // Implement delete functionality
-    console.log("Delete care professional:", careProfessionalId)
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <Button variant="ghost" onClick={handleBack} className="mb-4">
-          <ChevronLeft className="mr-2 h-4 w-4" />
-          Back to Care Professionals
-        </Button>
-
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
-
+export function CareProfessionalDetailContent({ professional }: CareProfessionalDetailContentProps) {
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" onClick={handleBack} className="mb-4">
-        <ChevronLeft className="mr-2 h-4 w-4" />
-        Back to Care Professionals
-      </Button>
-
-      {isLoading ? (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <Skeleton className="h-8 w-64" />
-            <div className="flex space-x-2">
-              <Skeleton className="h-10 w-24" />
-              <Skeleton className="h-10 w-24" />
+    <Tabs defaultValue="details" className="space-y-4">
+      <TabsList className="grid w-full grid-cols-5">
+        <TabsTrigger value="details">Details</TabsTrigger>
+        <TabsTrigger value="credentials">Credentials</TabsTrigger>
+        <TabsTrigger value="appointments">Appointments</TabsTrigger>
+        <TabsTrigger value="patients">Assigned Patients</TabsTrigger>
+        <TabsTrigger value="tasks">Tasks</TabsTrigger>
+      </TabsList>
+      <TabsContent value="details" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Personal Information</CardTitle>
+            <CardDescription>Details about the care professional.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center space-x-4">
+              <Avatar>
+                <AvatarImage src={professional.image || "/placeholder.svg"} alt="Care Professional" />
+                <AvatarFallback>
+                  {professional.first_name[0]}
+                  {professional.last_name[0]}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="text-lg font-semibold">
+                  {professional.first_name} {professional.last_name}
+                </h3>
+                <p className="text-sm text-muted-foreground">{professional.specialty}</p>
+              </div>
             </div>
-          </div>
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-[400px] w-full" />
-        </div>
-      ) : professional ? (
-        <>
-          <PageHeader
-            title={`${professional.first_name} ${professional.last_name}`}
-            description={professional.role || "Care Professional"}
-            actions={
-              <>
-                <Button variant="outline" onClick={handleEdit}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-                <Button variant="destructive" onClick={handleDelete}>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </Button>
-              </>
-            }
-          />
-
-          <Tabs defaultValue="details">
-            <TabsList className="mb-4">
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="credentials">Credentials</TabsTrigger>
-              <TabsTrigger value="appointments">Appointments</TabsTrigger>
-              <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            </TabsList>
-            <TabsContent value="details">
-              <CareProfessionalDetails professional={professional} />
-            </TabsContent>
-            <TabsContent value="credentials">
-              <CareProfessionalCredentials careProfessionalId={careProfessionalId} />
-            </TabsContent>
-            <TabsContent value="appointments">
-              <CareProfessionalAppointments careProfessionalId={careProfessionalId} />
-            </TabsContent>
-            <TabsContent value="tasks">
-              <CareProfessionalTasks careProfessionalId={careProfessionalId} />
-            </TabsContent>
-          </Tabs>
-        </>
-      ) : null}
-    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium">Email:</p>
+                <p className="text-sm text-muted-foreground">{professional.email}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Phone:</p>
+                <p className="text-sm text-muted-foreground">{professional.phone}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Date of Birth:</p>
+                <p className="text-sm text-muted-foreground">{format(new Date(professional.date_of_birth), "PPP")}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Gender:</p>
+                <p className="text-sm text-muted-foreground">{professional.gender}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Address:</p>
+                <p className="text-sm text-muted-foreground">{professional.address}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+      <TabsContent value="credentials" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Credentials</CardTitle>
+            <CardDescription>Details about the care professional's credentials.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableCaption>A list of the care professional's credentials.</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[100px]">Type</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Issue Date</TableHead>
+                  <TableHead>Expiration Date</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {professional.credentials.map((credential) => (
+                  <TableRow key={credential.id}>
+                    <TableCell className="font-medium">{credential.type}</TableCell>
+                    <TableCell>{credential.name}</TableCell>
+                    <TableCell>{format(new Date(credential.issue_date), "PPP")}</TableCell>
+                    <TableCell>
+                      {credential.expiration_date ? format(new Date(credential.expiration_date), "PPP") : "N/A"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {credential.is_active ? (
+                        <Badge variant="outline">Active</Badge>
+                      ) : (
+                        <Badge variant="destructive">Inactive</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </TabsContent>
+      <TabsContent value="appointments" className="space-y-4">
+        <AppointmentList careProfessionalId={professional.id} />
+      </TabsContent>
+      <TabsContent value="patients" className="space-y-4">
+        <AssignedPatientsList
+          careProfessionalId={professional.id}
+          careProfessionalName={`${professional.first_name} ${professional.last_name}`}
+        />
+      </TabsContent>
+      <TabsContent value="tasks" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Tasks</CardTitle>
+            <CardDescription>Details about the care professional's tasks.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>Tasks content goes here.</p>
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   )
 }
