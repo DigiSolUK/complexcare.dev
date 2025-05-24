@@ -72,3 +72,60 @@ export async function requireRole(role: string | string[]) {
 
   return session
 }
+
+import type { NextAuthOptions } from "next-auth"
+
+const nextAuthConfig = {}
+const auth0Config = {
+  clientId: process.env.AUTH0_CLIENT_ID,
+  clientSecret: process.env.AUTH0_CLIENT_SECRET,
+  issuer: process.env.AUTH0_ISSUER,
+  secret: process.env.NEXTAUTH_SECRET,
+}
+
+export const authOptions: NextAuthOptions = {
+  providers: [
+    {
+      id: "auth0",
+      name: "Auth0",
+      type: "oauth",
+      version: "2.0",
+      clientId: auth0Config.clientId,
+      clientSecret: auth0Config.clientSecret,
+      issuer: auth0Config.issuer,
+      authorization: {
+        params: {
+          scope: "openid profile email",
+        },
+      },
+      profile(profile: any) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+        }
+      },
+    },
+  ],
+  callbacks: {
+    async jwt({ token, account, profile }: any) {
+      if (account) {
+        token.accessToken = account.access_token
+      }
+      if (profile) {
+        token.auth0Id = profile.sub
+      }
+      return token
+    },
+    async session({ session, token }: any) {
+      if (session?.user) {
+        session.user.auth0Id = token.auth0Id
+      }
+      return session
+    },
+  },
+  secret: auth0Config.secret,
+}
+
+// Add this line to explicitly export authOptions as a named export
