@@ -374,3 +374,36 @@ export interface ApiKey {
   created_at: string
   updated_at: string
 }
+
+// In the existing types file, add the PatientAssignment type
+
+export interface PatientAssignment {
+  id: string
+  tenant_id: string
+  patient_id: string
+  care_professional_id: string
+  assignment_type: string
+  start_date: string
+  end_date?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+  created_by?: string | null
+  updated_by?: string | null
+
+  // Joined fields from patients table
+  patient_first_name?: string
+  patient_last_name?: string
+  date_of_birth?: string
+  gender?: string
+  contact_number?: string
+  email?: string
+  avatar_url?: string
+
+  // Joined fields from care_professionals table
+  first_name?: string
+  last_name?: string
+  title?: string
+  role?: string
+  specialization?: string
+}
