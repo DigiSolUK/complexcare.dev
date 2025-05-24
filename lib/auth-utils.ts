@@ -64,7 +64,7 @@ export const authenticateUser = async (credentials: any) => {
 export const authorizeRequest = async (request: any, requiredRole: string) => {
   try {
     // Simulate authorization logic (replace with actual implementation)
-    const userRole = request.user?.role || "guest" // Assuming user info is attached to the request
+    const userRole = request.user?.role || "guest"
 
     if (userRole === requiredRole || requiredRole === "guest") {
       return { success: true, message: "Authorization successful" }

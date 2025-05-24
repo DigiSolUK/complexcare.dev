@@ -4,23 +4,32 @@ import GoogleProvider from "next-auth/providers/google"
 const handler = NextAuth({
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
   ],
   callbacks: {
     async session({ session, token }) {
-      // Store the user id from MongoDB to session
-      // if (session?.user) {
-      //   session.user.id = user.id;
-      // }
+      if (session?.user && token?.sub) {
+        session.user.id = token.sub
+      }
       return session
     },
-    async signIn({ account, profile, email, credentials }) {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+      }
+      return token
+    },
+    async signIn({ account, profile }) {
       return true
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: "/auth/signin",
+    error: "/auth/error",
+  },
 })
 
 export { handler as GET, handler as POST }

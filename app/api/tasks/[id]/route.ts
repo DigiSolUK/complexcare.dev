@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-
-// Connect to the database
-const sql = neon(process.env.DATABASE_URL!)
+import { sql } from "@/lib/db"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -35,11 +32,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Get task ID from params
     const taskId = params.id
 
-    // Query task using tagged template literal syntax
-    const task = await sql`
-      SELECT * FROM tasks
-      WHERE id = ${taskId} AND tenant_id = ${tenantId}
-    `
+    // Query task using the new API
+    const task = await sql.query("SELECT * FROM tasks WHERE id = $1 AND tenant_id = $2", [taskId, tenantId])
 
     if (!task || task.length === 0) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
@@ -74,20 +68,21 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     // Parse request body
     const { title, description, status, priority, due_date, assigned_to } = await request.json()
 
-    // Update task using tagged template literal syntax
-    const result = await sql`
-      UPDATE tasks
+    // Update task using the new API
+    const result = await sql.query(
+      `UPDATE tasks
       SET 
-        title = COALESCE(${title}, title),
-        description = COALESCE(${description}, description),
-        status = COALESCE(${status}, status),
-        priority = COALESCE(${priority}, priority),
-        due_date = COALESCE(${due_date}, due_date),
-        assigned_to = COALESCE(${assigned_to}, assigned_to),
+        title = COALESCE($3, title),
+        description = COALESCE($4, description),
+        status = COALESCE($5, status),
+        priority = COALESCE($6, priority),
+        due_date = COALESCE($7, due_date),
+        assigned_to = COALESCE($8, assigned_to),
         updated_at = NOW()
-      WHERE id = ${taskId} AND tenant_id = ${tenantId}
-      RETURNING *
-    `
+      WHERE id = $1 AND tenant_id = $2
+      RETURNING *`,
+      [taskId, tenantId, title, description, status, priority, due_date, assigned_to],
+    )
 
     if (!result || result.length === 0) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
@@ -119,12 +114,11 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     // Get task ID from params
     const taskId = params.id
 
-    // Delete task using tagged template literal syntax
-    const result = await sql`
-      DELETE FROM tasks
-      WHERE id = ${taskId} AND tenant_id = ${tenantId}
-      RETURNING id
-    `
+    // Delete task using the new API
+    const result = await sql.query("DELETE FROM tasks WHERE id = $1 AND tenant_id = $2 RETURNING id", [
+      taskId,
+      tenantId,
+    ])
 
     if (!result || result.length === 0) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })

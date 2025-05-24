@@ -1,15 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { sql } from "@/lib/db"
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const id = params.id
     console.log(`Fetching patient with ID: ${id}`)
 
-    // Get the patient from the database
-    const result = await db.query(`SELECT * FROM patients WHERE id = $1`, [id])
+    // Get the patient from the database using the correct Neon API
+    const result = await sql.query(`SELECT * FROM patients WHERE id = $1`, [id])
 
-    const patient = result.rows[0]
+    const patient = result[0]
 
     if (!patient) {
       console.log(`Patient with ID ${id} not found`)

@@ -1,7 +1,7 @@
 // Update the import for executeQuery to use the correct database connection
 import { executeQuery } from "@/lib/db"
 import type { Tenant, TenantUser, TenantInvitation } from "@/types"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import { DEFAULT_TENANT_ID } from "../tenant"
 import { getCachedTenant, cacheTenant, invalidateTenantCache } from "../redis/tenant-cache"
 
@@ -24,8 +24,7 @@ export async function getAllTenants(): Promise<Tenant[]> {
 export async function getTenantById(tenantId: string = DEFAULT_TENANT_ID) {
   return getCachedTenant(tenantId, async () => {
     try {
-      const sql = neon(process.env.DATABASE_URL || "")
-      const result = await sql(`SELECT * FROM tenants WHERE id = $1`, [tenantId])
+      const result = await sql.query("SELECT * FROM tenants WHERE id = $1", [tenantId])
 
       if (result.length === 0) {
         return null
@@ -59,8 +58,6 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
 
 export async function createTenant(data: any) {
   try {
-    const sql = neon(process.env.DATABASE_URL || "")
-
     // Build columns and values dynamically
     const fields = Object.keys(data)
     const columns = fields.join(", ")
@@ -73,7 +70,7 @@ export async function createTenant(data: any) {
       RETURNING *
     `
 
-    const result = await sql(query, values)
+    const result = await sql.query(query, values)
 
     // Cache the new tenant
     await cacheTenant(result[0].id, result[0])
@@ -87,8 +84,6 @@ export async function createTenant(data: any) {
 
 export async function updateTenant(tenantId: string, data: any) {
   try {
-    const sql = neon(process.env.DATABASE_URL || "")
-
     // Build SET clause dynamically
     const fields = Object.keys(data)
     const setClause = fields.map((field, i) => `${field} = $${i + 2}`).join(", ")
@@ -101,7 +96,7 @@ export async function updateTenant(tenantId: string, data: any) {
       RETURNING *
     `
 
-    const result = await sql(query, values)
+    const result = await sql.query(query, values)
 
     // Invalidate cache
     await invalidateTenantCache(tenantId)

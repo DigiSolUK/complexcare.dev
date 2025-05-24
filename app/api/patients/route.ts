@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 
 // Demo data for patients (simplified version for listing)
 const demoPatients = [
@@ -93,8 +93,7 @@ export async function GET(request: Request) {
   try {
     // First try to get patients from the database
     try {
-      const sql = neon(process.env.DATABASE_URL || "")
-      const result = await sql`SELECT * FROM patients LIMIT 100`
+      const result = await sql.query("SELECT * FROM patients LIMIT 100", [])
 
       if (result && result.length > 0) {
         return NextResponse.json(result)

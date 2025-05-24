@@ -1,16 +1,18 @@
-import { neon as neonClient } from "@neondatabase/serverless"
-import { sql } from "@vercel/postgres"
+import { neon } from "@neondatabase/serverless"
 
 // Export the neon client for direct use
-export const neon = neonClient(process.env.DATABASE_URL!)
-
-// Export the sql function for direct SQL queries
-export { sql }
+export const sql = neon(process.env.DATABASE_URL!)
 
 // Database utility object for backward compatibility
 export const db = {
-  query: async <T = any>(query: string, params: any[] = []): Promise<T[]> => {
-    return executeQuery<T>(query, params)
+  query: async <T = any>(query: string, params: any[] = []): Promise<{ rows: T[] }> => {
+    try {
+      const result = await sql.query(query, params)
+      return { rows: result as T[] }
+    } catch (error) {
+      console.error("Database query error:", error)
+      throw error
+    }
   },
   getById: async <T = any>(table: string, id: string): Promise<T | null> => {
     return getById<T>(table, id)
@@ -26,10 +28,10 @@ export const db = {
   },
 }
 
-// Execute a query with parameters
+// Execute a query with parameters using the new API
 export async function executeQuery<T = any>(query: string, params: any[] = []): Promise<T[]> {
   try {
-    const result = await neon(query, params)
+    const result = await sql.query(query, params)
     return result as T[]
   } catch (error) {
     console.error("Database query error:", error)
@@ -136,3 +138,6 @@ export async function remove(table: string, id: string): Promise<boolean> {
     throw error
   }
 }
+
+// Export neon for backward compatibility
+// export const neon = sql

@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-
-// Connect to the database
-const sql = neon(process.env.DATABASE_URL!)
+import { sql } from "@/lib/db"
 
 // Demo data for tasks
 const demoTasks = [
@@ -84,12 +81,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
     }
 
-    // Query tasks from database using tagged template literal syntax
-    const tasks = await sql`
-      SELECT * FROM tasks
-      WHERE tenant_id = ${tenantId}
-      ORDER BY created_at DESC
-    `
+    // Query tasks from database using the new API
+    const tasks = await sql.query("SELECT * FROM tasks WHERE tenant_id = $1 ORDER BY created_at DESC", [tenantId])
 
     return NextResponse.json(tasks)
   } catch (error) {
@@ -122,9 +115,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
     }
 
-    // Insert task using tagged template literal syntax
-    const result = await sql`
-      INSERT INTO tasks (
+    // Insert task using the new API
+    const result = await sql.query(
+      `INSERT INTO tasks (
         title, 
         description, 
         status, 
@@ -136,18 +129,19 @@ export async function POST(request: Request) {
         updated_at
       )
       VALUES (
-        ${title}, 
-        ${description || null}, 
-        ${status || "pending"}, 
-        ${priority || "medium"}, 
-        ${due_date || null}, 
-        ${assigned_to || null}, 
-        ${tenantId}, 
-        NOW(), 
-        NOW()
+        $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
       )
-      RETURNING *
-    `
+      RETURNING *`,
+      [
+        title,
+        description || null,
+        status || "pending",
+        priority || "medium",
+        due_date || null,
+        assigned_to || null,
+        tenantId,
+      ],
+    )
 
     return NextResponse.json(result[0], { status: 201 })
   } catch (error) {

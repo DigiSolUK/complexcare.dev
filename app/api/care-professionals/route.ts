@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 
 // Demo data for care professionals
 const demoCareProfessionals = [
@@ -123,15 +123,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(demoCareProfessionals)
     }
 
-    // Initialize the database connection
-    const sql = neon(process.env.DATABASE_URL || "")
-
-    // Use the correct SQL syntax with tagged template literals
-    const result = await sql`
-      SELECT * FROM care_professionals 
-      WHERE tenant_id = ${tenantId}
-      ORDER BY last_name, first_name
-    `
+    // Use the correct SQL syntax with the new API
+    const result = await sql.query(
+      "SELECT * FROM care_professionals WHERE tenant_id = $1 ORDER BY last_name, first_name",
+      [tenantId],
+    )
 
     return NextResponse.json(result)
   } catch (error) {
@@ -165,12 +161,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Initialize the database connection
-    const sql = neon(process.env.DATABASE_URL || "")
-
-    // Use the correct SQL syntax with tagged template literals
-    const result = await sql`
-      INSERT INTO care_professionals (
+    // Use the correct SQL syntax with the new API
+    const result = await sql.query(
+      `INSERT INTO care_professionals (
         tenant_id,
         first_name,
         last_name,
@@ -186,23 +179,24 @@ export async function POST(request: NextRequest) {
         created_at,
         updated_at
       ) VALUES (
-        ${tenantId},
-        ${body.first_name},
-        ${body.last_name},
-        ${body.email || null},
-        ${body.phone || null},
-        ${body.role},
-        ${body.specialization || null},
-        ${body.qualification || null},
-        ${body.license_number || null},
-        ${body.employment_status || "Full-time"},
-        ${body.start_date || new Date().toISOString().split("T")[0]},
-        ${body.is_active !== undefined ? body.is_active : true},
-        NOW(),
-        NOW()
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
       )
-      RETURNING *
-    `
+      RETURNING *`,
+      [
+        tenantId,
+        body.first_name,
+        body.last_name,
+        body.email || null,
+        body.phone || null,
+        body.role,
+        body.specialization || null,
+        body.qualification || null,
+        body.license_number || null,
+        body.employment_status || "Full-time",
+        body.start_date || new Date().toISOString().split("T")[0],
+        body.is_active !== undefined ? body.is_active : true,
+      ],
+    )
 
     return NextResponse.json(result[0], { status: 201 })
   } catch (error) {

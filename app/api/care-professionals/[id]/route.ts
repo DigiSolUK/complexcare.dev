@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 
 // Demo data for care professionals (same as in the main route)
 const demoCareProfessionals = [
@@ -132,14 +132,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json(careProfessional)
     }
 
-    // Initialize the database connection
-    const sql = neon(process.env.DATABASE_URL || "")
-
-    // Use the correct SQL syntax with tagged template literals
-    const result = await sql`
-      SELECT * FROM care_professionals 
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-    `
+    // Use the correct SQL syntax with the new API
+    const result = await sql.query("SELECT * FROM care_professionals WHERE id = $1 AND tenant_id = $2", [id, tenantId])
 
     if (result.length === 0) {
       return NextResponse.json({ error: "Care professional not found" }, { status: 404 })
@@ -175,38 +169,50 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       })
     }
 
-    // Initialize the database connection
-    const sql = neon(process.env.DATABASE_URL || "")
-
     // Check if the care professional exists
-    const existingRecord = await sql`
-      SELECT id FROM care_professionals
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-    `
+    const existingRecord = await sql.query("SELECT id FROM care_professionals WHERE id = $1 AND tenant_id = $2", [
+      id,
+      tenantId,
+    ])
 
     if (existingRecord.length === 0) {
       return NextResponse.json({ error: "Care professional not found" }, { status: 404 })
     }
 
-    // Use the correct SQL syntax with tagged template literals
-    const result = await sql`
-      UPDATE care_professionals
+    // Use the correct SQL syntax with the new API
+    const result = await sql.query(
+      `UPDATE care_professionals
       SET 
-        first_name = ${body.first_name || existingRecord[0].first_name},
-        last_name = ${body.last_name || existingRecord[0].last_name},
-        email = ${body.email || existingRecord[0].email},
-        phone = ${body.phone || existingRecord[0].phone},
-        role = ${body.role || existingRecord[0].role},
-        specialization = ${body.specialization || existingRecord[0].specialization},
-        qualification = ${body.qualification || existingRecord[0].qualification},
-        license_number = ${body.license_number || existingRecord[0].license_number},
-        employment_status = ${body.employment_status || existingRecord[0].employment_status},
-        start_date = ${body.start_date || existingRecord[0].start_date},
-        is_active = ${body.is_active !== undefined ? body.is_active : existingRecord[0].is_active},
+        first_name = COALESCE($3, first_name),
+        last_name = COALESCE($4, last_name),
+        email = COALESCE($5, email),
+        phone = COALESCE($6, phone),
+        role = COALESCE($7, role),
+        specialization = COALESCE($8, specialization),
+        qualification = COALESCE($9, qualification),
+        license_number = COALESCE($10, license_number),
+        employment_status = COALESCE($11, employment_status),
+        start_date = COALESCE($12, start_date),
+        is_active = COALESCE($13, is_active),
         updated_at = NOW()
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-      RETURNING *
-    `
+      WHERE id = $1 AND tenant_id = $2
+      RETURNING *`,
+      [
+        id,
+        tenantId,
+        body.first_name,
+        body.last_name,
+        body.email,
+        body.phone,
+        body.role,
+        body.specialization,
+        body.qualification,
+        body.license_number,
+        body.employment_status,
+        body.start_date,
+        body.is_active,
+      ],
+    )
 
     return NextResponse.json(result[0])
   } catch (error) {
@@ -234,26 +240,21 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       })
     }
 
-    // Initialize the database connection
-    const sql = neon(process.env.DATABASE_URL || "")
-
     // Check if the care professional exists
-    const existingRecord = await sql`
-      SELECT id FROM care_professionals
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-    `
+    const existingRecord = await sql.query("SELECT id FROM care_professionals WHERE id = $1 AND tenant_id = $2", [
+      id,
+      tenantId,
+    ])
 
     if (existingRecord.length === 0) {
       return NextResponse.json({ error: "Care professional not found" }, { status: 404 })
     }
 
     // Instead of deleting, set is_active to false (soft delete)
-    const result = await sql`
-      UPDATE care_professionals
-      SET is_active = false, updated_at = NOW()
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-      RETURNING id, is_active, updated_at
-    `
+    const result = await sql.query(
+      "UPDATE care_professionals SET is_active = false, updated_at = NOW() WHERE id = $1 AND tenant_id = $2 RETURNING id, is_active, updated_at",
+      [id, tenantId],
+    )
 
     return NextResponse.json({
       message: "Care professional deactivated successfully",
