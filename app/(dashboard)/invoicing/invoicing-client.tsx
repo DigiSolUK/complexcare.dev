@@ -9,17 +9,10 @@ import { Input } from "@/components/ui/input"
 import { InvoiceTable } from "@/components/invoicing/invoice-table"
 import { CreateInvoiceDialog } from "@/components/invoicing/create-invoice-dialog"
 import { InvoiceStats } from "@/components/invoicing/invoice-stats"
-import { ErrorBoundary } from "@/components/error-boundaries"
 
 export default function InvoicingClient() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value)
-    setSearchQuery("") // Reset search when changing tabs
-  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,11 +33,9 @@ export default function InvoicingClient() {
         </div>
       </div>
 
-      <ErrorBoundary fallback={<div className="p-4 bg-red-50 rounded-md">Error loading invoice statistics</div>}>
-        <InvoiceStats />
-      </ErrorBoundary>
+      <InvoiceStats />
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+      <Tabs defaultValue="all" className="space-y-4">
         <TabsList>
           <TabsTrigger value="all">All Invoices</TabsTrigger>
           <TabsTrigger value="draft">Draft</TabsTrigger>
@@ -71,9 +62,7 @@ export default function InvoicingClient() {
                   <Filter className="h-4 w-4" />
                 </Button>
               </div>
-              <ErrorBoundary fallback={<div className="p-4 bg-red-50 rounded-md">Error loading invoices</div>}>
-                <InvoiceTable filter="all" searchQuery={searchQuery} />
-              </ErrorBoundary>
+              <InvoiceTable filter="all" searchQuery={searchQuery} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -96,9 +85,7 @@ export default function InvoicingClient() {
                   <Filter className="h-4 w-4" />
                 </Button>
               </div>
-              <ErrorBoundary fallback={<div className="p-4 bg-red-50 rounded-md">Error loading invoices</div>}>
-                <InvoiceTable filter="draft" searchQuery={searchQuery} />
-              </ErrorBoundary>
+              <InvoiceTable filter="draft" searchQuery={searchQuery} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -121,9 +108,7 @@ export default function InvoicingClient() {
                   <Filter className="h-4 w-4" />
                 </Button>
               </div>
-              <ErrorBoundary fallback={<div className="p-4 bg-red-50 rounded-md">Error loading invoices</div>}>
-                <InvoiceTable filter="sent" searchQuery={searchQuery} />
-              </ErrorBoundary>
+              <InvoiceTable filter="sent" searchQuery={searchQuery} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -146,9 +131,7 @@ export default function InvoicingClient() {
                   <Filter className="h-4 w-4" />
                 </Button>
               </div>
-              <ErrorBoundary fallback={<div className="p-4 bg-red-50 rounded-md">Error loading invoices</div>}>
-                <InvoiceTable filter="paid" searchQuery={searchQuery} />
-              </ErrorBoundary>
+              <InvoiceTable filter="paid" searchQuery={searchQuery} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -171,9 +154,7 @@ export default function InvoicingClient() {
                   <Filter className="h-4 w-4" />
                 </Button>
               </div>
-              <ErrorBoundary fallback={<div className="p-4 bg-red-50 rounded-md">Error loading invoices</div>}>
-                <InvoiceTable filter="overdue" searchQuery={searchQuery} />
-              </ErrorBoundary>
+              <InvoiceTable filter="overdue" searchQuery={searchQuery} />
             </CardContent>
           </Card>
         </TabsContent>

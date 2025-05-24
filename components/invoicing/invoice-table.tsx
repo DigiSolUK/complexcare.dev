@@ -26,20 +26,13 @@ export function InvoiceTable({ filter = "all", searchQuery = "" }: InvoiceTableP
         setLoading(true)
         const response = await fetch("/api/invoices")
         if (!response.ok) {
-          throw new Error(`Failed to fetch invoices: ${response.status} ${response.statusText}`)
+          throw new Error("Failed to fetch invoices")
         }
         const data = await response.json()
-
-        // Ensure data is an array
-        if (!Array.isArray(data)) {
-          console.warn("Expected array of invoices but got:", data)
-          setInvoices([])
-        } else {
-          setInvoices(data)
-        }
+        setInvoices(data)
       } catch (err) {
-        console.error("Error loading invoices:", err)
         setError("Error loading invoices. Please try again.")
+        console.error(err)
       } finally {
         setLoading(false)
       }
@@ -58,7 +51,7 @@ export function InvoiceTable({ filter = "all", searchQuery = "" }: InvoiceTableP
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       return (
-        invoice.invoice_number?.toLowerCase().includes(query) ||
+        invoice.invoice_number.toLowerCase().includes(query) ||
         invoice.patient_name?.toLowerCase().includes(query) ||
         invoice.description?.toLowerCase().includes(query)
       )
@@ -78,45 +71,16 @@ export function InvoiceTable({ filter = "all", searchQuery = "" }: InvoiceTableP
       case "sent":
         return <Badge className="bg-blue-100 text-blue-800">Sent</Badge>
       default:
-        return <Badge>{status || "Unknown"}</Badge>
+        return <Badge>{status}</Badge>
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex justify-center p-4">
-        <div className="flex flex-col items-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900"></div>
-          <p className="mt-2 text-sm text-gray-500">Loading invoices...</p>
-        </div>
-      </div>
-    )
+    return <div className="flex justify-center p-4">Loading invoices...</div>
   }
 
   if (error) {
-    return (
-      <div className="rounded-md bg-red-50 p-4 my-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">{error}</h3>
-            <div className="mt-2">
-              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    return <div className="text-red-500 p-4">{error}</div>
   }
 
   if (filteredInvoices.length === 0) {
@@ -144,12 +108,12 @@ export function InvoiceTable({ filter = "all", searchQuery = "" }: InvoiceTableP
       <TableBody>
         {filteredInvoices.map((invoice) => (
           <TableRow key={invoice.id}>
-            <TableCell className="font-medium">{invoice.invoice_number || "N/A"}</TableCell>
-            <TableCell>{invoice.patient_name || "Unknown Patient"}</TableCell>
-            <TableCell>{formatCurrency(invoice.amount || 0)}</TableCell>
-            <TableCell>{invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : "N/A"}</TableCell>
-            <TableCell>{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "N/A"}</TableCell>
-            <TableCell>{getStatusBadge(invoice.status || "unknown")}</TableCell>
+            <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+            <TableCell>{invoice.patient_name}</TableCell>
+            <TableCell>{formatCurrency(invoice.amount)}</TableCell>
+            <TableCell>{new Date(invoice.created_at).toLocaleDateString()}</TableCell>
+            <TableCell>{new Date(invoice.due_date).toLocaleDateString()}</TableCell>
+            <TableCell>{getStatusBadge(invoice.status)}</TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="icon" onClick={() => router.push(`/invoicing/${invoice.id}`)}>
