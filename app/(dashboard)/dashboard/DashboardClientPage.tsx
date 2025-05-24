@@ -181,6 +181,22 @@ const navigationCards = [
 export function DashboardClientPage() {
   const [activeTab, setActiveTab] = useState("overview")
 
+  // Optional: You can define dashboard data here if you want to pass it explicitly
+  const dashboardData = {
+    patientCount: 248,
+    patientGrowth: 4,
+    appointmentsToday: 8,
+    appointmentsPending: 3,
+    carePlansActive: 187,
+    carePlansReview: 12,
+    staffCompliance: 92,
+    certificationsExpiring: 5,
+    tasksAssigned: 24,
+    tasksCompleted: 18,
+    outstandingInvoices: 12500,
+    overduePayments: 3,
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -209,7 +225,8 @@ export function DashboardClientPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <DashboardStats />
+          {/* Pass the data explicitly, though it's now optional */}
+          <DashboardStats data={dashboardData} />
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {quickActions.map((action) => {
