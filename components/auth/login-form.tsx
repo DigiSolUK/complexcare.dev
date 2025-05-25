@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Icons } from "@/components/icons"
 import { useToast } from "@/components/ui/use-toast"
-import { useErrorTracking } from "@/lib/error-tracking"
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
@@ -18,7 +17,6 @@ export function LoginForm() {
   const searchParams = useSearchParams()
   const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
   const { toast } = useToast()
-  const { trackError } = useErrorTracking()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,34 +34,20 @@ export function LoginForm() {
       const data = await response.json()
 
       if (data.success) {
-        toast({
-          title: "Success",
-          description: "Successfully signed in. Redirecting...",
-        })
         router.push(callbackUrl)
         router.refresh()
       } else {
-        throw new Error(data.message || "Invalid email or password")
+        toast({
+          title: "Authentication failed",
+          description: data.message || "Invalid email or password",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Login error:", error)
-      const errorMessage = error instanceof Error ? error.message : "An error occurred during sign in"
-
-      trackError(error as Error, {
-        component: "LoginForm",
-        action: "signin",
-        severity: "medium",
-        category: "authentication",
-        metadata: {
-          email: email,
-          callbackUrl: callbackUrl,
-          hasPassword: !!password,
-        },
-      })
-
       toast({
         title: "Authentication failed",
-        description: errorMessage,
+        description: "An error occurred during sign in",
         variant: "destructive",
       })
     } finally {

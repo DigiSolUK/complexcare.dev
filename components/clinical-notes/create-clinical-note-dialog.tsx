@@ -27,8 +27,6 @@ import {
   getClinicalNoteCategories,
   createClinicalNote,
 } from "@/lib/services/clinical-notes-service"
-import { useErrorTracking } from "@/lib/error-tracking"
-import { toast } from "@/components/ui/use-toast"
 
 interface CreateClinicalNoteDialogProps {
   open: boolean
@@ -48,7 +46,6 @@ export function CreateClinicalNoteDialog({ open, onOpenChange, patientId, onSucc
   const [categories, setCategories] = useState<ClinicalNoteCategory[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { trackError } = useErrorTracking()
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -60,24 +57,13 @@ export function CreateClinicalNoteDialog({ open, onOpenChange, patientId, onSucc
         }
       } catch (error) {
         console.error("Error fetching categories:", error)
-        trackError(error as Error, {
-          component: "CreateClinicalNoteDialog",
-          action: "fetchCategories",
-          severity: "medium",
-          category: "database",
-        })
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load note categories. Please try again.",
-        })
       }
     }
 
     if (open) {
       fetchCategories()
     }
-  }, [open, trackError])
+  }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -111,11 +97,6 @@ export function CreateClinicalNoteDialog({ open, onOpenChange, patientId, onSucc
         follow_up_notes: followUpNotes || null,
       })
 
-      toast({
-        title: "Success",
-        description: "Clinical note created successfully.",
-      })
-
       resetForm()
       onOpenChange(false)
 
@@ -124,29 +105,7 @@ export function CreateClinicalNoteDialog({ open, onOpenChange, patientId, onSucc
       }
     } catch (error) {
       console.error("Error creating note:", error)
-      const errorMessage = error instanceof Error ? error.message : "Failed to create note"
-      setError(errorMessage)
-
-      trackError(error as Error, {
-        component: "CreateClinicalNoteDialog",
-        action: "createClinicalNote",
-        patientId: patientId,
-        noteTitle: title,
-        severity: "high",
-        category: "database",
-        metadata: {
-          isPrivate,
-          isImportant,
-          hasFollowUp: !!followUpDate,
-          categoryId,
-        },
-      })
-
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: errorMessage,
-      })
+      setError(error instanceof Error ? error.message : "Failed to create note")
     } finally {
       setIsSubmitting(false)
     }
