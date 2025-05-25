@@ -61,6 +61,7 @@
     "@vercel/postgres": "latest",
     "@xata.io/client": "latest",
     "ai": "latest",
+    "auth0-js": "latest",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "latest",
     "better-sqlite3": "latest",
