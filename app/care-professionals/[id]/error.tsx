@@ -42,3 +42,5 @@ export default function CareProfessionalError({
     </div>
   )
 }
+
+// This file should be moved to the dashboard route group if it exists
