@@ -31,16 +31,15 @@ export async function getCurrentTenant() {
   const tenantId = getCurrentTenantId()
 
   // In a real app, you would fetch tenant details from the database
-  return {
-    id: tenantId,
-    name: `Complex Care UK`,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    settings: {
-      theme: "light",
-      features: ["patients", "appointments", "billing"],
-    },
-  }
+  // For now, just return the ID to avoid format issues
+  return tenantId
+}
+
+// Alternatively, if other parts of the code expect an object, add a new function:
+// Get just the tenant ID for database queries
+export async function getCurrentTenantIdForDb(): Promise<string> {
+  const tenantId = getCurrentTenantId()
+  return tenantId
 }
 
 // Client-safe version that doesn't use cookies() API

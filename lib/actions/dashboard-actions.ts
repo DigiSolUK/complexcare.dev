@@ -68,10 +68,11 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   try {
     // Get current tenant ID
-    const tenantId = await getCurrentTenant()
+    const tenant = await getCurrentTenant()
+    const tenantId = typeof tenant === "object" && tenant !== null ? tenant.id : tenant
 
-    if (!tenantId) {
-      throw new Error("No tenant ID found")
+    if (typeof tenantId !== "string") {
+      throw new Error("Invalid tenant ID format")
     }
 
     // Fetch patient count and growth
@@ -327,10 +328,11 @@ export async function getPatientActivityData() {
   noStore()
 
   try {
-    const tenantId = await getCurrentTenant()
+    const tenant = await getCurrentTenant()
+    const tenantId = typeof tenant === "object" && tenant !== null ? tenant.id : tenant
 
-    if (!tenantId) {
-      throw new Error("No tenant ID found")
+    if (typeof tenantId !== "string") {
+      throw new Error("Invalid tenant ID format")
     }
 
     // Check if activity_logs table exists
