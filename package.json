@@ -87,6 +87,7 @@
     "next-auth": "latest",
     "next-themes": "latest",
     "nodemailer": "latest",
+    "path": "latest",
     "pg": "latest",
     "postgres": "latest",
     "react": "^19",
