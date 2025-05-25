@@ -248,7 +248,13 @@ export async function getDashboardData(): Promise<DashboardData> {
         CONCAT(p.first_name, ' ', p.last_name) as patient_name,
         p.id as patient_id,
         a.appointment_date as date_time,
-        a.duration,
+        COALESCE(
+          (SELECT a.duration WHERE EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'appointments' AND column_name = 'duration'
+          )),
+          30
+        ) as duration,
         a.type,
         a.status
       FROM appointments a
@@ -266,7 +272,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       patientName: appointment.patient_name,
       patientId: appointment.patient_id,
       dateTime: new Date(appointment.date_time).toISOString(),
-      duration: Number.parseInt(appointment.duration),
+      duration: appointment.duration ? Number.parseInt(appointment.duration) : 30, // Default to 30 minutes if NULL
       type: appointment.type,
       status: appointment.status,
     }))
