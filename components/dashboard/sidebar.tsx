@@ -145,4 +145,7 @@ export function Sidebar({ className }: SidebarProps) {
   )
 }
 
+// Add this named export to match what's being imported
+export const DashboardSidebar = Sidebar
+
 export default Sidebar
