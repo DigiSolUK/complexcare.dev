@@ -409,4 +409,217 @@ export async function deleteClinicalNote(
   }
 }
 
-// Other functions remain unchanged...
+// Add the missing exports
+export async function getClinicalNoteCategories(tenantId: string = DEFAULT_TENANT_ID): Promise<ClinicalNoteCategory[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM clinical_note_categories
+      WHERE tenant_id = ${tenantId}
+      ORDER BY name ASC
+    `
+
+    return result as ClinicalNoteCategory[]
+  } catch (error) {
+    console.error("Error fetching clinical note categories:", error)
+    return []
+  }
+}
+
+export async function getClinicalNoteTemplates(tenantId: string = DEFAULT_TENANT_ID): Promise<ClinicalNoteTemplate[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT 
+        cnt.*,
+        cnc.name as category_name
+      FROM clinical_note_templates cnt
+      LEFT JOIN clinical_note_categories cnc ON cnt.category_id = cnc.id
+      WHERE cnt.tenant_id = ${tenantId}
+      ORDER BY cnt.name ASC
+    `
+
+    return result as ClinicalNoteTemplate[]
+  } catch (error) {
+    console.error("Error fetching clinical note templates:", error)
+    return []
+  }
+}
+
+export async function getAttachmentsByNoteId(noteId: string): Promise<ClinicalNoteAttachment[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM clinical_note_attachments
+      WHERE note_id = ${noteId}
+      ORDER BY uploaded_at DESC
+    `
+
+    return result as ClinicalNoteAttachment[]
+  } catch (error) {
+    console.error(`Error fetching attachments for note ${noteId}:`, error)
+    return []
+  }
+}
+
+export async function createClinicalNoteCategory(
+  data: Omit<ClinicalNoteCategory, "id" | "created_at" | "updated_at">,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<ClinicalNoteCategory | null> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      INSERT INTO clinical_note_categories (
+        tenant_id,
+        name,
+        description,
+        color,
+        icon
+      ) VALUES (
+        ${tenantId},
+        ${data.name},
+        ${data.description || null},
+        ${data.color || null},
+        ${data.icon || null}
+      )
+      RETURNING *
+    `
+
+    if (result.length > 0) {
+      return result[0] as ClinicalNoteCategory
+    }
+
+    return null
+  } catch (error) {
+    console.error("Error creating clinical note category:", error)
+    throw error
+  }
+}
+
+export async function createClinicalNoteTemplate(
+  data: Omit<ClinicalNoteTemplate, "id" | "created_at" | "updated_at" | "category_name">,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<ClinicalNoteTemplate | null> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      INSERT INTO clinical_note_templates (
+        tenant_id,
+        name,
+        content,
+        category_id,
+        created_by
+      ) VALUES (
+        ${tenantId},
+        ${data.name},
+        ${data.content},
+        ${data.category_id || null},
+        ${data.created_by}
+      )
+      RETURNING *
+    `
+
+    if (result.length > 0) {
+      return result[0] as ClinicalNoteTemplate
+    }
+
+    return null
+  } catch (error) {
+    console.error("Error creating clinical note template:", error)
+    throw error
+  }
+}
+
+export async function addAttachmentToNote(
+  noteId: string,
+  data: Omit<ClinicalNoteAttachment, "id" | "note_id" | "uploaded_at">,
+): Promise<ClinicalNoteAttachment | null> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      INSERT INTO clinical_note_attachments (
+        note_id,
+        file_name,
+        file_path,
+        file_type,
+        file_size,
+        uploaded_by,
+        content_type
+      ) VALUES (
+        ${noteId},
+        ${data.file_name},
+        ${data.file_path},
+        ${data.file_type || null},
+        ${data.file_size || null},
+        ${data.uploaded_by},
+        ${data.content_type || null}
+      )
+      RETURNING *
+    `
+
+    if (result.length > 0) {
+      return result[0] as ClinicalNoteAttachment
+    }
+
+    return null
+  } catch (error) {
+    console.error(`Error adding attachment to note ${noteId}:`, error)
+    throw error
+  }
+}
+
+// Create a service class for default export
+class ClinicalNotesService {
+  async getNotesByPatientId(patientId: string, tenantId: string = DEFAULT_TENANT_ID, limit = 50) {
+    return getClinicalNotesByPatientId(patientId, tenantId, limit)
+  }
+
+  async getNoteById(id: string, tenantId: string = DEFAULT_TENANT_ID) {
+    return getClinicalNoteById(id, tenantId)
+  }
+
+  async createNote(data: any, tenantId: string = DEFAULT_TENANT_ID) {
+    return createClinicalNote(data, tenantId)
+  }
+
+  async updateNote(id: string, data: any, tenantId: string = DEFAULT_TENANT_ID) {
+    return updateClinicalNote(id, data, tenantId)
+  }
+
+  async deleteNote(id: string, tenantId: string = DEFAULT_TENANT_ID, userId?: string) {
+    return deleteClinicalNote(id, tenantId, userId)
+  }
+
+  async getCategories(tenantId: string = DEFAULT_TENANT_ID) {
+    return getClinicalNoteCategories(tenantId)
+  }
+
+  async getTemplates(tenantId: string = DEFAULT_TENANT_ID) {
+    return getClinicalNoteTemplates(tenantId)
+  }
+
+  async getAttachments(noteId: string) {
+    return getAttachmentsByNoteId(noteId)
+  }
+
+  async createCategory(data: any, tenantId: string = DEFAULT_TENANT_ID) {
+    return createClinicalNoteCategory(data, tenantId)
+  }
+
+  async createTemplate(data: any, tenantId: string = DEFAULT_TENANT_ID) {
+    return createClinicalNoteTemplate(data, tenantId)
+  }
+
+  async addAttachment(noteId: string, data: any) {
+    return addAttachmentToNote(noteId, data)
+  }
+}
+
+// Export the default service
+export default new ClinicalNotesService()
