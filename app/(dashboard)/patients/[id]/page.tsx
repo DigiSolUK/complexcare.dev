@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { PatientDetailClient } from "./patient-detail-client"
+import EnhancedPatientDetail from "./enhanced-patient-detail"
 import { PatientDetailSkeleton } from "@/components/patients/patient-detail-skeleton"
 
 interface PatientDetailPageProps {
@@ -10,14 +10,14 @@ interface PatientDetailPageProps {
 
 export const metadata = {
   title: "Patient Details | ComplexCare CRM",
-  description: "View and manage patient details",
+  description: "View and manage comprehensive patient details",
 }
 
 export default function PatientDetailPage({ params }: PatientDetailPageProps) {
   return (
     <div className="container mx-auto py-6">
       <Suspense fallback={<PatientDetailSkeleton />}>
-        <PatientDetailClient patientId={params.id} />
+        <EnhancedPatientDetail patientId={params.id} />
       </Suspense>
     </div>
   )
