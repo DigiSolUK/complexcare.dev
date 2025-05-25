@@ -1,6 +1,6 @@
 import { DEFAULT_TENANT_ID } from "@/lib/constants"
 import { logActivity } from "./activity-log-service"
-import { sql } from "@/lib/db" // Import the existing database connection
+import { sql } from "@/lib/db-connection"
 
 export interface ClinicalNote {
   id: string
@@ -57,6 +57,7 @@ export interface ClinicalNoteAttachment {
   content_type: string | null
 }
 
+// Server-side function to get clinical notes by patient ID
 export async function getClinicalNotesByPatientId(
   patientId: string,
   tenantId: string = DEFAULT_TENANT_ID,
@@ -71,7 +72,8 @@ export async function getClinicalNotesByPatientId(
       patientId,
     })
 
-    const result = await sql`
+    const result = await sql.query(
+      `
       SELECT 
         cn.*,
         cnc.name as category_name,
@@ -80,25 +82,29 @@ export async function getClinicalNotesByPatientId(
       FROM clinical_notes cn
       LEFT JOIN clinical_note_categories cnc ON cn.category_id = cnc.id
       LEFT JOIN users u ON cn.created_by = u.id
-      WHERE cn.patient_id = ${patientId}
-      AND cn.tenant_id = ${tenantId}
+      WHERE cn.patient_id = $1
+      AND cn.tenant_id = $2
       ORDER BY cn.created_at DESC
-      LIMIT ${limit}
-    `
+      LIMIT $3
+    `,
+      [patientId, tenantId, limit],
+    )
 
-    return result as ClinicalNote[]
+    return result.rows || []
   } catch (error) {
     console.error("Error fetching clinical notes:", error)
     return []
   }
 }
 
+// Server-side function to get clinical note by ID
 export async function getClinicalNoteById(
   id: string,
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNote | null> {
   try {
-    const result = await sql`
+    const result = await sql.query(
+      `
       SELECT 
         cn.*,
         cnc.name as category_name,
@@ -107,12 +113,14 @@ export async function getClinicalNoteById(
       FROM clinical_notes cn
       LEFT JOIN clinical_note_categories cnc ON cn.category_id = cnc.id
       LEFT JOIN users u ON cn.created_by = u.id
-      WHERE cn.id = ${id}
-      AND cn.tenant_id = ${tenantId}
-    `
+      WHERE cn.id = $1
+      AND cn.tenant_id = $2
+    `,
+      [id, tenantId],
+    )
 
-    if (result.length > 0) {
-      const note = result[0] as ClinicalNote
+    if (result.rows && result.rows.length > 0) {
+      const note = result.rows[0] as ClinicalNote
 
       // Log activity for viewing a specific clinical note
       await logActivity({
@@ -137,12 +145,14 @@ export async function getClinicalNoteById(
   }
 }
 
+// Server-side function to create a clinical note
 export async function createClinicalNote(
   data: Omit<ClinicalNote, "id" | "created_at" | "updated_at" | "category_name" | "category_color" | "created_by_name">,
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNote | null> {
   try {
-    const result = await sql`
+    const result = await sql.query(
+      `
       INSERT INTO clinical_notes (
         tenant_id,
         patient_id,
@@ -156,33 +166,41 @@ export async function createClinicalNote(
         follow_up_date,
         follow_up_notes
       ) VALUES (
-        ${tenantId},
-        ${data.patient_id},
-        ${data.title},
-        ${data.content},
-        ${data.category_id},
-        ${data.created_by},
-        ${data.is_private},
-        ${data.is_important},
-        ${data.tags || []},
-        ${data.follow_up_date || null},
-        ${data.follow_up_notes || null}
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
       )
       RETURNING *
-    `
+    `,
+      [
+        tenantId,
+        data.patient_id,
+        data.title,
+        data.content,
+        data.category_id,
+        data.created_by,
+        data.is_private,
+        data.is_important,
+        data.tags || [],
+        data.follow_up_date || null,
+        data.follow_up_notes || null,
+      ],
+    )
 
-    if (result.length > 0) {
-      const newNote = result[0] as ClinicalNote
+    if (result.rows && result.rows.length > 0) {
+      const newNote = result.rows[0] as ClinicalNote
 
       // Get category name if available
       let categoryName = "Unknown"
       try {
-        const categoryResult = await sql`
+        const categoryResult = await sql.query(
+          `
           SELECT name FROM clinical_note_categories 
-          WHERE id = ${data.category_id}
-        `
-        if (categoryResult.length > 0) {
-          categoryName = categoryResult[0].name
+          WHERE id = $1
+        `,
+          [data.category_id],
+        )
+
+        if (categoryResult.rows && categoryResult.rows.length > 0) {
+          categoryName = categoryResult.rows[0].name
         }
       } catch (error) {
         console.error("Error fetching category name:", error)
@@ -230,238 +248,50 @@ export async function createClinicalNote(
   }
 }
 
-export async function updateClinicalNote(
-  id: string,
-  data: Partial<
-    Omit<
-      ClinicalNote,
-      "id" | "created_at" | "updated_at" | "tenant_id" | "category_name" | "category_color" | "created_by_name"
-    >
-  >,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<ClinicalNote | null> {
-  try {
-    // Get original note data for comparison
-    const originalNote = await getClinicalNoteById(id, tenantId)
-    if (!originalNote) return null
-
-    // Build the update query dynamically
-    const updateFields = []
-    const params = [id, tenantId]
-    let paramIndex = 3
-
-    if (data.patient_id) {
-      updateFields.push(`patient_id = $${paramIndex++}`)
-      params.push(data.patient_id)
-    }
-
-    if (data.title) {
-      updateFields.push(`title = $${paramIndex++}`)
-      params.push(data.title)
-    }
-
-    if (data.content) {
-      updateFields.push(`content = $${paramIndex++}`)
-      params.push(data.content)
-    }
-
-    if (data.category_id) {
-      updateFields.push(`category_id = $${paramIndex++}`)
-      params.push(data.category_id)
-    }
-
-    if ("is_private" in data) {
-      updateFields.push(`is_private = $${paramIndex++}`)
-      params.push(data.is_private)
-    }
-
-    if ("is_important" in data) {
-      updateFields.push(`is_important = $${paramIndex++}`)
-      params.push(data.is_important)
-    }
-
-    if (data.tags) {
-      updateFields.push(`tags = $${paramIndex++}`)
-      params.push(data.tags)
-    }
-
-    if ("follow_up_date" in data) {
-      updateFields.push(`follow_up_date = $${paramIndex++}`)
-      params.push(data.follow_up_date || null)
-    }
-
-    if ("follow_up_notes" in data) {
-      updateFields.push(`follow_up_notes = $${paramIndex++}`)
-      params.push(data.follow_up_notes || null)
-    }
-
-    updateFields.push(`updated_at = NOW()`)
-
-    if (updateFields.length === 0) {
-      return null
-    }
-
-    const query = `
-      UPDATE clinical_notes
-      SET ${updateFields.join(", ")}
-      WHERE id = $1
-      AND tenant_id = $2
-      RETURNING *
-    `
-
-    const result = await sql.query(query, params)
-
-    if (result.rows && result.rows.length > 0) {
-      const updatedNote = result.rows[0] as ClinicalNote
-
-      // Determine which fields were updated
-      const updatedFields = []
-      if (data.title && data.title !== originalNote.title) updatedFields.push("title")
-      if (data.content && data.content !== originalNote.content) updatedFields.push("content")
-      if (data.category_id && data.category_id !== originalNote.category_id) updatedFields.push("category")
-      if ("is_private" in data && data.is_private !== originalNote.is_private) updatedFields.push("privacy")
-      if ("is_important" in data && data.is_important !== originalNote.is_important) updatedFields.push("importance")
-      if (data.follow_up_date && data.follow_up_date !== originalNote.follow_up_date) updatedFields.push("follow_up")
-
-      // Log activity for updating a clinical note
-      await logActivity({
-        tenantId,
-        activityType: "clinical_note_updated",
-        description: `Clinical note updated: ${updatedNote.title}`,
-        patientId: updatedNote.patient_id,
-        userId: originalNote.created_by, // Use the original creator as the updater
-        metadata: {
-          noteId: id,
-          noteTitle: updatedNote.title,
-          updatedFields,
-        },
-      })
-
-      // If importance was changed to true, log an additional activity
-      if ("is_important" in data && data.is_important && !originalNote.is_important) {
-        await logActivity({
-          tenantId,
-          activityType: "clinical_note_marked_important",
-          description: `Clinical note marked as important: ${updatedNote.title}`,
-          patientId: updatedNote.patient_id,
-          userId: originalNote.created_by,
-          metadata: {
-            noteId: id,
-            noteTitle: updatedNote.title,
-          },
-        })
-      }
-
-      return updatedNote
-    }
-
-    return null
-  } catch (error) {
-    console.error(`Error updating clinical note with ID ${id}:`, error)
-    throw error
-  }
-}
-
-export async function deleteClinicalNote(
-  id: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-  userId?: string,
-): Promise<boolean> {
-  try {
-    // Get note details before deletion
-    const note = await getClinicalNoteById(id, tenantId)
-    if (!note) return false
-
-    await sql`
-      DELETE FROM clinical_notes
-      WHERE id = ${id}
-      AND tenant_id = ${tenantId}
-    `
-
-    // Log activity for deleting a clinical note
-    await logActivity({
-      tenantId,
-      activityType: "clinical_note_deleted",
-      description: `Clinical note deleted: ${note.title}`,
-      patientId: note.patient_id,
-      userId: userId || note.created_by,
-      metadata: {
-        noteId: id,
-        noteTitle: note.title,
-        category: note.category_name,
-      },
-    })
-
-    return true
-  } catch (error) {
-    console.error(`Error deleting clinical note with ID ${id}:`, error)
-    return false
-  }
-}
-
+// Server-side function to get clinical note categories
 export async function getClinicalNoteCategories(tenantId: string = DEFAULT_TENANT_ID): Promise<ClinicalNoteCategory[]> {
   try {
-    const result = await sql`
-      SELECT * FROM clinical_note_categories
-      WHERE tenant_id = ${tenantId}
-      ORDER BY name ASC
-    `
+    // Check if we're in a browser environment
+    if (typeof window !== "undefined") {
+      console.warn("getClinicalNoteCategories called from client component")
+      return []
+    }
 
-    return result as ClinicalNoteCategory[]
+    const result = await sql.query(
+      `
+      SELECT * FROM clinical_note_categories
+      WHERE tenant_id = $1
+      ORDER BY name ASC
+    `,
+      [tenantId],
+    )
+
+    return result.rows || []
   } catch (error) {
     console.error("Error fetching clinical note categories:", error)
     return []
   }
 }
 
+// Server-side function to get clinical note templates
 export async function getClinicalNoteTemplates(tenantId: string = DEFAULT_TENANT_ID): Promise<ClinicalNoteTemplate[]> {
   try {
-    const result = await sql`
+    const result = await sql.query(
+      `
       SELECT 
         cnt.*,
         cnc.name as category_name
       FROM clinical_note_templates cnt
       LEFT JOIN clinical_note_categories cnc ON cnt.category_id = cnc.id
-      WHERE cnt.tenant_id = ${tenantId}
+      WHERE cnt.tenant_id = $1
       ORDER BY cnt.name ASC
-    `
+    `,
+      [tenantId],
+    )
 
-    return result as ClinicalNoteTemplate[]
+    return result.rows || []
   } catch (error) {
     console.error("Error fetching clinical note templates:", error)
     return []
-  }
-}
-
-export async function createClinicalNoteCategory(
-  data: Omit<ClinicalNoteCategory, "id" | "created_at" | "updated_at">,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<ClinicalNoteCategory | null> {
-  try {
-    const result = await sql`
-      INSERT INTO clinical_note_categories (
-        tenant_id,
-        name,
-        description,
-        color,
-        icon
-      ) VALUES (
-        ${tenantId},
-        ${data.name},
-        ${data.description || null},
-        ${data.color || null},
-        ${data.icon || null}
-      )
-      RETURNING *
-    `
-
-    if (result.length > 0) {
-      return result[0] as ClinicalNoteCategory
-    }
-
-    return null
-  } catch (error) {
-    console.error("Error creating clinical note category:", error)
-    throw error
   }
 }

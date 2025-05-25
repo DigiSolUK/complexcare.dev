@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Search, AlertTriangle } from "lucide-react"
-import { type ClinicalNoteCategory, getClinicalNoteCategories } from "@/lib/services/clinical-notes-service"
+import type { ClinicalNoteCategory } from "@/lib/services/clinical-notes-service"
 import { CreateClinicalNoteDialog } from "@/components/clinical-notes/create-clinical-note-dialog"
 import { ClinicalNoteCategoriesList } from "@/components/clinical-notes/clinical-note-categories-list"
 import { ClinicalNoteTemplatesList } from "@/components/clinical-notes/clinical-note-templates-list"
@@ -28,7 +28,14 @@ export default function ClinicalNotesClient() {
       try {
         setIsLoading(true)
         setError(null)
-        const categoriesData = await getClinicalNoteCategories()
+
+        // Use the API route instead of direct database call
+        const response = await fetch("/api/clinical-notes/categories")
+        if (!response.ok) {
+          throw new Error("Failed to fetch categories")
+        }
+
+        const categoriesData = await response.json()
         setCategories(categoriesData)
       } catch (error) {
         console.error("Error fetching categories:", error)
