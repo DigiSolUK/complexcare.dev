@@ -1,49 +1,34 @@
 import { neon } from "@neondatabase/serverless"
-import { getCurrentTenant } from "@/lib/tenant-utils"
-import { auth } from "@/lib/auth"
+import { DEFAULT_TENANT_ID } from "@/lib/constants"
 
-const sql = neon(process.env.DATABASE_URL || "")
-
-export type ActivityType =
-  | "patient_created"
-  | "patient_updated"
-  | "patient_viewed"
-  | "appointment_created"
-  | "appointment_updated"
-  | "appointment_cancelled"
-  | "care_plan_created"
-  | "care_plan_updated"
-  | "medication_added"
-  | "medication_updated"
-  | "clinical_note_created"
-  | "clinical_note_updated"
-  | "task_created"
-  | "task_completed"
-  | "document_uploaded"
-  | "invoice_created"
-  | "payment_received"
-  | "visit"
-  | "assessment"
-  | "medication"
-
-interface LogActivityParams {
-  activityType: ActivityType
+export interface ActivityLogInput {
+  tenantId: string
+  activityType: string
   description: string
   patientId?: string
+  userId?: string
   metadata?: Record<string, any>
 }
 
-export async function logActivity({ activityType, description, patientId, metadata }: LogActivityParams) {
+export interface ActivityLog {
+  id: string
+  tenant_id: string
+  user_id: string | null
+  patient_id: string | null
+  activity_type: string
+  description: string
+  created_at: string
+  metadata: Record<string, any> | null
+}
+
+/**
+ * Log a single activity
+ */
+export async function logActivity(input: ActivityLogInput): Promise<ActivityLog | null> {
   try {
-    const session = await auth()
-    const tenantId = await getCurrentTenant()
+    const sql = neon(process.env.DATABASE_URL!)
 
-    if (!tenantId) {
-      console.error("No tenant ID found for activity logging")
-      return
-    }
-
-    await sql`
+    const result = await sql`
       INSERT INTO activity_logs (
         tenant_id,
         user_id,
@@ -52,126 +37,282 @@ export async function logActivity({ activityType, description, patientId, metada
         description,
         metadata
       ) VALUES (
-        ${tenantId},
-        ${session?.user?.id || null},
-        ${patientId || null},
-        ${activityType},
-        ${description},
-        ${metadata ? JSON.stringify(metadata) : null}::jsonb
+        ${input.tenantId},
+        ${input.userId || null},
+        ${input.patientId || null},
+        ${input.activityType},
+        ${input.description},
+        ${input.metadata ? JSON.stringify(input.metadata) : null}
       )
+      RETURNING *
     `
+
+    return result.length > 0 ? (result[0] as ActivityLog) : null
   } catch (error) {
     console.error("Error logging activity:", error)
-    // Don't throw - we don't want activity logging failures to break the app
+    return null
   }
 }
 
-// Batch log multiple activities
-export async function logActivities(activities: LogActivityParams[]) {
+/**
+ * Log multiple activities in batch
+ */
+export async function logActivities(inputs: ActivityLogInput[]): Promise<number> {
+  if (inputs.length === 0) return 0
+
   try {
-    const session = await auth()
-    const tenantId = await getCurrentTenant()
+    const sql = neon(process.env.DATABASE_URL!)
 
-    if (!tenantId) {
-      console.error("No tenant ID found for activity logging")
-      return
-    }
+    // Build values for bulk insert
+    const values = inputs
+      .map(
+        (input) => `(
+      '${input.tenantId}',
+      ${input.userId ? `'${input.userId}'` : "NULL"},
+      ${input.patientId ? `'${input.patientId}'` : "NULL"},
+      '${input.activityType}',
+      '${input.description.replace(/'/g, "''")}',
+      ${input.metadata ? `'${JSON.stringify(input.metadata)}'` : "NULL"}
+    )`,
+      )
+      .join(", ")
 
-    const values = activities.map((activity) => ({
-      tenant_id: tenantId,
-      user_id: session?.user?.id || null,
-      patient_id: activity.patientId || null,
-      activity_type: activity.activityType,
-      description: activity.description,
-      metadata: activity.metadata ? JSON.stringify(activity.metadata) : null,
-    }))
-
-    if (values.length === 0) return
-
-    // Build the query dynamically
     const query = `
-      INSERT INTO activity_logs (tenant_id, user_id, patient_id, activity_type, description, metadata)
-      VALUES ${values.map((_, i) => `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6}::jsonb)`).join(", ")}
+      INSERT INTO activity_logs (
+        tenant_id,
+        user_id,
+        patient_id,
+        activity_type,
+        description,
+        metadata
+      ) VALUES ${values}
+      RETURNING id
     `
 
-    const params = values.flatMap((v) => [
-      v.tenant_id,
-      v.user_id,
-      v.patient_id,
-      v.activity_type,
-      v.description,
-      v.metadata,
-    ])
-
-    await sql(query, params)
+    const result = await sql.query(query)
+    return result.rows.length
   } catch (error) {
-    console.error("Error logging activities:", error)
+    console.error("Error logging activities in batch:", error)
+    return 0
   }
 }
 
-// Get recent activities
-export async function getRecentActivities(limit = 10) {
+/**
+ * Get recent activities for a tenant
+ */
+export async function getRecentActivities(tenantId: string = DEFAULT_TENANT_ID, limit = 50): Promise<ActivityLog[]> {
   try {
-    const tenantId = await getCurrentTenant()
+    const sql = neon(process.env.DATABASE_URL!)
 
-    if (!tenantId) {
-      return []
-    }
-
-    const activities = await sql`
-      SELECT 
-        a.id,
-        a.activity_type,
-        a.description,
-        a.created_at,
-        a.metadata,
-        a.patient_id,
-        CONCAT(u.first_name, ' ', u.last_name) as user_name,
-        CONCAT(p.first_name, ' ', p.last_name) as patient_name
-      FROM activity_logs a
-      LEFT JOIN users u ON a.user_id = u.id
-      LEFT JOIN patients p ON a.patient_id = p.id
-      WHERE a.tenant_id = ${tenantId}
-      ORDER BY a.created_at DESC
+    const result = await sql`
+      SELECT * FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      ORDER BY created_at DESC
       LIMIT ${limit}
     `
 
-    return activities
+    return result as ActivityLog[]
   } catch (error) {
     console.error("Error fetching recent activities:", error)
     return []
   }
 }
 
-// Get activities for a specific patient
-export async function getPatientActivities(patientId: string, limit = 50) {
+/**
+ * Get activities for a specific patient
+ */
+export async function getPatientActivities(
+  patientId: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+): Promise<ActivityLog[]> {
   try {
-    const tenantId = await getCurrentTenant()
+    const sql = neon(process.env.DATABASE_URL!)
 
-    if (!tenantId) {
-      return []
-    }
-
-    const activities = await sql`
-      SELECT 
-        a.id,
-        a.activity_type,
-        a.description,
-        a.created_at,
-        a.metadata,
-        CONCAT(u.first_name, ' ', u.last_name) as user_name
-      FROM activity_logs a
-      LEFT JOIN users u ON a.user_id = u.id
-      WHERE 
-        a.tenant_id = ${tenantId} AND
-        a.patient_id = ${patientId}
-      ORDER BY a.created_at DESC
+    const result = await sql`
+      SELECT * FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND patient_id = ${patientId}
+      ORDER BY created_at DESC
       LIMIT ${limit}
     `
 
-    return activities
+    return result as ActivityLog[]
   } catch (error) {
-    console.error("Error fetching patient activities:", error)
+    console.error(`Error fetching activities for patient ${patientId}:`, error)
     return []
+  }
+}
+
+/**
+ * Get activities by type
+ */
+export async function getActivitiesByType(
+  activityType: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 50,
+): Promise<ActivityLog[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND activity_type = ${activityType}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `
+
+    return result as ActivityLog[]
+  } catch (error) {
+    console.error(`Error fetching activities of type ${activityType}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get activities by user
+ */
+export async function getUserActivities(
+  userId: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 50,
+): Promise<ActivityLog[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND user_id = ${userId}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `
+
+    return result as ActivityLog[]
+  } catch (error) {
+    console.error(`Error fetching activities for user ${userId}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get activity statistics
+ */
+export async function getActivityStatistics(tenantId: string = DEFAULT_TENANT_ID): Promise<{
+  totalActivities: number
+  todayActivities: number
+  activePatients: number
+  activeUsers: number
+}> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    // Get total activities
+    const [totalResult] = await sql`
+      SELECT COUNT(*) as count FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+    `
+
+    // Get today's activities
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const [todayResult] = await sql`
+      SELECT COUNT(*) as count FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND created_at >= ${today.toISOString()}
+    `
+
+    // Get active patients (patients with activities in the last 30 days)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const [patientsResult] = await sql`
+      SELECT COUNT(DISTINCT patient_id) as count FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND patient_id IS NOT NULL
+      AND created_at >= ${thirtyDaysAgo.toISOString()}
+    `
+
+    // Get active users (users who logged activities in the last 30 days)
+    const [usersResult] = await sql`
+      SELECT COUNT(DISTINCT user_id) as count FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND user_id IS NOT NULL
+      AND created_at >= ${thirtyDaysAgo.toISOString()}
+    `
+
+    return {
+      totalActivities: Number.parseInt(totalResult.count),
+      todayActivities: Number.parseInt(todayResult.count),
+      activePatients: Number.parseInt(patientsResult.count),
+      activeUsers: Number.parseInt(usersResult.count),
+    }
+  } catch (error) {
+    console.error("Error fetching activity statistics:", error)
+    return {
+      totalActivities: 0,
+      todayActivities: 0,
+      activePatients: 0,
+      activeUsers: 0,
+    }
+  }
+}
+
+/**
+ * Search activities
+ */
+export async function searchActivities(
+  searchTerm: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 50,
+): Promise<ActivityLog[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND (
+        description ILIKE ${`%${searchTerm}%`}
+        OR activity_type ILIKE ${`%${searchTerm}%`}
+        OR metadata::text ILIKE ${`%${searchTerm}%`}
+      )
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `
+
+    return result as ActivityLog[]
+  } catch (error) {
+    console.error(`Error searching activities for "${searchTerm}":`, error)
+    return []
+  }
+}
+
+/**
+ * Get activity counts by type
+ */
+export async function getActivityCountsByType(tenantId: string = DEFAULT_TENANT_ID): Promise<Record<string, number>> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT activity_type, COUNT(*) as count
+      FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      GROUP BY activity_type
+      ORDER BY count DESC
+    `
+
+    const countsByType: Record<string, number> = {}
+    for (const row of result) {
+      countsByType[row.activity_type] = Number.parseInt(row.count)
+    }
+
+    return countsByType
+  } catch (error) {
+    console.error("Error fetching activity counts by type:", error)
+    return {}
   }
 }

@@ -1,120 +1,174 @@
-\
-Let's also update the appointment service to log activities:
-
-```ts file="lib/services/appointment-service.ts"
-[v0-no-op-code-block-prefix]
+import { db } from "../db"
+import { PatientCache } from "../redis/patient-cache"
 import { logActivity } from "./activity-log-service"
 
-interface AppointmentData {
-  patient_id: string
-  appointment_date: Date
-  type: string
-  // ... other appointment data
-}
-
-interface AppointmentUpdateData {
-  appointment_date?: Date
-  type?: string
-  // ... other updatable fields
-}
-
-interface CancellationData {
-  cancellation_reason: string
-}
-
-interface Appointment {
+export interface Patient {
   id: string
-  patient_id: string
-  appointment_date: Date
-  type: string
-  // ... other appointment properties
+  tenant_id: string
+  first_name: string
+  last_name: string
+  email: string
+  status: string
+  date_of_birth: string
+  gender: string
+  contact_number: string
+  address: string
+  medical_record_number: string
+  primary_care_provider: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
 }
 
-// Mock database for demonstration purposes
-const appointments: Appointment[] = []
+export class PatientService {
+  /**
+   * Get all patients with caching
+   */
+  static async getAllPatients(tenantId: string) {
+    const cacheResult = await PatientCache.getOrSetAllPatients(async () => {
+      const result = await db.query("SELECT * FROM patients WHERE tenant_id = $1 ORDER BY last_name ASC", [tenantId])
+      return result.rows
+    })
 
-async function createAppointment(data: AppointmentData): Promise<Appointment> {
-  // Simulate creating an appointment in a database
-  const appointment: Appointment = {
-    id: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15), // Generate a random ID
-    patient_id: data.patient_id,
-    appointment_date: data.appointment_date,
-    type: data.type,
-    // ... other appointment properties
+    return cacheResult.data
   }
 
-  appointments.push(appointment)
+  /**
+   * Get a patient by ID with caching
+   */
+  static async getPatientById(id: string, tenantId: string) {
+    const cacheResult = await PatientCache.getOrSetPatient(id, async () => {
+      const result = await db.query("SELECT * FROM patients WHERE id = $1 AND tenant_id = $2", [id, tenantId])
+      return result.rows[0]
+    })
 
-  // Log the activity
-  await logActivity({
-    activityType: "appointment_created",
-    description: `Scheduled appointment for ${appointment.appointment_date}`,
-    patientId: data.patient_id,
-    metadata: {
-      appointmentId: appointment.id,
-      appointmentDate: appointment.appointment_date,
-      appointmentType: data.type,
-    },
-  })
+    // Log patient viewed activity
+    await logActivity({
+      tenantId,
+      activityType: "patient_viewed",
+      description: `Patient profile viewed`,
+      patientId: id,
+    })
 
-  return appointment
-}
-
-async function getAppointment(id: string): Promise<Appointment | undefined> {
-  return appointments.find((appointment) => appointment.id === id)
-}
-
-async function updateAppointment(id: string, data: AppointmentUpdateData): Promise<Appointment | undefined> {
-  const appointmentIndex = appointments.findIndex((appointment) => appointment.id === id)
-
-  if (appointmentIndex === -1) {
-    return undefined // Appointment not found
+    return cacheResult.data
   }
 
-  const appointment = appointments[appointmentIndex]
+  /**
+   * Create a new patient and invalidate caches
+   */
+  static async createPatient(patientData: any, tenantId: string, userId?: string) {
+    const { firstName, lastName, dateOfBirth, gender, address, phone, email } = patientData
 
-  // Update the appointment with the provided data
-  const updatedAppointment: Appointment = {
-    ...appointment,
-    ...data,
+    const result = await db.query(
+      `INSERT INTO patients 
+      (first_name, last_name, date_of_birth, gender, address, phone, email, tenant_id) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+      RETURNING *`,
+      [firstName, lastName, dateOfBirth, gender, address, phone, email, tenantId],
+    )
+
+    const newPatient = result.rows[0]
+
+    // Invalidate the patients list cache
+    await PatientCache.invalidatePatientList()
+
+    // Log patient creation activity
+    await logActivity({
+      tenantId,
+      activityType: "patient_created",
+      description: `New patient created: ${firstName} ${lastName}`,
+      patientId: newPatient.id,
+      userId,
+      metadata: {
+        patientName: `${firstName} ${lastName}`,
+        dateOfBirth: dateOfBirth,
+        gender: gender,
+      },
+    })
+
+    return newPatient
   }
 
-  appointments[appointmentIndex] = updatedAppointment
+  /**
+   * Update a patient and update cache
+   */
+  static async updatePatient(id: string, patientData: any, tenantId: string, userId?: string) {
+    const { firstName, lastName, dateOfBirth, gender, address, phone, email } = patientData
 
-  // Log the activity
-  await logActivity({
-    activityType: "appointment_updated",
-    description: `Updated appointment details`,
-    patientId: appointment.patient_id,
-    metadata: {
-      appointmentId: id,
-      updatedFields: Object.keys(data),
-    },
-  })
+    // Get original patient data for comparison
+    const originalPatient = await PatientService.getPatientById(id, tenantId)
 
-  return updatedAppointment
-}
+    const result = await db.query(
+      `UPDATE patients 
+      SET first_name = $1, last_name = $2, date_of_birth = $3, 
+          gender = $4, address = $5, phone = $6, email = $7 
+      WHERE id = $8 AND tenant_id = $9 
+      RETURNING *`,
+      [firstName, lastName, dateOfBirth, gender, address, phone, email, id, tenantId],
+    )
 
-async function cancelAppointment(id: string, data: CancellationData): Promise<void> {
-  const appointmentIndex = appointments.findIndex((appointment) => appointment.id === id)
+    const updatedPatient = result.rows[0]
 
-  if (appointmentIndex === -1) {
-    return // Appointment not found
+    // Update the patient in cache
+    if (updatedPatient) {
+      await PatientCache.updatePatient(id, updatedPatient)
+    }
+
+    // Determine which fields were updated
+    const updatedFields = []
+    if (originalPatient.first_name !== firstName || originalPatient.last_name !== lastName) updatedFields.push("name")
+    if (originalPatient.date_of_birth !== dateOfBirth) updatedFields.push("date_of_birth")
+    if (originalPatient.gender !== gender) updatedFields.push("gender")
+    if (originalPatient.address !== address) updatedFields.push("address")
+    if (originalPatient.phone !== phone) updatedFields.push("phone")
+    if (originalPatient.email !== email) updatedFields.push("email")
+
+    // Log patient update activity
+    await logActivity({
+      tenantId,
+      activityType: "patient_updated",
+      description: `Patient information updated: ${updatedFields.join(", ")}`,
+      patientId: id,
+      userId,
+      metadata: {
+        updatedFields,
+        patientName: `${firstName} ${lastName}`,
+      },
+    })
+
+    return updatedPatient
   }
 
-  const appointment = appointments[appointmentIndex]
-  appointments.splice(appointmentIndex, 1)
+  /**
+   * Delete a patient and invalidate caches
+   */
+  static async deletePatient(id: string, tenantId: string, userId?: string) {
+    // Get patient details before deletion
+    const patient = await PatientService.getPatientById(id, tenantId)
 
-  // Log the activity
-  await logActivity({
-    activityType: "appointment_cancelled",
-    description: `Cancelled appointment`,
-    patientId: appointment.patient_id,
-    metadata: {
-      appointmentId: id,
-      reason: data.cancellation_reason,
-    },
-  })
+    const result = await db.query("DELETE FROM patients WHERE id = $1 AND tenant_id = $2 RETURNING *", [id, tenantId])
+
+    // Delete the patient from cache
+    await PatientCache.deletePatient(id)
+
+    // Log patient deletion activity
+    if (patient) {
+      await logActivity({
+        tenantId,
+        activityType: "patient_deleted",
+        description: `Patient deleted: ${patient.first_name} ${patient.last_name}`,
+        userId,
+        metadata: {
+          patientName: `${patient.first_name} ${patient.last_name}`,
+          patientId: id,
+        },
+      })
+    }
+
+    return result.rows[0]
+  }
+
+  // Other methods remain unchanged...
 }
 
-export { createAppointment, getAppointment, updateAppointment, cancelAppointment }
+// Other exported functions remain unchanged...

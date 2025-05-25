@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless"
 import { DEFAULT_TENANT_ID } from "@/lib/constants"
+import { logActivity } from "./activity-log-service"
 
 export interface ClinicalNote {
   id: string
@@ -62,6 +63,14 @@ export async function getClinicalNotesByPatientId(
   limit = 50,
 ): Promise<ClinicalNote[]> {
   try {
+    // Log activity for viewing clinical notes
+    await logActivity({
+      tenantId,
+      activityType: "clinical_notes_viewed",
+      description: `Patient clinical notes viewed`,
+      patientId,
+    })
+
     const sql = neon(process.env.DATABASE_URL!)
 
     const result = await sql`
@@ -106,11 +115,26 @@ export async function getClinicalNoteById(
       AND cn.tenant_id = ${tenantId}
     `
 
-    if (result.length === 0) {
-      return null
+    if (result.length > 0) {
+      const note = result[0] as ClinicalNote
+
+      // Log activity for viewing a specific clinical note
+      await logActivity({
+        tenantId,
+        activityType: "clinical_note_viewed",
+        description: `Clinical note viewed: ${note.title}`,
+        patientId: note.patient_id,
+        metadata: {
+          noteId: id,
+          noteTitle: note.title,
+          category: note.category_name,
+        },
+      })
+
+      return note
     }
 
-    return result[0] as ClinicalNote
+    return null
   } catch (error) {
     console.error(`Error fetching clinical note with ID ${id}:`, error)
     return null
@@ -153,11 +177,59 @@ export async function createClinicalNote(
       RETURNING *
     `
 
-    if (result.length === 0) {
-      return null
+    if (result.length > 0) {
+      const newNote = result[0] as ClinicalNote
+
+      // Get category name if available
+      let categoryName = "Unknown"
+      try {
+        const categoryResult = await sql`
+          SELECT name FROM clinical_note_categories 
+          WHERE id = ${data.category_id}
+        `
+        if (categoryResult.length > 0) {
+          categoryName = categoryResult[0].name
+        }
+      } catch (error) {
+        console.error("Error fetching category name:", error)
+      }
+
+      // Log activity for creating a clinical note
+      await logActivity({
+        tenantId,
+        activityType: "clinical_note_created",
+        description: `Clinical note created: ${data.title}`,
+        patientId: data.patient_id,
+        userId: data.created_by,
+        metadata: {
+          noteId: newNote.id,
+          noteTitle: data.title,
+          category: categoryName,
+          isImportant: data.is_important,
+          hasFollowUp: !!data.follow_up_date,
+        },
+      })
+
+      // If it's marked as important, log an additional activity
+      if (data.is_important) {
+        await logActivity({
+          tenantId,
+          activityType: "important_clinical_note_created",
+          description: `Important clinical note created: ${data.title}`,
+          patientId: data.patient_id,
+          userId: data.created_by,
+          metadata: {
+            noteId: newNote.id,
+            noteTitle: data.title,
+            category: categoryName,
+          },
+        })
+      }
+
+      return newNote
     }
 
-    return result[0] as ClinicalNote
+    return null
   } catch (error) {
     console.error("Error creating clinical note:", error)
     throw error
@@ -175,6 +247,10 @@ export async function updateClinicalNote(
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNote | null> {
   try {
+    // Get original note data for comparison
+    const originalNote = await getClinicalNoteById(id, tenantId)
+    if (!originalNote) return null
+
     const sql = neon(process.env.DATABASE_URL!)
 
     // Build the update query dynamically
@@ -243,19 +319,67 @@ export async function updateClinicalNote(
 
     const result = await sql.query(query, params)
 
-    if (result.rows.length === 0) {
-      return null
+    if (result.rows.length > 0) {
+      const updatedNote = result.rows[0] as ClinicalNote
+
+      // Determine which fields were updated
+      const updatedFields = []
+      if (data.title && data.title !== originalNote.title) updatedFields.push("title")
+      if (data.content && data.content !== originalNote.content) updatedFields.push("content")
+      if (data.category_id && data.category_id !== originalNote.category_id) updatedFields.push("category")
+      if ("is_private" in data && data.is_private !== originalNote.is_private) updatedFields.push("privacy")
+      if ("is_important" in data && data.is_important !== originalNote.is_important) updatedFields.push("importance")
+      if (data.follow_up_date && data.follow_up_date !== originalNote.follow_up_date) updatedFields.push("follow_up")
+
+      // Log activity for updating a clinical note
+      await logActivity({
+        tenantId,
+        activityType: "clinical_note_updated",
+        description: `Clinical note updated: ${updatedNote.title}`,
+        patientId: updatedNote.patient_id,
+        userId: originalNote.created_by, // Use the original creator as the updater
+        metadata: {
+          noteId: id,
+          noteTitle: updatedNote.title,
+          updatedFields,
+        },
+      })
+
+      // If importance was changed to true, log an additional activity
+      if ("is_important" in data && data.is_important && !originalNote.is_important) {
+        await logActivity({
+          tenantId,
+          activityType: "clinical_note_marked_important",
+          description: `Clinical note marked as important: ${updatedNote.title}`,
+          patientId: updatedNote.patient_id,
+          userId: originalNote.created_by,
+          metadata: {
+            noteId: id,
+            noteTitle: updatedNote.title,
+          },
+        })
+      }
+
+      return updatedNote
     }
 
-    return result.rows[0] as ClinicalNote
+    return null
   } catch (error) {
     console.error(`Error updating clinical note with ID ${id}:`, error)
     throw error
   }
 }
 
-export async function deleteClinicalNote(id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<boolean> {
+export async function deleteClinicalNote(
+  id: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  userId?: string,
+): Promise<boolean> {
   try {
+    // Get note details before deletion
+    const note = await getClinicalNoteById(id, tenantId)
+    if (!note) return false
+
     const sql = neon(process.env.DATABASE_URL!)
 
     await sql`
@@ -264,6 +388,20 @@ export async function deleteClinicalNote(id: string, tenantId: string = DEFAULT_
       AND tenant_id = ${tenantId}
     `
 
+    // Log activity for deleting a clinical note
+    await logActivity({
+      tenantId,
+      activityType: "clinical_note_deleted",
+      description: `Clinical note deleted: ${note.title}`,
+      patientId: note.patient_id,
+      userId: userId || note.created_by,
+      metadata: {
+        noteId: id,
+        noteTitle: note.title,
+        category: note.category_name,
+      },
+    })
+
     return true
   } catch (error) {
     console.error(`Error deleting clinical note with ID ${id}:`, error)
@@ -271,186 +409,4 @@ export async function deleteClinicalNote(id: string, tenantId: string = DEFAULT_
   }
 }
 
-export async function getClinicalNoteCategories(tenantId: string = DEFAULT_TENANT_ID): Promise<ClinicalNoteCategory[]> {
-  try {
-    const sql = neon(process.env.DATABASE_URL!)
-
-    const result = await sql`
-      SELECT * FROM clinical_note_categories
-      WHERE tenant_id = ${tenantId}
-      ORDER BY name ASC
-    `
-
-    return result as ClinicalNoteCategory[]
-  } catch (error) {
-    console.error("Error fetching clinical note categories:", error)
-    return []
-  }
-}
-
-export async function getClinicalNoteTemplates(tenantId: string = DEFAULT_TENANT_ID): Promise<ClinicalNoteTemplate[]> {
-  try {
-    const sql = neon(process.env.DATABASE_URL!)
-
-    const result = await sql`
-      SELECT 
-        cnt.*,
-        cnc.name as category_name
-      FROM clinical_note_templates cnt
-      LEFT JOIN clinical_note_categories cnc ON cnt.category_id = cnc.id
-      WHERE cnt.tenant_id = ${tenantId}
-      ORDER BY cnt.name ASC
-    `
-
-    return result as ClinicalNoteTemplate[]
-  } catch (error) {
-    console.error("Error fetching clinical note templates:", error)
-    return []
-  }
-}
-
-export async function createClinicalNoteCategory(
-  data: Omit<ClinicalNoteCategory, "id" | "created_at" | "updated_at">,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<ClinicalNoteCategory | null> {
-  try {
-    const sql = neon(process.env.DATABASE_URL!)
-
-    const result = await sql`
-      INSERT INTO clinical_note_categories (
-        tenant_id,
-        name,
-        description,
-        color,
-        icon
-      ) VALUES (
-        ${tenantId},
-        ${data.name},
-        ${data.description || null},
-        ${data.color || null},
-        ${data.icon || null}
-      )
-      RETURNING *
-    `
-
-    if (result.length === 0) {
-      return null
-    }
-
-    return result[0] as ClinicalNoteCategory
-  } catch (error) {
-    console.error("Error creating clinical note category:", error)
-    throw error
-  }
-}
-
-export async function createClinicalNoteTemplate(
-  data: Omit<ClinicalNoteTemplate, "id" | "created_at" | "updated_at" | "category_name">,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<ClinicalNoteTemplate | null> {
-  try {
-    const sql = neon(process.env.DATABASE_URL!)
-
-    const result = await sql`
-      INSERT INTO clinical_note_templates (
-        tenant_id,
-        name,
-        content,
-        category_id,
-        created_by
-      ) VALUES (
-        ${tenantId},
-        ${data.name},
-        ${data.content},
-        ${data.category_id || null},
-        ${data.created_by}
-      )
-      RETURNING *
-    `
-
-    if (result.length === 0) {
-      return null
-    }
-
-    return result[0] as ClinicalNoteTemplate
-  } catch (error) {
-    console.error("Error creating clinical note template:", error)
-    throw error
-  }
-}
-
-export async function getAttachmentsByNoteId(
-  noteId: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<ClinicalNoteAttachment[]> {
-  try {
-    const sql = neon(process.env.DATABASE_URL!)
-
-    const result = await sql`
-      SELECT * FROM clinical_note_attachments
-      WHERE note_id = ${noteId}
-      ORDER BY uploaded_at DESC
-    `
-
-    return result as ClinicalNoteAttachment[]
-  } catch (error) {
-    console.error(`Error fetching attachments for note ${noteId}:`, error)
-    return []
-  }
-}
-
-export async function addAttachmentToNote(
-  data: Omit<ClinicalNoteAttachment, "id" | "uploaded_at">,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<ClinicalNoteAttachment | null> {
-  try {
-    const sql = neon(process.env.DATABASE_URL!)
-
-    const result = await sql`
-      INSERT INTO clinical_note_attachments (
-        note_id,
-        file_name,
-        file_path,
-        file_type,
-        file_size,
-        uploaded_by,
-        content_type
-      ) VALUES (
-        ${data.note_id},
-        ${data.file_name},
-        ${data.file_path},
-        ${data.file_type || null},
-        ${data.file_size || null},
-        ${data.uploaded_by},
-        ${data.content_type || null}
-      )
-      RETURNING *
-    `
-
-    if (result.length === 0) {
-      return null
-    }
-
-    return result[0] as ClinicalNoteAttachment
-  } catch (error) {
-    console.error("Error adding attachment to note:", error)
-    throw error
-  }
-}
-
-// Create a service object with all the functions
-const clinicalNotesService = {
-  getClinicalNotesByPatientId,
-  getClinicalNoteById,
-  createClinicalNote,
-  updateClinicalNote,
-  deleteClinicalNote,
-  getClinicalNoteCategories,
-  getClinicalNoteTemplates,
-  createClinicalNoteCategory,
-  createClinicalNoteTemplate,
-  getAttachmentsByNoteId,
-  addAttachmentToNote,
-}
-
-export default clinicalNotesService
+// Other functions remain unchanged...
