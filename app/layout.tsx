@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "ComplexCare CRM",
   description: "A comprehensive CRM for complex care management in the UK",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -23,6 +23,12 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <GlobalErrorHandler />
+          {/* Emergency recovery notice */}
+          {typeof window !== "undefined" && window.location.search.includes("safe_mode=1") && (
+            <div className="fixed top-0 left-0 right-0 bg-amber-500 text-white p-2 text-center z-50">
+              Emergency Recovery Mode Active - Limited Functionality Available
+            </div>
+          )}
           {children}
         </ThemeProvider>
       </body>
