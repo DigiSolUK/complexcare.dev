@@ -1,8 +1,7 @@
 "use client"
-import { format } from "date-fns"
-import { Calendar, User } from "lucide-react"
+import Link from "next/link"
+import { Clock, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { PendingTask } from "@/lib/actions/dashboard-actions"
 
@@ -15,13 +14,10 @@ export function TasksList({ tasks, isLoading = false }: TasksListProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-4">
-            <Skeleton className="h-4 w-4 rounded-sm" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-[200px]" />
-              <Skeleton className="h-3 w-[150px]" />
-            </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-3 w-[200px]" />
           </div>
         ))}
       </div>
@@ -41,39 +37,50 @@ export function TasksList({ tasks, isLoading = false }: TasksListProps) {
   return (
     <div className="space-y-4">
       {tasks.map((task) => {
-        const dueDate = new Date(task.dueDate)
-        const formattedDate = format(dueDate, "EEE, MMM d, yyyy")
+        const dueDate = task.dueDate ? new Date(task.dueDate) : null
+        const isOverdue = dueDate && dueDate < new Date()
+        const formattedDueDate = dueDate
+          ? dueDate.toLocaleDateString("en-GB", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            })
+          : "No due date"
 
         return (
-          <div key={task.id} className="flex items-start gap-4 rounded-lg p-2 transition-colors hover:bg-muted">
-            <Checkbox id={`task-${task.id}`} className="mt-1" />
-            <div className="flex-1 space-y-1">
-              <div className="flex items-center justify-between">
-                <label htmlFor={`task-${task.id}`} className="text-sm font-medium leading-none cursor-pointer">
-                  {task.title}
-                </label>
-                <TaskPriorityBadge priority={task.priority} />
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <User className="h-3 w-3" />
-                <span>{task.assignedTo}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                <span>Due: {formattedDate}</span>
-              </div>
+          <Link
+            key={task.id}
+            href={`/tasks/${task.id}`}
+            className="block rounded-lg p-3 transition-colors hover:bg-muted"
+          >
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium">{task.title}</h4>
+              <TaskPriorityBadge priority={task.priority} />
             </div>
-          </div>
+            <div className="mt-1 flex items-center text-sm text-muted-foreground">
+              <Clock className="mr-1 h-3.5 w-3.5" />
+              <span className={isOverdue ? "text-red-500 font-medium" : ""}>
+                {formattedDueDate}
+                {isOverdue ? " (Overdue)" : ""}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Assigned to: {task.assignedTo}</p>
+          </Link>
         )
       })}
     </div>
   )
 }
 
-function TaskPriorityBadge({ priority }: { priority: string }) {
+function TaskPriorityBadge({ priority }: { priority: "low" | "medium" | "high" }) {
   switch (priority) {
     case "high":
-      return <Badge variant="destructive">High</Badge>
+      return (
+        <Badge variant="destructive" className="flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          High
+        </Badge>
+      )
     case "medium":
       return <Badge variant="default">Medium</Badge>
     case "low":

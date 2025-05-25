@@ -1,167 +1,318 @@
-import { sql } from "@/lib/db"
+import { neon } from "@neondatabase/serverless"
 import { DEFAULT_TENANT_ID } from "@/lib/constants"
 
-interface ActivityLogParams {
-  tenantId?: string
+export interface ActivityLogInput {
+  tenantId: string
   activityType: string
   description: string
-  userId?: string
   patientId?: string
+  userId?: string
   metadata?: Record<string, any>
 }
 
-export async function logActivity({
-  tenantId = DEFAULT_TENANT_ID,
-  activityType,
-  description,
-  userId,
-  patientId,
-  metadata,
-}: ActivityLogParams): Promise<boolean> {
+export interface ActivityLog {
+  id: string
+  tenant_id: string
+  user_id: string | null
+  patient_id: string | null
+  activity_type: string
+  description: string
+  created_at: string
+  metadata: Record<string, any> | null
+}
+
+/**
+ * Log a single activity
+ */
+export async function logActivity(input: ActivityLogInput): Promise<ActivityLog | null> {
   try {
-    await sql`
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
       INSERT INTO activity_logs (
         tenant_id,
-        activity_type,
-        description,
         user_id,
         patient_id,
-        metadata,
-        created_at
+        activity_type,
+        description,
+        metadata
       ) VALUES (
-        ${tenantId},
-        ${activityType},
-        ${description},
-        ${userId || null},
-        ${patientId || null},
-        ${metadata ? JSON.stringify(metadata) : null},
-        NOW()
+        ${input.tenantId},
+        ${input.userId || null},
+        ${input.patientId || null},
+        ${input.activityType},
+        ${input.description},
+        ${input.metadata ? JSON.stringify(input.metadata) : null}
       )
+      RETURNING *
     `
-    return true
+
+    return result.length > 0 ? (result[0] as ActivityLog) : null
   } catch (error) {
     console.error("Error logging activity:", error)
-    return false
+    return null
   }
 }
 
-export async function getActivityLogs({
-  tenantId = DEFAULT_TENANT_ID,
-  userId,
-  patientId,
-  activityType,
-  startDate,
-  endDate,
-  limit = 50,
-  offset = 0,
-}: {
-  tenantId?: string
-  userId?: string
-  patientId?: string
-  activityType?: string
-  startDate?: Date
-  endDate?: Date
-  limit?: number
-  offset?: number
-}): Promise<any[]> {
+/**
+ * Log multiple activities in batch
+ */
+export async function logActivities(inputs: ActivityLogInput[]): Promise<number> {
+  if (inputs.length === 0) return 0
+
   try {
-    let query = `
+    const sql = neon(process.env.DATABASE_URL!)
+
+    // Build values for bulk insert
+    const values = inputs
+      .map(
+        (input) => `(
+      '${input.tenantId}',
+      ${input.userId ? `'${input.userId}'` : "NULL"},
+      ${input.patientId ? `'${input.patientId}'` : "NULL"},
+      '${input.activityType}',
+      '${input.description.replace(/'/g, "''")}',
+      ${input.metadata ? `'${JSON.stringify(input.metadata)}'` : "NULL"}
+    )`,
+      )
+      .join(", ")
+
+    const query = `
+      INSERT INTO activity_logs (
+        tenant_id,
+        user_id,
+        patient_id,
+        activity_type,
+        description,
+        metadata
+      ) VALUES ${values}
+      RETURNING id
+    `
+
+    const result = await sql.query(query)
+    return result.rows.length
+  } catch (error) {
+    console.error("Error logging activities in batch:", error)
+    return 0
+  }
+}
+
+/**
+ * Get recent activities for a tenant
+ */
+export async function getRecentActivities(tenantId: string = DEFAULT_TENANT_ID, limit = 50): Promise<ActivityLog[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
       SELECT * FROM activity_logs
-      WHERE tenant_id = $1
+      WHERE tenant_id = ${tenantId}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
     `
 
-    const params: any[] = [tenantId]
-    let paramIndex = 2
-
-    if (userId) {
-      query += ` AND user_id = $${paramIndex}`
-      params.push(userId)
-      paramIndex++
-    }
-
-    if (patientId) {
-      query += ` AND patient_id = $${paramIndex}`
-      params.push(patientId)
-      paramIndex++
-    }
-
-    if (activityType) {
-      query += ` AND activity_type = $${paramIndex}`
-      params.push(activityType)
-      paramIndex++
-    }
-
-    if (startDate) {
-      query += ` AND created_at >= $${paramIndex}`
-      params.push(startDate)
-      paramIndex++
-    }
-
-    if (endDate) {
-      query += ` AND created_at <= $${paramIndex}`
-      params.push(endDate)
-      paramIndex++
-    }
-
-    query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`
-    params.push(limit, offset)
-
-    const result = await sql.query(query, params)
-    return result.rows || []
-  } catch (error) {
-    console.error("Error fetching activity logs:", error)
-    return []
-  }
-}
-
-// Add the missing exports
-export async function getPatientActivities(
-  patientId: string,
-  tenantId = DEFAULT_TENANT_ID,
-  limit = 20,
-  offset = 0,
-): Promise<any[]> {
-  try {
-    const query = `
-      SELECT 
-        al.*,
-        CONCAT(u.first_name, ' ', u.last_name) as user_name,
-        u.role as user_role
-      FROM activity_logs al
-      LEFT JOIN users u ON al.user_id = u.id
-      WHERE al.patient_id = $1
-      AND al.tenant_id = $2
-      ORDER BY al.created_at DESC
-      LIMIT $3 OFFSET $4
-    `
-
-    const result = await sql.query(query, [patientId, tenantId, limit, offset])
-    return result.rows || []
-  } catch (error) {
-    console.error("Error fetching patient activities:", error)
-    return []
-  }
-}
-
-export async function getRecentActivities(tenantId = DEFAULT_TENANT_ID, limit = 10): Promise<any[]> {
-  try {
-    const query = `
-      SELECT 
-        al.*,
-        CONCAT(u.first_name, ' ', u.last_name) as user_name,
-        CONCAT(p.first_name, ' ', p.last_name) as patient_name
-      FROM activity_logs al
-      LEFT JOIN users u ON al.user_id = u.id
-      LEFT JOIN patients p ON al.patient_id = p.id
-      WHERE al.tenant_id = $1
-      ORDER BY al.created_at DESC
-      LIMIT $2
-    `
-
-    const result = await sql.query(query, [tenantId, limit])
-    return result.rows || []
+    return result as ActivityLog[]
   } catch (error) {
     console.error("Error fetching recent activities:", error)
     return []
+  }
+}
+
+/**
+ * Get activities for a specific patient
+ */
+export async function getPatientActivities(
+  patientId: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+): Promise<ActivityLog[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND patient_id = ${patientId}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `
+
+    return result as ActivityLog[]
+  } catch (error) {
+    console.error(`Error fetching activities for patient ${patientId}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get activities by type
+ */
+export async function getActivitiesByType(
+  activityType: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 50,
+): Promise<ActivityLog[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND activity_type = ${activityType}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `
+
+    return result as ActivityLog[]
+  } catch (error) {
+    console.error(`Error fetching activities of type ${activityType}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get activities by user
+ */
+export async function getUserActivities(
+  userId: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 50,
+): Promise<ActivityLog[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND user_id = ${userId}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `
+
+    return result as ActivityLog[]
+  } catch (error) {
+    console.error(`Error fetching activities for user ${userId}:`, error)
+    return []
+  }
+}
+
+/**
+ * Get activity statistics
+ */
+export async function getActivityStatistics(tenantId: string = DEFAULT_TENANT_ID): Promise<{
+  totalActivities: number
+  todayActivities: number
+  activePatients: number
+  activeUsers: number
+}> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    // Get total activities
+    const [totalResult] = await sql`
+      SELECT COUNT(*) as count FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+    `
+
+    // Get today's activities
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const [todayResult] = await sql`
+      SELECT COUNT(*) as count FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND created_at >= ${today.toISOString()}
+    `
+
+    // Get active patients (patients with activities in the last 30 days)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const [patientsResult] = await sql`
+      SELECT COUNT(DISTINCT patient_id) as count FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND patient_id IS NOT NULL
+      AND created_at >= ${thirtyDaysAgo.toISOString()}
+    `
+
+    // Get active users (users who logged activities in the last 30 days)
+    const [usersResult] = await sql`
+      SELECT COUNT(DISTINCT user_id) as count FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND user_id IS NOT NULL
+      AND created_at >= ${thirtyDaysAgo.toISOString()}
+    `
+
+    return {
+      totalActivities: Number.parseInt(totalResult.count),
+      todayActivities: Number.parseInt(todayResult.count),
+      activePatients: Number.parseInt(patientsResult.count),
+      activeUsers: Number.parseInt(usersResult.count),
+    }
+  } catch (error) {
+    console.error("Error fetching activity statistics:", error)
+    return {
+      totalActivities: 0,
+      todayActivities: 0,
+      activePatients: 0,
+      activeUsers: 0,
+    }
+  }
+}
+
+/**
+ * Search activities
+ */
+export async function searchActivities(
+  searchTerm: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 50,
+): Promise<ActivityLog[]> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT * FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      AND (
+        description ILIKE ${`%${searchTerm}%`}
+        OR activity_type ILIKE ${`%${searchTerm}%`}
+        OR metadata::text ILIKE ${`%${searchTerm}%`}
+      )
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `
+
+    return result as ActivityLog[]
+  } catch (error) {
+    console.error(`Error searching activities for "${searchTerm}":`, error)
+    return []
+  }
+}
+
+/**
+ * Get activity counts by type
+ */
+export async function getActivityCountsByType(tenantId: string = DEFAULT_TENANT_ID): Promise<Record<string, number>> {
+  try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const result = await sql`
+      SELECT activity_type, COUNT(*) as count
+      FROM activity_logs
+      WHERE tenant_id = ${tenantId}
+      GROUP BY activity_type
+      ORDER BY count DESC
+    `
+
+    const countsByType: Record<string, number> = {}
+    for (const row of result) {
+      countsByType[row.activity_type] = Number.parseInt(row.count)
+    }
+
+    return countsByType
+  } catch (error) {
+    console.error("Error fetching activity counts by type:", error)
+    return {}
   }
 }

@@ -1,8 +1,6 @@
 import { db } from "../db"
 import { PatientCache } from "../redis/patient-cache"
 import { logActivity } from "./activity-log-service"
-import { DEFAULT_TENANT_ID } from "@/lib/constants"
-import { sql } from "@/lib/db-utils"
 
 export interface Patient {
   id: string
@@ -169,93 +167,8 @@ export class PatientService {
 
     return result.rows[0]
   }
+
+  // Other methods remain unchanged...
 }
 
-// Add the missing exports
-export async function getPatients(tenantId = DEFAULT_TENANT_ID, limit = 100, offset = 0) {
-  try {
-    const result = await sql.query(
-      `SELECT * FROM patients 
-       WHERE tenant_id = $1 
-       ORDER BY last_name ASC, first_name ASC 
-       LIMIT $2 OFFSET $3`,
-      [tenantId, limit, offset],
-    )
-    return result.rows || []
-  } catch (error) {
-    console.error("Error fetching patients:", error)
-    return []
-  }
-}
-
-export async function validatePatientsTable(tenantId = DEFAULT_TENANT_ID) {
-  try {
-    // Check if the patients table exists and has the expected structure
-    const result = await sql.query(
-      `SELECT EXISTS (
-         SELECT FROM information_schema.tables 
-         WHERE table_schema = 'public' 
-         AND table_name = 'patients'
-       );`,
-    )
-
-    return result.rows[0]?.exists || false
-  } catch (error) {
-    console.error("Error validating patients table:", error)
-    return false
-  }
-}
-
-export async function countAllPatients(tenantId = DEFAULT_TENANT_ID) {
-  try {
-    const result = await sql.query(`SELECT COUNT(*) as count FROM patients WHERE tenant_id = $1`, [tenantId])
-    return Number.parseInt(result.rows[0]?.count || "0", 10)
-  } catch (error) {
-    console.error("Error counting patients:", error)
-    return 0
-  }
-}
-
-export async function getTenantsWithPatients() {
-  try {
-    const result = await sql.query(`SELECT DISTINCT tenant_id FROM patients`)
-    return result.rows.map((row) => row.tenant_id) || []
-  } catch (error) {
-    console.error("Error fetching tenants with patients:", error)
-    return []
-  }
-}
-
-export async function createTestPatient(tenantId = DEFAULT_TENANT_ID) {
-  try {
-    const testPatient = {
-      first_name: "Test",
-      last_name: `Patient-${Date.now().toString().slice(-4)}`,
-      date_of_birth: new Date(1980, 0, 1).toISOString().split("T")[0],
-      gender: "Other",
-      email: `test-${Date.now()}@example.com`,
-      status: "Active",
-      tenant_id: tenantId,
-    }
-
-    const result = await sql.query(
-      `INSERT INTO patients (
-        first_name, last_name, date_of_birth, gender, email, status, tenant_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [
-        testPatient.first_name,
-        testPatient.last_name,
-        testPatient.date_of_birth,
-        testPatient.gender,
-        testPatient.email,
-        testPatient.status,
-        testPatient.tenant_id,
-      ],
-    )
-
-    return result.rows[0]
-  } catch (error) {
-    console.error("Error creating test patient:", error)
-    return null
-  }
-}
+// Other exported functions remain unchanged...

@@ -1,61 +1,12 @@
 import { neon } from "@neondatabase/serverless"
 import { DEFAULT_TENANT_ID } from "./constants"
 
-// Check if we're in a browser environment
-const isBrowser = typeof window !== "undefined"
+// Use the production database URL
+const DATABASE_URL =
+  process.env.DATABASE_URL || process.env.production_DATABASE_URL || process.env.production_POSTGRES_URL
 
-// Get the database URL from environment variables
-const getDatabaseUrl = () => {
-  // In browser/client components, we should never try to connect directly
-  if (isBrowser) {
-    console.warn("Attempted to access database from client component")
-    return null
-  }
-
-  // Try to get the database URL from various environment variables
-  const dbUrl =
-    process.env.DATABASE_URL ||
-    process.env.production_DATABASE_URL ||
-    process.env.production_POSTGRES_URL ||
-    process.env.AUTH_DATABASE_URL
-
-  if (!dbUrl) {
-    console.error("No database connection string found in environment variables")
-  }
-
-  return dbUrl
-}
-
-// Create a safe SQL client
-const createSqlClient = () => {
-  const dbUrl = getDatabaseUrl()
-
-  // If we're in a browser or don't have a database URL, return a mock client
-  if (isBrowser || !dbUrl) {
-    return {
-      query: async (...args: any[]) => {
-        console.warn("Mock SQL client used. Database operations will not work.")
-        return { rows: [] }
-      },
-    }
-  }
-
-  // Otherwise, create a real Neon client
-  try {
-    return neon(dbUrl)
-  } catch (error) {
-    console.error("Failed to create Neon SQL client:", error)
-    return {
-      query: async (...args: any[]) => {
-        console.error("Database client initialization failed")
-        return { rows: [] }
-      },
-    }
-  }
-}
-
-// Create and export the SQL client
-export const sql = createSqlClient()
+// Create a SQL client using the Neon serverless driver
+export const sql = neon(DATABASE_URL!)
 
 // Legacy alias for compatibility
 export const db = sql
@@ -66,29 +17,17 @@ export async function executeQuery(
   params: any[] = [],
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<any[]> {
-  if (isBrowser) {
-    console.error("Database query attempted in browser environment")
-    return []
-  }
-
   try {
     const result = await sql.query(query, params)
     return result.rows || []
   } catch (error) {
     console.error("Database query error:", error)
-    return []
+    throw error
   }
 }
 
 // Helper function to get a connection with tenant context
 export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
-  if (isBrowser) {
-    console.error("Database connection attempted in browser environment")
-    return {
-      query: async () => ({ rows: [] }),
-    }
-  }
-
   return {
     query: async (text: string, params: any[] = []) => {
       try {
@@ -96,19 +35,14 @@ export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
         return result
       } catch (error) {
         console.error("Database query error:", error)
-        return { rows: [] }
+        throw error
       }
     },
   }
 }
 
 // Helper function to execute a transaction
-export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T | null> {
-  if (isBrowser) {
-    console.error("Database transaction attempted in browser environment")
-    return null
-  }
-
+export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
   try {
     await sql.query("BEGIN")
     const result = await callback(sql)
@@ -117,23 +51,20 @@ export async function transaction<T>(callback: (client: any) => Promise<T>): Pro
   } catch (error) {
     await sql.query("ROLLBACK")
     console.error("Transaction error:", error)
-    return null
+    throw error
   }
 }
 
 // Generic CRUD operations
 export async function getById(table: string, id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<any | null> {
-  if (isBrowser) {
-    console.error("Database query attempted in browser environment")
-    return null
-  }
-
   try {
-    const result = await sql.query(`SELECT * FROM ${table} WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`, [
-      id,
-      tenantId,
-    ])
-    return result.rows?.[0] || null
+    const result = await sql`
+      SELECT * FROM ${sql(table)}
+      WHERE id = ${id}
+      AND tenant_id = ${tenantId}
+      AND deleted_at IS NULL
+    `
+    return result[0] || null
   } catch (error) {
     console.error(`Error getting ${table} by ID:`, error)
     return null
@@ -145,11 +76,6 @@ export async function insert(
   data: Record<string, any>,
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<any | null> {
-  if (isBrowser) {
-    console.error("Database insert attempted in browser environment")
-    return null
-  }
-
   try {
     const dataWithTenant = { ...data, tenant_id: tenantId }
     const columns = Object.keys(dataWithTenant)
@@ -162,10 +88,10 @@ export async function insert(
     `
 
     const result = await sql.query(query, values)
-    return result.rows?.[0] || null
+    return result.rows[0] || null
   } catch (error) {
     console.error(`Error inserting into ${table}:`, error)
-    return null
+    throw error
   }
 }
 
@@ -175,11 +101,6 @@ export async function update(
   data: Record<string, any>,
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<any | null> {
-  if (isBrowser) {
-    console.error("Database update attempted in browser environment")
-    return null
-  }
-
   try {
     const updateFields = Object.keys(data)
       .map((key, i) => `${key} = $${i + 3}`)
@@ -194,10 +115,10 @@ export async function update(
 
     const values = [id, tenantId, ...Object.values(data)]
     const result = await sql.query(query, values)
-    return result.rows?.[0] || null
+    return result.rows[0] || null
   } catch (error) {
     console.error(`Error updating ${table}:`, error)
-    return null
+    throw error
   }
 }
 
@@ -207,19 +128,18 @@ export async function remove(
   tenantId: string = DEFAULT_TENANT_ID,
   softDelete = true,
 ): Promise<boolean> {
-  if (isBrowser) {
-    console.error("Database delete attempted in browser environment")
-    return false
-  }
-
   try {
     if (softDelete) {
-      await sql.query(`UPDATE ${table} SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND tenant_id = $2`, [
-        id,
-        tenantId,
-      ])
+      await sql`
+        UPDATE ${sql(table)}
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE id = ${id} AND tenant_id = ${tenantId}
+      `
     } else {
-      await sql.query(`DELETE FROM ${table} WHERE id = $1 AND tenant_id = $2`, [id, tenantId])
+      await sql`
+        DELETE FROM ${sql(table)}
+        WHERE id = ${id} AND tenant_id = ${tenantId}
+      `
     }
     return true
   } catch (error) {
@@ -265,3 +185,6 @@ export function buildWhereClause(
     params,
   }
 }
+
+// Re-export everything from db-connection.ts
+export * from "./db-manager"

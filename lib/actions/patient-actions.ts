@@ -295,109 +295,46 @@ export async function getPatient(id: string, userId?: string) {
 
 export async function getPatients(limit = 100, offset = 0, searchTerm = "") {
   try {
-    // Create a mock data array in case the database is not available
-    const mockPatients = [
-      {
-        id: "1",
-        tenant_id: DEFAULT_TENANT_ID,
-        first_name: "John",
-        last_name: "Doe",
-        date_of_birth: "1980-01-01",
-        gender: "male",
-        nhs_number: "1234567890",
-        contact_number: "07700900000",
-        email: "john.doe@example.com",
-        address: "123 Main St, London",
-        primary_condition: "Hypertension",
-        primary_care_provider: "Dr. Smith",
-        status: "active",
-        notes: "Regular checkups",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        deleted_at: null,
-      },
-      {
-        id: "2",
-        tenant_id: DEFAULT_TENANT_ID,
-        first_name: "Jane",
-        last_name: "Smith",
-        date_of_birth: "1985-05-15",
-        gender: "female",
-        nhs_number: "0987654321",
-        contact_number: "07700900001",
-        email: "jane.smith@example.com",
-        address: "456 High St, Manchester",
-        primary_condition: "Diabetes",
-        primary_care_provider: "Dr. Johnson",
-        status: "active",
-        notes: "Monthly insulin checks",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        deleted_at: null,
-      },
-    ]
+    let query = `
+      SELECT * FROM patients
+      WHERE tenant_id = $1
+      AND deleted_at IS NULL
+    `
 
-    let patients = []
+    const queryParams = [DEFAULT_TENANT_ID]
 
-    try {
-      // Try to get patients from the database
-      let query = `
-        SELECT * FROM patients
-        WHERE tenant_id = $1
-        AND deleted_at IS NULL
-      `
-
-      const queryParams = [DEFAULT_TENANT_ID]
-
-      // Add search condition if searchTerm is provided
-      if (searchTerm) {
-        query += `
-          AND (
-            first_name ILIKE $2 OR
-            last_name ILIKE $2 OR
-            nhs_number ILIKE $2 OR
-            primary_condition ILIKE $2
-          )
-        `
-        queryParams.push(`%${searchTerm}%`)
-      }
-
-      // Add ordering and pagination
+    // Add search condition if searchTerm is provided
+    if (searchTerm) {
       query += `
-        ORDER BY updated_at DESC
-        LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+        AND (
+          first_name ILIKE $2 OR
+          last_name ILIKE $2 OR
+          nhs_number ILIKE $2 OR
+          primary_condition ILIKE $2
+        )
       `
-      queryParams.push(limit.toString(), offset.toString())
-
-      // Execute the query
-      const result = await sql.query(query, queryParams)
-
-      // Use the database result if available
-      if (result && Array.isArray(result.rows)) {
-        patients = result.rows
-      } else if (result && Array.isArray(result)) {
-        patients = result
-      } else {
-        // Fallback to mock data if database result is not as expected
-        console.warn("Database result not in expected format, using mock data")
-        patients = mockPatients
-      }
-    } catch (dbError) {
-      // If database query fails, use mock data
-      console.warn("Database query failed, using mock data:", dbError)
-      patients = mockPatients
+      queryParams.push(`%${searchTerm}%`)
     }
+
+    // Add ordering and pagination
+    query += `
+      ORDER BY updated_at DESC
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `
+    queryParams.push(limit.toString(), offset.toString())
+
+    // Execute the query
+    const result = await sql.query(query, queryParams)
 
     return {
       success: true,
-      data: patients,
+      data: result,
     }
   } catch (error: any) {
     console.error("Error fetching patients:", error)
     return {
       success: false,
       error: error.message || "Failed to fetch patients",
-      data: [], // Return empty array to prevent map errors
     }
   }
 }

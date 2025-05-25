@@ -39,14 +39,7 @@ type CareProfessional = {
   avatar_url?: string
 }
 
-interface CareProfessionalsTableProps {
-  professionals: CareProfessional[]
-}
-
-export function CareProfessionalsTable({ professionals = [] }: CareProfessionalsTableProps) {
-  // Ensure professionals is an array
-  const professionalsArray = Array.isArray(professionals) ? professionals : []
-
+export function CareProfessionalsTable({ professionals }: { professionals: CareProfessional[] }) {
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
@@ -60,7 +53,7 @@ export function CareProfessionalsTable({ professionals = [] }: CareProfessionals
   }
 
   // Safely sort professionals
-  const sortedProfessionals = [...professionalsArray].sort((a, b) => {
+  const sortedProfessionals = [...professionals].sort((a, b) => {
     if (!sortColumn) return 0
 
     // Safely access properties that might be undefined
@@ -79,15 +72,6 @@ export function CareProfessionalsTable({ professionals = [] }: CareProfessionals
     const firstInitial = firstName.charAt(0) || ""
     const lastInitial = lastName.charAt(0) || ""
     return (firstInitial + lastInitial).toUpperCase() || "CP"
-  }
-
-  // If no professionals, show a message
-  if (professionalsArray.length === 0) {
-    return (
-      <div className="text-center py-4">
-        <p className="text-muted-foreground">No care professionals found</p>
-      </div>
-    )
   }
 
   return (

@@ -1,23 +1,27 @@
-import Image from "next/image"
-import { AddPatientDialog } from "./add-patient-dialog"
+"use client"
 
-export function PatientEmptyState() {
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { PlusCircle } from "lucide-react"
+
+interface PatientEmptyStateProps {
+  onAddPatient?: () => void
+}
+
+export function PatientEmptyState({ onAddPatient }: PatientEmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="mb-4 rounded-full bg-muted p-3">
-        <Image
-          src="/images/empty-states/no-patients.png"
-          alt="No patients"
-          width={200}
-          height={200}
-          className="h-40 w-40 opacity-80"
-        />
+      <div className="relative h-40 w-40 mb-6">
+        <Image src="/images/empty-states/no-patients.png" alt="No patients found" fill className="object-contain" />
       </div>
-      <h3 className="mb-2 text-2xl font-semibold">No patients found</h3>
-      <p className="mb-6 max-w-md text-muted-foreground">
-        You haven't added any patients yet. Add your first patient to get started.
+      <h3 className="text-lg font-semibold mb-2">No patients found</h3>
+      <p className="text-muted-foreground max-w-md mb-6">
+        You haven't added any patients yet. Add your first patient to get started with patient management.
       </p>
-      <AddPatientDialog />
+      <Button onClick={onAddPatient}>
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add Your First Patient
+      </Button>
     </div>
   )
 }
