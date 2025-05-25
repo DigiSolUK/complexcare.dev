@@ -1,37 +1,45 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { getPatientActivityData } from "@/lib/actions/dashboard-actions"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { InfoIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ActivityData {
   date: string
   visits: number
-  assessments: number
+  notes: number
   medications: number
+  assessments: number
 }
 
 export function PatientActivityChart() {
   const [data, setData] = useState<ActivityData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isDemo, setIsDemo] = useState(false)
+  const [isDemoData, setIsDemoData] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true)
-        const activityData = await getPatientActivityData()
-        setData(activityData)
+        // In a real implementation, this would fetch from an API
+        const response = await fetch("/api/dashboard/patient-activity")
 
-        // Check if this is likely demo data (all values are non-zero)
-        const hasRealData = activityData.some((day) => day.visits > 0 || day.assessments > 0 || day.medications > 0)
-        setIsDemo(hasRealData && !activityData.some((day) => day.visits === 0 && day.assessments === 0))
+        if (!response.ok) {
+          // If the API fails, use demo data
+          setIsDemoData(true)
+          setData(generateDemoData())
+          return
+        }
+
+        const result = await response.json()
+        setData(result.data)
       } catch (err) {
-        console.error("Failed to fetch patient activity data:", err)
-        setError("Failed to load patient activity data")
+        console.error("Error fetching patient activity data:", err)
+        setIsDemoData(true)
+        setData(generateDemoData())
       } finally {
         setLoading(false)
       }
@@ -40,62 +48,126 @@ export function PatientActivityChart() {
     fetchData()
   }, [])
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
-  }
-
   if (loading) {
-    return <Skeleton className="h-[300px] w-full" />
+    return (
+      <Card className="col-span-1 md:col-span-2 lg:col-span-4">
+        <CardHeader>
+          <CardTitle>Patient Activity</CardTitle>
+          <CardDescription>Overview of patient interactions this week</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[300px] w-full" />
+        </CardContent>
+      </Card>
+    )
   }
 
   if (error) {
     return (
-      <div className="flex h-[300px] w-full items-center justify-center rounded-md border border-dashed p-8 text-center">
-        <div>
-          <p className="text-sm text-muted-foreground">{error}</p>
-          <button onClick={() => window.location.reload()} className="mt-4 text-sm text-blue-500 hover:text-blue-700">
-            Try again
-          </button>
-        </div>
-      </div>
+      <Card className="col-span-1 md:col-span-2 lg:col-span-4">
+        <CardHeader>
+          <CardTitle>Patient Activity</CardTitle>
+          <CardDescription>Overview of patient interactions this week</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <InfoIcon className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <Card>
+    <Card className="col-span-1 md:col-span-2 lg:col-span-4">
       <CardHeader>
         <CardTitle>Patient Activity</CardTitle>
-        <CardDescription>
-          {isDemo && (
-            <span className="text-xs text-amber-600">
-              Note: Using demonstration data. Activity logs table not found in database.
-            </span>
-          )}
-        </CardDescription>
+        <CardDescription>Overview of patient interactions this week</CardDescription>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart
-            data={data}
-            margin={{
-              top: 5,
-              right: 30,
-              left: 20,
-              bottom: 5,
-            }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" tickFormatter={formatDate} />
-            <YAxis />
-            <Tooltip formatter={(value: number) => [value, ""]} labelFormatter={(label) => formatDate(label)} />
-            <Legend />
-            <Line type="monotone" dataKey="visits" stroke="#8884d8" activeDot={{ r: 8 }} name="Visits" />
-            <Line type="monotone" dataKey="assessments" stroke="#82ca9d" name="Assessments" />
-            <Line type="monotone" dataKey="medications" stroke="#ffc658" name="Medications" />
-          </LineChart>
-        </ResponsiveContainer>
+        {isDemoData && (
+          <Alert className="mb-4">
+            <InfoIcon className="h-4 w-4" />
+            <AlertDescription>Showing demo data. Connect to the activity logs API for real data.</AlertDescription>
+          </Alert>
+        )}
+        <div className="h-[300px]">
+          {/* This would be a chart component in a real implementation */}
+          <div className="flex h-full items-end gap-2">
+            {data.map((item, index) => (
+              <div key={index} className="flex-1 flex flex-col items-center">
+                <div className="w-full flex flex-col-reverse gap-1">
+                  <div
+                    className="bg-blue-500 rounded-t w-full"
+                    style={{ height: `${(item.visits / 10) * 100}px` }}
+                    title={`Visits: ${item.visits}`}
+                  />
+                  <div
+                    className="bg-green-500 rounded-t w-full"
+                    style={{ height: `${(item.notes / 10) * 100}px` }}
+                    title={`Notes: ${item.notes}`}
+                  />
+                  <div
+                    className="bg-purple-500 rounded-t w-full"
+                    style={{ height: `${(item.medications / 10) * 100}px` }}
+                    title={`Medications: ${item.medications}`}
+                  />
+                  <div
+                    className="bg-orange-500 rounded-t w-full"
+                    style={{ height: `${(item.assessments / 10) * 100}px` }}
+                    title={`Assessments: ${item.assessments}`}
+                  />
+                </div>
+                <span className="text-xs mt-2">{formatDate(item.date)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-center mt-4 gap-4">
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-blue-500 rounded mr-2" />
+              <span className="text-xs">Visits</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-green-500 rounded mr-2" />
+              <span className="text-xs">Notes</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-purple-500 rounded mr-2" />
+              <span className="text-xs">Medications</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-orange-500 rounded mr-2" />
+              <span className="text-xs">Assessments</span>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
+}
+
+function generateDemoData(): ActivityData[] {
+  const days = 7
+  const result: ActivityData[] = []
+
+  for (let i = 0; i < days; i++) {
+    const date = new Date()
+    date.setDate(date.getDate() - (days - i - 1))
+
+    result.push({
+      date: date.toISOString(),
+      visits: Math.floor(Math.random() * 8) + 1,
+      notes: Math.floor(Math.random() * 6) + 2,
+      medications: Math.floor(Math.random() * 5) + 1,
+      assessments: Math.floor(Math.random() * 4) + 1,
+    })
+  }
+
+  return result
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString)
+  return date.toLocaleDateString("en-GB", { weekday: "short" })
 }
