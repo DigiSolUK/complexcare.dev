@@ -27,9 +27,9 @@ import { format, parseISO, isToday, isThisWeek } from "date-fns"
 import { useRouter } from "next/navigation"
 import { SimpleDashboard } from "./simple-dashboard"
 import { tryCatch } from "@/lib/error-utils"
-import { BarChart } from "@/components/charts/bar-chart"
-import { LineChart as LineChartComponent } from "@/components/charts/line-chart"
-import { PieChart as PieChartComponent } from "@/components/charts/pie-chart"
+import { BarChart } from "@/components/ui/bar-chart"
+import { LineChart as LineChartComponent } from "@/components/ui/line-chart"
+import { PieChart as PieChartComponent } from "@/components/ui/pie-chart"
 
 interface DashboardStats {
   totalPatients: number
