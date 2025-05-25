@@ -3,6 +3,9 @@ import { executeQuery } from "@/lib/db"
 import { redirect } from "next/navigation"
 import bcrypt from "bcryptjs"
 import { v4 as uuidv4 } from "uuid"
+import type { NextAuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import type { JWT } from "next-auth/jwt"
 
 // Session management
 export async function getSession() {
@@ -155,4 +158,66 @@ export async function requireRole(role: string | string[]) {
   }
 
   return session
+}
+
+// NextAuth options
+export const authOptions: NextAuthOptions = {
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null
+        }
+
+        try {
+          const result = await signIn(credentials.email, credentials.password)
+
+          if (result.success) {
+            return {
+              id: result.user.id,
+              name: result.user.name,
+              email: result.user.email,
+              role: result.user.role,
+            }
+          }
+          return null
+        } catch (error) {
+          console.error("Auth error:", error)
+          return null
+        }
+      },
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user }: { token: JWT; user: any }) {
+      if (user) {
+        token.id = user.id
+        token.role = user.role
+        token.tenantId = user.tenantId
+      }
+      return token
+    },
+    async session({ session, token }: { session: any; token: JWT }) {
+      if (token) {
+        session.user.id = token.id
+        session.user.role = token.role
+        session.user.tenantId = token.tenantId
+      }
+      return session
+    },
+  },
+  pages: {
+    signIn: "/auth/signin",
+    error: "/auth/error",
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 }
