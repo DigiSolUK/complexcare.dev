@@ -17,34 +17,9 @@ import {
   ArrowUpRight,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
 
-export function SimpleDashboard() {
+export function FallbackDashboard() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({
-    totalPatients: 248,
-    activePatients: 187,
-    criticalPatients: 12,
-    appointmentsToday: 8,
-    appointmentsThisWeek: 32,
-    tasksOverdue: 5,
-    tasksDueToday: 11,
-    completionRate: 78,
-  })
-
-  useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 1000)
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  if (loading) {
-    return <div className="p-8 text-center">Loading dashboard data...</div>
-  }
 
   return (
     <div className="space-y-6">
@@ -55,7 +30,7 @@ export function SimpleDashboard() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Patients</p>
                 <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold">{stats.totalPatients}</p>
+                  <p className="text-2xl font-bold">248</p>
                   <span className="text-xs text-green-600 flex items-center">
                     <ArrowUpRight className="h-3 w-3" />
                     4%
@@ -68,10 +43,10 @@ export function SimpleDashboard() {
             </div>
             <div className="mt-4">
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Active: {stats.activePatients}</span>
-                <span>{Math.round((stats.activePatients / stats.totalPatients) * 100)}%</span>
+                <span>Active: 187</span>
+                <span>75%</span>
               </div>
-              <Progress value={(stats.activePatients / stats.totalPatients) * 100} className="h-1" />
+              <Progress value={75} className="h-1" />
             </div>
           </CardContent>
         </Card>
@@ -82,7 +57,7 @@ export function SimpleDashboard() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Appointments</p>
                 <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold">{stats.appointmentsToday}</p>
+                  <p className="text-2xl font-bold">8</p>
                   <span className="text-xs text-muted-foreground">today</span>
                 </div>
               </div>
@@ -92,10 +67,10 @@ export function SimpleDashboard() {
             </div>
             <div className="mt-4">
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>This week: {stats.appointmentsThisWeek}</span>
-                <span>{Math.round((stats.appointmentsToday / stats.appointmentsThisWeek) * 100)}%</span>
+                <span>This week: 32</span>
+                <span>25%</span>
               </div>
-              <Progress value={(stats.appointmentsToday / stats.appointmentsThisWeek) * 100} className="h-1" />
+              <Progress value={25} className="h-1" />
             </div>
           </CardContent>
         </Card>
@@ -106,7 +81,7 @@ export function SimpleDashboard() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Tasks</p>
                 <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold">{stats.tasksDueToday}</p>
+                  <p className="text-2xl font-bold">11</p>
                   <span className="text-xs text-muted-foreground">due today</span>
                 </div>
               </div>
@@ -116,10 +91,10 @@ export function SimpleDashboard() {
             </div>
             <div className="mt-4">
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span className="text-red-600 font-medium">Overdue: {stats.tasksOverdue}</span>
-                <span>Completion: {stats.completionRate}%</span>
+                <span className="text-red-600 font-medium">Overdue: 5</span>
+                <span>Completion: 78%</span>
               </div>
-              <Progress value={stats.completionRate} className="h-1" />
+              <Progress value={78} className="h-1" />
             </div>
           </CardContent>
         </Card>
@@ -130,7 +105,7 @@ export function SimpleDashboard() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Critical Patients</p>
                 <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold">{stats.criticalPatients}</p>
+                  <p className="text-2xl font-bold">12</p>
                   <span className="text-xs text-red-600 flex items-center">
                     <AlertTriangle className="h-3 w-3 mr-1" />
                     Attention needed
@@ -143,10 +118,10 @@ export function SimpleDashboard() {
             </div>
             <div className="mt-4">
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Of total: {stats.totalPatients}</span>
-                <span>{Math.round((stats.criticalPatients / stats.totalPatients) * 100)}%</span>
+                <span>Of total: 248</span>
+                <span>5%</span>
               </div>
-              <Progress value={(stats.criticalPatients / stats.totalPatients) * 100} className="h-1" />
+              <Progress value={5} className="h-1" />
             </div>
           </CardContent>
         </Card>

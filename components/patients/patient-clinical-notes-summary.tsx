@@ -15,7 +15,7 @@ interface PatientClinicalNotesSummaryProps {
   patientId: string
 }
 
-export function PatientClinicalNotesSummary({ patientId }: PatientClinicalNotesSummaryProps) {
+function PatientClinicalNotesSummary({ patientId }: PatientClinicalNotesSummaryProps) {
   const router = useRouter()
   const [notes, setNotes] = useState<ClinicalNote[]>([])
   const [isLoading, setIsLoading] = useState(true)

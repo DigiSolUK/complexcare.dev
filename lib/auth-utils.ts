@@ -76,14 +76,3 @@ export const authorizeRequest = async (request: any, requiredRole: string) => {
     return { success: false, message: "Authorization failed" }
   }
 }
-
-// Add the missing export
-export const requireAdmin = async (request: any) => {
-  const result = await authorizeRequest(request, "admin")
-
-  if (!result.success) {
-    throw new Error("Admin access required")
-  }
-
-  return true
-}
