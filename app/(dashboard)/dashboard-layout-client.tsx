@@ -1,24 +1,19 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { Sidebar } from "@/components/dashboard/sidebar"
+import { Header } from "@/components/dashboard/header"
 
-const DashboardLayoutClient = ({ children }: { children: React.ReactNode }) => {
-  const [isMounted, setIsMounted] = useState(false)
+export function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  if (!isMounted) {
-    return <div>Loading...</div>
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen)
   }
 
   try {
     // Simulate database connection or initialization
-    // In a real application, this would be your database connection code
-    // For example:
-    // const db = await connectToDatabase();
     console.log("Database connection initialized (simulated)")
   } catch (error) {
     console.error("Error initializing database connection:", error)
@@ -27,17 +22,16 @@ const DashboardLayoutClient = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar (example) */}
-      <div className="w-64 bg-gray-200 p-4">
-        <h2>Sidebar</h2>
-        {/* Add sidebar content here */}
+    <>
+      <Header toggleSidebar={toggleSidebar} />
+      <div className="flex flex-1">
+        <div className={`${sidebarOpen ? "w-64" : "w-0 -ml-64"} transition-all duration-300 md:ml-0 md:w-64`}>
+          <Sidebar />
+        </div>
+        <main className="flex-1 overflow-y-auto bg-muted/20">
+          <div className="container mx-auto p-6">{children}</div>
+        </main>
       </div>
-
-      {/* Main Content */}
-      <div className="flex-1 p-4">{children}</div>
-    </div>
+    </>
   )
 }
-
-export default DashboardLayoutClient
