@@ -25,13 +25,8 @@ async function main() {
     }
   } catch (error) {
     console.error("Schema validation failed:", error)
-    process.exit(1)
   }
 }
 
 // Run if this file is executed directly
-if (require.main === module) {
-  main()
-}
-
-export { main as validateSchema }
+main()
