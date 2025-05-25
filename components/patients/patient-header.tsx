@@ -27,7 +27,7 @@ interface PatientHeaderProps {
   }
 }
 
-export default function PatientHeader({ patient }: PatientHeaderProps) {
+export function PatientHeader({ patient }: PatientHeaderProps) {
   // Normalize patient data to handle different property names
   const patientName = patient.name || `${patient.first_name || ""} ${patient.last_name || ""}`.trim()
   const dateOfBirth = patient.dateOfBirth || patient.date_of_birth || ""
@@ -183,3 +183,5 @@ export default function PatientHeader({ patient }: PatientHeaderProps) {
     </div>
   )
 }
+
+export default PatientHeader

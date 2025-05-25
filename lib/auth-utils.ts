@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { redirect } from "next/navigation"
 
 // Server-side function to get current user
 export async function getCurrentUser() {
@@ -75,4 +76,19 @@ export const authorizeRequest = async (request: any, requiredRole: string) => {
     console.error("Error during authorization:", error)
     return { success: false, message: "Authorization failed" }
   }
+}
+
+// Server-side middleware to require admin role
+export async function requireAdmin(request: Request) {
+  const user = await getCurrentUser()
+
+  if (!user) {
+    return redirect("/login")
+  }
+
+  if (user.role !== "admin") {
+    return redirect("/unauthorized")
+  }
+
+  return user
 }
