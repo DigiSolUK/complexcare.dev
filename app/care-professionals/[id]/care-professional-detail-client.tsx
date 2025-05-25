@@ -1,175 +1,104 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useParams } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Skeleton } from "@/components/ui/skeleton"
 
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { AlertTriangle } from "lucide-react"
+interface CareProfessional {
+  id: string
+  name: string
+  email: string
+  phone: string
+  address: string
+  specialty: string
+  availability: string
+  imageUrl: string
+}
 
-import {
-  fetchCareProfessionalById,
-  fetchAppointmentsForCareProfessional,
-  fetchCredentialsForCareProfessional,
-  fetchTasksForCareProfessional,
-  fetchPatientsForCareProfessional,
-} from "@/lib/data"
-import type { CareProfessional, Appointment, Credential, Task, Patient } from "@/lib/definitions"
-
-export default function CareProfessionalDetailClient() {
+const CareProfessionalDetailClient = () => {
+  const params = useParams()
   const [careProfessional, setCareProfessional] = useState<CareProfessional | null>(null)
-  const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [credentials, setCredentials] = useState<Credential[]>([])
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-
-  const { id } = useParams()
-  const router = useRouter()
-
-  const fetchCareProfessional = async () => {
-    if (!id || typeof id !== "string") {
-      console.error("Invalid ID provided")
-      return null
-    }
-    return fetchCareProfessionalById(id)
-  }
-
-  const fetchAppointments = async () => {
-    if (!id || typeof id !== "string") {
-      console.error("Invalid ID provided")
-      return []
-    }
-    return fetchAppointmentsForCareProfessional(id)
-  }
-
-  const fetchCredentials = async () => {
-    if (!id || typeof id !== "string") {
-      console.error("Invalid ID provided")
-      return []
-    }
-    return fetchCredentialsForCareProfessional(id)
-  }
-
-  const fetchTasks = async () => {
-    if (!id || typeof id !== "string") {
-      console.error("Invalid ID provided")
-      return []
-    }
-    return fetchTasksForCareProfessional(id)
-  }
-
-  const fetchPatients = async () => {
-    if (!id || typeof id !== "string") {
-      console.error("Invalid ID provided")
-      return []
-    }
-    return fetchPatientsForCareProfessional(id)
-  }
 
   useEffect(() => {
-    const loadData = async () => {
+    const fetchCareProfessional = async () => {
+      setLoading(true)
       try {
-        setLoading(true)
-        setError(null)
-
-        const [professionalData, appointmentsData, credentialsData, tasksData, patientsData] = await Promise.allSettled(
-          [fetchCareProfessional(), fetchAppointments(), fetchCredentials(), fetchTasks(), fetchPatients()],
-        )
-
-        if (professionalData.status === "fulfilled") {
-          setCareProfessional(professionalData.value)
-        } else {
-          console.error("Failed to fetch care professional:", professionalData.reason)
-          setError(new Error("Failed to load care professional data"))
+        const response = await fetch(`/api/care-professionals/${params.id}`)
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
         }
-
-        if (appointmentsData.status === "fulfilled") {
-          setAppointments(appointmentsData.value)
-        }
-
-        if (credentialsData.status === "fulfilled") {
-          setCredentials(credentialsData.value)
-        }
-
-        if (tasksData.status === "fulfilled") {
-          setTasks(tasksData.value)
-        }
-
-        if (patientsData.status === "fulfilled") {
-          setPatients(patientsData.value)
-        }
-      } catch (err) {
-        console.error("Error loading data:", err)
-        setError(err instanceof Error ? err : new Error("Failed to load data"))
+        const data = await response.json()
+        setCareProfessional(data)
+      } catch (error) {
+        console.error("Could not fetch care professional:", error)
+        // Handle error appropriately, e.g., display an error message to the user
       } finally {
         setLoading(false)
       }
     }
 
-    loadData()
-  }, [id])
+    fetchCareProfessional()
+  }, [params.id])
 
   if (loading) {
-    return <div>Loading...</div>
-  }
-
-  if (error) {
     return (
-      <div className="container mx-auto py-8">
-        <Card className="mx-auto max-w-4xl">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
-              <h2 className="text-2xl font-bold text-red-600 mb-2">Error Loading Data</h2>
-              <p className="text-gray-600 mb-6">{error.message}</p>
-              <div className="flex gap-4">
-                <Button onClick={() => window.location.reload()}>Try Again</Button>
-                <Button variant="outline" onClick={() => router.push("/care-professionals")}>
-                  Return to List
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-24 w-full" />
       </div>
     )
   }
 
   if (!careProfessional) {
-    return <div>Care Professional not found</div>
+    return <div>Care professional not found.</div>
   }
 
   return (
-    <div>
-      <h1>Care Professional Detail</h1>
-      <p>ID: {id}</p>
-      <p>Name: {careProfessional.name}</p>
-      <h2>Appointments</h2>
-      <ul>
-        {appointments.map((appointment) => (
-          <li key={appointment.id}>{appointment.title}</li>
-        ))}
-      </ul>
-      <h2>Credentials</h2>
-      <ul>
-        {credentials.map((credential) => (
-          <li key={credential.id}>{credential.name}</li>
-        ))}
-      </ul>
-      <h2>Tasks</h2>
-      <ul>
-        {tasks.map((task) => (
-          <li key={task.id}>{task.description}</li>
-        ))}
-      </ul>
-      <h2>Patients</h2>
-      <ul>
-        {patients.map((patient) => (
-          <li key={patient.id}>{patient.name}</li>
-        ))}
-      </ul>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Care Professional Details</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center space-x-4">
+          <Avatar>
+            <AvatarImage src={careProfessional.imageUrl || "/placeholder.svg"} alt={careProfessional.name} />
+            <AvatarFallback>{careProfessional.name.substring(0, 2)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <h2 className="text-lg font-semibold">{careProfessional.name}</h2>
+            <p className="text-sm text-muted-foreground">{careProfessional.specialty}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Contact Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Email: {careProfessional.email}</p>
+          <p>Phone: {careProfessional.phone}</p>
+          <p>Address: {careProfessional.address}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Availability</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{careProfessional.availability}</p>
+        </CardContent>
+      </Card>
     </div>
   )
 }
+
+export default CareProfessionalDetailClient
