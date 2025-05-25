@@ -6,12 +6,7 @@ const sql = neon(process.env.DATABASE_URL || "")
 
 export async function GET() {
   try {
-    const tenant = await getCurrentTenant()
-    const tenantId = typeof tenant === "object" && tenant !== null ? tenant.id : tenant
-
-    if (typeof tenantId !== "string") {
-      return NextResponse.json({ error: "Invalid tenant ID format" }, { status: 400 })
-    }
+    const tenantId = getCurrentTenant()
 
     // Check if required tables exist
     const tablesExist = await checkRequiredTables()

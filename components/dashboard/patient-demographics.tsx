@@ -2,58 +2,34 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { InfoIcon } from "lucide-react"
-
-interface DemographicsData {
-  ageGroups: {
-    label: string
-    value: number
-    percentage: number
-  }[]
-  genderDistribution: {
-    label: string
-    value: number
-    percentage: number
-  }[]
-  careCategories: {
-    label: string
-    value: number
-    percentage: number
-  }[]
-}
 
 interface PatientDemographicsProps {
-  data?: DemographicsData
   isLoading?: boolean
 }
 
-export function PatientDemographics({ data, isLoading = false }: PatientDemographicsProps) {
-  // Default data for when real data isn't available
-  const defaultData: DemographicsData = {
+export function PatientDemographics({ isLoading = false }: PatientDemographicsProps) {
+  // In a real implementation, this data would come from an API
+  const demographicsData = {
     ageGroups: [
-      { label: "0-17", value: 12, percentage: 5 },
-      { label: "18-34", value: 28, percentage: 11 },
-      { label: "35-50", value: 45, percentage: 18 },
-      { label: "51-65", value: 67, percentage: 27 },
-      { label: "66-80", value: 58, percentage: 23 },
-      { label: "81+", value: 38, percentage: 16 },
+      { name: "0-18", count: 42, percentage: 8 },
+      { name: "19-35", count: 78, percentage: 15 },
+      { name: "36-50", count: 124, percentage: 24 },
+      { name: "51-65", count: 156, percentage: 30 },
+      { name: "66+", count: 118, percentage: 23 },
     ],
-    genderDistribution: [
-      { label: "Male", value: 118, percentage: 48 },
-      { label: "Female", value: 124, percentage: 50 },
-      { label: "Other", value: 6, percentage: 2 },
+    gender: [
+      { name: "Male", count: 238, percentage: 46 },
+      { name: "Female", count: 276, percentage: 53 },
+      { name: "Other", count: 4, percentage: 1 },
     ],
     careCategories: [
-      { label: "Complex Needs", value: 87, percentage: 35 },
-      { label: "Elderly Care", value: 62, percentage: 25 },
-      { label: "Mental Health", value: 45, percentage: 18 },
-      { label: "Physical Disability", value: 32, percentage: 13 },
-      { label: "Learning Disability", value: 22, percentage: 9 },
+      { name: "Complex Care", count: 187, percentage: 36 },
+      { name: "Palliative", count: 98, percentage: 19 },
+      { name: "Rehabilitation", count: 124, percentage: 24 },
+      { name: "Mental Health", count: 67, percentage: 13 },
+      { name: "Other", count: 42, percentage: 8 },
     ],
   }
-
-  const demographics = data || defaultData
 
   if (isLoading) {
     return (
@@ -67,22 +43,7 @@ export function PatientDemographics({ data, isLoading = false }: PatientDemograp
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="space-y-2">
-                <Skeleton className="h-4 w-[120px]" />
-                <div className="space-y-2">
-                  {[...Array(i === 0 ? 6 : i === 1 ? 3 : 5)].map((_, j) => (
-                    <div key={j} className="flex items-center gap-2">
-                      <Skeleton className="h-4 w-[100px]" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-[50px]" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <Skeleton className="h-[300px] w-full" />
         </CardContent>
       </Card>
     )
@@ -92,67 +53,52 @@ export function PatientDemographics({ data, isLoading = false }: PatientDemograp
     <Card>
       <CardHeader>
         <CardTitle>Patient Demographics</CardTitle>
-        <CardDescription>Distribution of patient population</CardDescription>
+        <CardDescription>Patient population breakdown</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">Age Distribution</h4>
+          <div>
+            <h4 className="mb-3 text-sm font-medium">Age Distribution</h4>
             <div className="space-y-2">
-              {demographics.ageGroups.map((group) => (
-                <div key={group.label} className="flex items-center gap-2">
-                  <div className="w-12 text-xs">{group.label}</div>
-                  <div className="flex-1">
-                    <div className="h-2 w-full rounded-full bg-muted">
-                      <div className="h-2 rounded-full bg-blue-500" style={{ width: `${group.percentage}%` }}></div>
+              {demographicsData.ageGroups.map((group) => (
+                <div key={group.name} className="flex items-center">
+                  <div className="w-12 text-xs">{group.name}</div>
+                  <div className="flex-1 px-2">
+                    <div className="h-2 w-full rounded-full bg-secondary">
+                      <div className="h-2 rounded-full bg-primary" style={{ width: `${group.percentage}%` }} />
                     </div>
                   </div>
-                  <div className="w-12 text-xs text-right">{group.percentage}%</div>
+                  <div className="w-12 text-right text-xs">{group.count}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">Gender Distribution</h4>
-            <div className="space-y-2">
-              {demographics.genderDistribution.map((gender) => (
-                <div key={gender.label} className="flex items-center gap-2">
-                  <div className="w-12 text-xs">{gender.label}</div>
-                  <div className="flex-1">
-                    <div className="h-2 w-full rounded-full bg-muted">
-                      <div className="h-2 rounded-full bg-purple-500" style={{ width: `${gender.percentage}%` }}></div>
-                    </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h4 className="mb-3 text-sm font-medium">Gender</h4>
+              <div className="space-y-2">
+                {demographicsData.gender.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <span className="text-xs">{item.name}</span>
+                    <span className="text-xs font-medium">{item.percentage}%</span>
                   </div>
-                  <div className="w-12 text-xs text-right">{gender.percentage}%</div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="mb-3 text-sm font-medium">Care Categories</h4>
+              <div className="space-y-2">
+                {demographicsData.careCategories.slice(0, 3).map((item) => (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <span className="text-xs">{item.name}</span>
+                    <span className="text-xs font-medium">{item.percentage}%</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">Care Categories</h4>
-            <div className="space-y-2">
-              {demographics.careCategories.map((category) => (
-                <div key={category.label} className="flex items-center gap-2">
-                  <div className="w-32 text-xs">{category.label}</div>
-                  <div className="flex-1">
-                    <div className="h-2 w-full rounded-full bg-muted">
-                      <div className="h-2 rounded-full bg-green-500" style={{ width: `${category.percentage}%` }}></div>
-                    </div>
-                  </div>
-                  <div className="w-12 text-xs text-right">{category.percentage}%</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {!data && (
-            <Alert variant="outline" className="mt-4">
-              <InfoIcon className="h-4 w-4" />
-              <AlertDescription>Showing demo data. Connect to patient API for real demographics.</AlertDescription>
-            </Alert>
-          )}
         </div>
       </CardContent>
     </Card>

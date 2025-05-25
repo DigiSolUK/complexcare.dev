@@ -1,85 +1,48 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { InfoIcon } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-
-interface StaffMember {
-  id: string
-  name: string
-  role: string
-  avatar?: string
-  metrics: {
-    patientsServed: number
-    appointmentsCompleted: number
-    tasksCompleted: number
-    documentationRate: number
-    overallScore: number
-  }
-}
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface StaffPerformanceProps {
-  data?: StaffMember[]
   isLoading?: boolean
 }
 
-export function StaffPerformance({ data, isLoading = false }: StaffPerformanceProps) {
-  // Default data for when real data isn't available
-  const defaultData: StaffMember[] = [
+export function StaffPerformance({ isLoading = false }: StaffPerformanceProps) {
+  // In a real implementation, this data would come from an API
+  const staffData = [
     {
       id: "1",
-      name: "Sarah Johnson",
-      role: "Registered Nurse",
-      metrics: {
-        patientsServed: 28,
-        appointmentsCompleted: 42,
-        tasksCompleted: 37,
-        documentationRate: 96,
-        overallScore: 94,
-      },
+      name: "Dr. Sarah Johnson",
+      role: "Lead Physician",
+      performance: 98,
+      patientsServed: 42,
+      appointmentsCompleted: 156,
+      badge: "Excellence",
+      avatar: "/images/avatars/doctor-2.png",
     },
     {
       id: "2",
-      name: "David Chen",
-      role: "Care Coordinator",
-      metrics: {
-        patientsServed: 35,
-        appointmentsCompleted: 31,
-        tasksCompleted: 45,
-        documentationRate: 88,
-        overallScore: 89,
-      },
+      name: "Nurse Michael Chen",
+      role: "Senior Nurse",
+      performance: 95,
+      patientsServed: 38,
+      appointmentsCompleted: 142,
+      badge: "Top Performer",
+      avatar: "/images/avatars/nurse-1.png",
     },
     {
       id: "3",
       name: "Emma Wilson",
-      role: "Physiotherapist",
-      metrics: {
-        patientsServed: 22,
-        appointmentsCompleted: 26,
-        tasksCompleted: 19,
-        documentationRate: 92,
-        overallScore: 87,
-      },
-    },
-    {
-      id: "4",
-      name: "Michael Brown",
-      role: "Support Worker",
-      metrics: {
-        patientsServed: 18,
-        appointmentsCompleted: 24,
-        tasksCompleted: 32,
-        documentationRate: 79,
-        overallScore: 82,
-      },
+      role: "Care Coordinator",
+      performance: 92,
+      patientsServed: 35,
+      appointmentsCompleted: 128,
+      badge: "Outstanding",
+      avatar: "/placeholder.svg?height=40&width=40&query=avatar",
     },
   ]
-
-  const staffMembers = data || defaultData
 
   if (isLoading) {
     return (
@@ -92,19 +55,17 @@ export function StaffPerformance({ data, isLoading = false }: StaffPerformancePr
             <Skeleton className="h-4 w-[250px]" />
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-4 w-[150px]" />
-                  <Skeleton className="h-3 w-[100px]" />
-                </div>
-                <Skeleton className="h-6 w-16" />
+        <CardContent className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center space-x-4 rounded-md border p-4">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-[140px]" />
+                <Skeleton className="h-3 w-[100px]" />
               </div>
-            ))}
-          </div>
+              <Skeleton className="h-6 w-16" />
+            </div>
+          ))}
         </CardContent>
       </Card>
     )
@@ -114,54 +75,35 @@ export function StaffPerformance({ data, isLoading = false }: StaffPerformancePr
     <Card>
       <CardHeader>
         <CardTitle>Staff Performance</CardTitle>
-        <CardDescription>Top performing care professionals this month</CardDescription>
+        <CardDescription>Top performing care professionals</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {staffMembers.map((staff) => (
-            <div key={staff.id} className="flex items-center gap-4">
-              <Avatar>
-                {staff.avatar ? <AvatarImage src={staff.avatar || "/placeholder.svg"} alt={staff.name} /> : null}
-                <AvatarFallback>
-                  {staff.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{staff.name}</p>
-                  <PerformanceBadge score={staff.metrics.overallScore} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {staff.role} • {staff.metrics.patientsServed} patients • {staff.metrics.appointmentsCompleted}{" "}
-                  appointments
-                </p>
+      <CardContent className="space-y-4">
+        {staffData.map((staff) => (
+          <div key={staff.id} className="flex items-center space-x-4 rounded-md border p-4">
+            <Avatar>
+              <AvatarImage src={staff.avatar || "/placeholder.svg"} alt={staff.name} />
+              <AvatarFallback>
+                {staff.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <p className="text-sm font-medium leading-none">{staff.name}</p>
+              <p className="text-sm text-muted-foreground">{staff.role}</p>
+              <div className="mt-1 flex items-center text-xs text-muted-foreground">
+                <span className="mr-2">{staff.patientsServed} patients</span>
+                <span>•</span>
+                <span className="ml-2">{staff.appointmentsCompleted} appointments</span>
               </div>
             </div>
-          ))}
-        </div>
-
-        {!data && (
-          <Alert variant="outline" className="mt-4">
-            <InfoIcon className="h-4 w-4" />
-            <AlertDescription>Showing demo data. Connect to staff API for real metrics.</AlertDescription>
-          </Alert>
-        )}
+            <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100">
+              {staff.badge}
+            </Badge>
+          </div>
+        ))}
       </CardContent>
     </Card>
   )
-}
-
-function PerformanceBadge({ score }: { score: number }) {
-  if (score >= 90) {
-    return <Badge className="bg-green-500">Excellent</Badge>
-  } else if (score >= 80) {
-    return <Badge className="bg-blue-500">Good</Badge>
-  } else if (score >= 70) {
-    return <Badge className="bg-amber-500">Average</Badge>
-  } else {
-    return <Badge className="bg-red-500">Needs Improvement</Badge>
-  }
 }

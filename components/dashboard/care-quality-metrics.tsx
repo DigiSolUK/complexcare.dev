@@ -1,34 +1,22 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { InfoIcon } from "lucide-react"
-
-interface CareQualityData {
-  patientSatisfaction: number
-  carePlanAdherence: number
-  readmissionRate: number
-  incidentReports: number
-  avgResponseTime: number
-}
 
 interface CareQualityMetricsProps {
-  data?: CareQualityData
   isLoading?: boolean
 }
 
-export function CareQualityMetrics({ data, isLoading = false }: CareQualityMetricsProps) {
-  // Default data for when real data isn't available
-  const defaultData: CareQualityData = {
+export function CareQualityMetrics({ isLoading = false }: CareQualityMetricsProps) {
+  // In a real implementation, this data would come from an API
+  const qualityData = {
     patientSatisfaction: 92,
     carePlanAdherence: 87,
     readmissionRate: 4.2,
     incidentReports: 3,
-    avgResponseTime: 18,
+    responseTime: 18, // minutes
   }
-
-  const metrics = data || defaultData
 
   if (isLoading) {
     return (
@@ -42,14 +30,7 @@ export function CareQualityMetrics({ data, isLoading = false }: CareQualityMetri
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="space-y-2">
-                <Skeleton className="h-4 w-[120px]" />
-                <Skeleton className="h-8 w-[100px]" />
-              </div>
-            ))}
-          </div>
+          <Skeleton className="h-[200px] w-full" />
         </CardContent>
       </Card>
     )
@@ -62,44 +43,50 @@ export function CareQualityMetrics({ data, isLoading = false }: CareQualityMetri
         <CardDescription>Key indicators of care quality performance</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Patient Satisfaction</p>
-            <p className="text-2xl font-bold text-green-600">{metrics.patientSatisfaction}%</p>
-            <p className="text-xs text-muted-foreground">Based on feedback surveys</p>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Patient Satisfaction</h4>
+            <div className="flex items-center justify-between">
+              <Progress value={qualityData.patientSatisfaction} className="h-2" />
+              <span className="ml-2 text-sm font-medium">{qualityData.patientSatisfaction}%</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Based on patient feedback surveys</p>
           </div>
 
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Care Plan Adherence</p>
-            <p className="text-2xl font-bold text-blue-600">{metrics.carePlanAdherence}%</p>
-            <p className="text-xs text-muted-foreground">Compliance with care plans</p>
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Care Plan Adherence</h4>
+            <div className="flex items-center justify-between">
+              <Progress value={qualityData.carePlanAdherence} className="h-2" />
+              <span className="ml-2 text-sm font-medium">{qualityData.carePlanAdherence}%</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Percentage of care plans followed correctly</p>
           </div>
 
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Readmission Rate</p>
-            <p className="text-2xl font-bold text-amber-600">{metrics.readmissionRate}%</p>
-            <p className="text-xs text-muted-foreground">30-day readmissions</p>
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Readmission Rate</h4>
+            <div className="flex items-center justify-between">
+              <Progress value={qualityData.readmissionRate * 10} className="h-2" />
+              <span className="ml-2 text-sm font-medium">{qualityData.readmissionRate}%</span>
+            </div>
+            <p className="text-xs text-muted-foreground">30-day readmission percentage</p>
           </div>
 
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Incident Reports</p>
-            <p className="text-2xl font-bold text-red-600">{metrics.incidentReports}</p>
-            <p className="text-xs text-muted-foreground">This month</p>
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Incident Reports</h4>
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold">{qualityData.incidentReports}</div>
+            </div>
+            <p className="text-xs text-muted-foreground">Reports filed this month</p>
           </div>
 
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Avg. Response Time</p>
-            <p className="text-2xl font-bold text-purple-600">{metrics.avgResponseTime} min</p>
-            <p className="text-xs text-muted-foreground">For urgent requests</p>
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Average Response Time</h4>
+            <div className="flex items-center justify-between">
+              <div className="text-2xl font-bold">{qualityData.responseTime} min</div>
+            </div>
+            <p className="text-xs text-muted-foreground">Time to respond to patient requests</p>
           </div>
         </div>
-
-        {!data && (
-          <Alert variant="outline" className="mt-6">
-            <InfoIcon className="h-4 w-4" />
-            <AlertDescription>Showing demo data. Connect to quality API for real metrics.</AlertDescription>
-          </Alert>
-        )}
       </CardContent>
     </Card>
   )

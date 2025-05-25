@@ -2,46 +2,30 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { InfoIcon } from "lucide-react"
-
-interface ResourceData {
-  staffUtilization: number
-  appointmentUtilization: number
-  equipmentUtilization: number
-  facilityUtilization: number
-  transportUtilization: number
-  byDay: {
-    day: string
-    utilization: number
-  }[]
-}
+import { Progress } from "@/components/ui/progress"
 
 interface ResourceUtilizationProps {
-  data?: ResourceData
   isLoading?: boolean
 }
 
-export function ResourceUtilization({ data, isLoading = false }: ResourceUtilizationProps) {
-  // Default data for when real data isn't available
-  const defaultData: ResourceData = {
-    staffUtilization: 78,
-    appointmentUtilization: 82,
-    equipmentUtilization: 65,
-    facilityUtilization: 72,
-    transportUtilization: 58,
-    byDay: [
-      { day: "Mon", utilization: 82 },
-      { day: "Tue", utilization: 86 },
-      { day: "Wed", utilization: 90 },
-      { day: "Thu", utilization: 84 },
-      { day: "Fri", utilization: 74 },
+export function ResourceUtilization({ isLoading = false }: ResourceUtilizationProps) {
+  // In a real implementation, this data would come from an API
+  const utilizationData = {
+    staff: 82,
+    appointments: 76,
+    equipment: 68,
+    facilities: 91,
+    transport: 64,
+    dayOfWeek: [
+      { day: "Mon", utilization: 85 },
+      { day: "Tue", utilization: 92 },
+      { day: "Wed", utilization: 88 },
+      { day: "Thu", utilization: 90 },
+      { day: "Fri", utilization: 86 },
       { day: "Sat", utilization: 62 },
-      { day: "Sun", utilization: 48 },
+      { day: "Sun", utilization: 45 },
     ],
   }
-
-  const resourceData = data || defaultData
 
   if (isLoading) {
     return (
@@ -55,17 +39,7 @@ export function ResourceUtilization({ data, isLoading = false }: ResourceUtiliza
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-4 w-[80px]" />
-                  <Skeleton className="h-6 w-[60px]" />
-                </div>
-              ))}
-            </div>
-            <Skeleton className="h-[150px] w-full" />
-          </div>
+          <Skeleton className="h-[300px] w-full" />
         </CardContent>
       </Card>
     )
@@ -77,49 +51,59 @@ export function ResourceUtilization({ data, isLoading = false }: ResourceUtiliza
         <CardTitle>Resource Utilization</CardTitle>
         <CardDescription>Efficiency metrics for resource allocation</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <div className="space-y-1 text-center">
-              <p className="text-xs font-medium text-muted-foreground">Staff</p>
-              <p className="text-xl font-bold">{resourceData.staffUtilization}%</p>
+      <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Staff</span>
+              <span className="text-sm font-medium">{utilizationData.staff}%</span>
             </div>
-            <div className="space-y-1 text-center">
-              <p className="text-xs font-medium text-muted-foreground">Appointments</p>
-              <p className="text-xl font-bold">{resourceData.appointmentUtilization}%</p>
-            </div>
-            <div className="space-y-1 text-center">
-              <p className="text-xs font-medium text-muted-foreground">Equipment</p>
-              <p className="text-xl font-bold">{resourceData.equipmentUtilization}%</p>
-            </div>
-            <div className="space-y-1 text-center">
-              <p className="text-xs font-medium text-muted-foreground">Facilities</p>
-              <p className="text-xl font-bold">{resourceData.facilityUtilization}%</p>
-            </div>
-            <div className="space-y-1 text-center">
-              <p className="text-xs font-medium text-muted-foreground">Transport</p>
-              <p className="text-xl font-bold">{resourceData.transportUtilization}%</p>
-            </div>
+            <Progress value={utilizationData.staff} className="h-2" />
           </div>
 
           <div className="space-y-2">
-            <h4 className="text-sm font-medium">Utilization by Day of Week</h4>
-            <div className="flex h-[150px] items-end justify-between gap-2">
-              {resourceData.byDay.map((day) => (
-                <div key={day.day} className="flex flex-1 flex-col items-center">
-                  <div className="w-full rounded-t bg-blue-500" style={{ height: `${day.utilization}%` }}></div>
-                  <span className="mt-2 text-xs">{day.day}</span>
-                </div>
-              ))}
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Appointments</span>
+              <span className="text-sm font-medium">{utilizationData.appointments}%</span>
             </div>
+            <Progress value={utilizationData.appointments} className="h-2" />
           </div>
 
-          {!data && (
-            <Alert variant="outline" className="mt-4">
-              <InfoIcon className="h-4 w-4" />
-              <AlertDescription>Showing demo data. Connect to resource API for real metrics.</AlertDescription>
-            </Alert>
-          )}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Equipment</span>
+              <span className="text-sm font-medium">{utilizationData.equipment}%</span>
+            </div>
+            <Progress value={utilizationData.equipment} className="h-2" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Facilities</span>
+              <span className="text-sm font-medium">{utilizationData.facilities}%</span>
+            </div>
+            <Progress value={utilizationData.facilities} className="h-2" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Transport</span>
+              <span className="text-sm font-medium">{utilizationData.transport}%</span>
+            </div>
+            <Progress value={utilizationData.transport} className="h-2" />
+          </div>
+        </div>
+
+        <div>
+          <h4 className="mb-3 text-sm font-medium">Day of Week Utilization</h4>
+          <div className="flex h-16 items-end justify-between">
+            {utilizationData.dayOfWeek.map((day) => (
+              <div key={day.day} className="flex flex-col items-center">
+                <div className="w-8 bg-primary" style={{ height: `${day.utilization * 0.16}px` }} />
+                <div className="mt-2 text-xs">{day.day}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -67,13 +67,8 @@ export async function getDashboardData(): Promise<DashboardData> {
   noStore()
 
   try {
-    // Get current tenant ID
-    const tenant = await getCurrentTenant()
-    const tenantId = typeof tenant === "object" && tenant !== null ? tenant.id : tenant
-
-    if (typeof tenantId !== "string") {
-      throw new Error("Invalid tenant ID format")
-    }
+    // Get current tenant ID - this now returns a string directly
+    const tenantId = getCurrentTenant()
 
     // Fetch patient count and growth
     const patientCountResult = await sql`
@@ -328,12 +323,7 @@ export async function getPatientActivityData() {
   noStore()
 
   try {
-    const tenant = await getCurrentTenant()
-    const tenantId = typeof tenant === "object" && tenant !== null ? tenant.id : tenant
-
-    if (typeof tenantId !== "string") {
-      throw new Error("Invalid tenant ID format")
-    }
+    const tenantId = getCurrentTenant()
 
     // Check if activity_logs table exists
     const tableCheckResult = await sql`
