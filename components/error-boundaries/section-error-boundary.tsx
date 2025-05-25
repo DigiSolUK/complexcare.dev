@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { ErrorBoundary } from "../error-boundary"
+import { ErrorBoundary } from "@/components/error-boundary"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle } from "lucide-react"

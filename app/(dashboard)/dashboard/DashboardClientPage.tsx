@@ -10,6 +10,7 @@ import { DashboardProvider, useDashboard } from "@/components/dashboard/dashboar
 import { DashboardFilters, type FilterOption } from "@/components/dashboard/dashboard-filters"
 import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SectionErrorBoundary } from "@/components/error-boundaries/section-error-boundary"
 
 // Filter options for the dashboard
 const filterOptions: FilterOption[] = [
@@ -95,10 +96,14 @@ function DashboardContent() {
         ) : (
           <>
             <TabsContent value="simple" className="mt-6">
-              <SimpleDashboard />
+              <SectionErrorBoundary>
+                <SimpleDashboard />
+              </SectionErrorBoundary>
             </TabsContent>
             <TabsContent value="enhanced" className="mt-6">
-              <EnhancedDashboard />
+              <SectionErrorBoundary>
+                <EnhancedDashboard />
+              </SectionErrorBoundary>
             </TabsContent>
           </>
         )}
@@ -110,7 +115,9 @@ function DashboardContent() {
 export default function DashboardClientPage() {
   return (
     <DashboardProvider>
-      <DashboardContent />
+      <SectionErrorBoundary>
+        <DashboardContent />
+      </SectionErrorBoundary>
     </DashboardProvider>
   )
 }

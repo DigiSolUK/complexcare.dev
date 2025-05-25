@@ -1,8 +1,7 @@
 import { Suspense } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ErrorBoundary } from "@/components/error-boundaries"
-import { FallbackDashboard } from "@/components/dashboard/fallback-dashboard"
+import { SectionErrorBoundary } from "@/components/error-boundaries/section-error-boundary"
 import DashboardClientPage from "./DashboardClientPage"
 
 export const metadata = {
@@ -15,7 +14,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PageHeader heading="Dashboard" subheading="Overview of key metrics and performance indicators" />
 
-      <ErrorBoundary fallback={<FallbackDashboard />}>
+      <SectionErrorBoundary>
         <Suspense
           fallback={
             <div className="space-y-6">
@@ -30,7 +29,7 @@ export default function DashboardPage() {
         >
           <DashboardClientPage />
         </Suspense>
-      </ErrorBoundary>
+      </SectionErrorBoundary>
     </div>
   )
 }

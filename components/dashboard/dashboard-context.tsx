@@ -8,33 +8,28 @@ export interface DateRange {
   to: Date | undefined
 }
 
-export interface Filters {
+export interface FilterState {
   dateRange: DateRange
-  patientStatus: string[]
-  appointmentType: string[]
-  taskPriority: string[]
-  [key: string]: any
+  filters: Record<string, string[]>
 }
 
 // Define the context type
 interface DashboardContextType {
-  filters: Filters
-  setFilters: (filters: Filters) => void
+  filters: FilterState
+  setFilters: (filters: FilterState) => void
   isLoading: boolean
-  refreshData: () => void
+  refreshData: () => Promise<void>
 }
 
 // Create the context with default values
 const DashboardContext = createContext<DashboardContextType>({
   filters: {
     dateRange: { from: undefined, to: undefined },
-    patientStatus: [],
-    appointmentType: [],
-    taskPriority: [],
+    filters: {},
   },
   setFilters: () => {},
   isLoading: false,
-  refreshData: () => {},
+  refreshData: async () => {},
 })
 
 // Provider component
@@ -43,40 +38,58 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const defaultFrom = new Date()
   defaultFrom.setDate(defaultFrom.getDate() - 30)
 
-  const [filters, setFilters] = useState<Filters>({
+  const [filters, setFilters] = useState<FilterState>({
     dateRange: { from: defaultFrom, to: new Date() },
-    patientStatus: [],
-    appointmentType: [],
-    taskPriority: [],
+    filters: {},
   })
 
   const [isLoading, setIsLoading] = useState(false)
 
   // Function to refresh data
-  const refreshData = () => {
+  const refreshData = async () => {
     setIsLoading(true)
-    // Simulate data loading
-    setTimeout(() => {
+    try {
+      // Simulate data loading
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   // Initial load
   useEffect(() => {
-    setIsLoading(true)
-    // Simulate initial data loading
-    setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
+    const loadInitialData = async () => {
+      setIsLoading(true)
+      try {
+        // Simulate initial data loading
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      } catch (error) {
+        console.error("Error loading initial data:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadInitialData()
   }, [])
 
   // When filters change, reload data
   useEffect(() => {
-    setIsLoading(true)
-    // Simulate data loading when filters change
-    setTimeout(() => {
-      setIsLoading(false)
-    }, 500)
+    const loadFilteredData = async () => {
+      setIsLoading(true)
+      try {
+        // Simulate data loading when filters change
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      } catch (error) {
+        console.error("Error loading filtered data:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadFilteredData()
   }, [filters])
 
   return (
