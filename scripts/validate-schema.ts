@@ -1,3 +1,4 @@
+// Simple schema validator without commander
 import { validateDatabaseSchema, generateFixSql } from "../lib/db/schema-validator"
 
 async function main() {
@@ -28,4 +29,9 @@ async function main() {
   }
 }
 
-main()
+// Run if this file is executed directly
+if (require.main === module) {
+  main()
+}
+
+export { main as validateSchema }
