@@ -27,9 +27,9 @@ import { format, parseISO, isToday, isThisWeek } from "date-fns"
 import { useRouter } from "next/navigation"
 import { SimpleDashboard } from "./simple-dashboard"
 import { tryCatch } from "@/lib/error-utils"
-import { BarChart } from "@/components/ui/bar-chart"
-import { LineChart as LineChartComponent } from "@/components/ui/line-chart"
-import { PieChart as PieChartComponent } from "@/components/ui/pie-chart"
+import { BarChart } from "@/components/charts/bar-chart"
+import { LineChart as LineChartComponent } from "@/components/charts/line-chart"
+import { PieChart as PieChartComponent } from "@/components/charts/pie-chart"
 
 interface DashboardStats {
   totalPatients: number
@@ -592,7 +592,7 @@ export function EnhancedDashboard() {
           <CardContent className="h-[300px]">
             {tryCatch(
               () => (
-                <BarChart data={patientRiskData} colors={["#22c55e", "#eab308", "#ef4444"]} />
+                <BarChart data={patientRiskData} />
               ),
               <p className="text-red-500">Error rendering chart</p>,
             )}
@@ -616,7 +616,12 @@ export function EnhancedDashboard() {
           <CardContent className="h-[240px]">
             {tryCatch(
               () => (
-                <LineChartComponent data={patientActivityData} colors={["#3b82f6"]} />
+                <LineChartComponent
+                  data={patientActivityData}
+                  categories={["value"]}
+                  index="name"
+                  colors={["#3b82f6"]}
+                />
               ),
               <p className="text-red-500">Error rendering chart</p>,
             )}
