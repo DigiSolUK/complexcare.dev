@@ -1,10 +1,10 @@
 "use client"
 
-import React from "react"
+import { Component, type ErrorInfo, type ReactNode } from "react"
 
 interface ErrorBoundaryProps {
-  fallback: React.ComponentType<{ error: Error; resetError: () => void }>
-  children: React.ReactNode
+  children: ReactNode
+  fallback: (props: { error: Error; resetError: () => void }) => ReactNode
 }
 
 interface ErrorBoundaryState {
@@ -12,32 +12,42 @@ interface ErrorBoundaryState {
   error: Error | null
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
-    this.state = { hasError: false, error: null }
+    this.state = {
+      hasError: false,
+      error: null,
+    }
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error }
+    return {
+      hasError: true,
+      error,
+    }
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error("Error caught by boundary:", error, errorInfo)
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    // Log the error to an error reporting service
+    console.error("Error caught by ErrorBoundary:", error, errorInfo)
   }
 
   resetError = (): void => {
-    this.setState({ hasError: false, error: null })
+    this.setState({
+      hasError: false,
+      error: null,
+    })
   }
 
-  render(): React.ReactNode {
-    const { fallback: Fallback, children } = this.props
-    const { hasError, error } = this.state
-
-    if (hasError && error) {
-      return <Fallback error={error} resetError={this.resetError} />
+  render(): ReactNode {
+    if (this.state.hasError && this.state.error) {
+      return this.props.fallback({
+        error: this.state.error,
+        resetError: this.resetError,
+      })
     }
 
-    return children
+    return this.props.children
   }
 }

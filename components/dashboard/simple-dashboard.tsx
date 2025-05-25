@@ -1,163 +1,93 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart } from "@/components/charts"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { SectionErrorBoundary } from "@/components/error-boundaries"
+import { BarChart } from "@/components/charts/bar-chart"
+import { PieChart } from "@/components/charts/pie-chart"
 import { useDashboard } from "./dashboard-context"
-import { Skeleton } from "@/components/ui/skeleton"
+
+// Sample data for charts
+const patientStatusData = [
+  { name: "Active", value: 65 },
+  { name: "Inactive", value: 15 },
+  { name: "Critical", value: 8 },
+  { name: "Stable", value: 12 },
+]
+
+const appointmentData = [
+  { name: "Mon", count: 24 },
+  { name: "Tue", count: 18 },
+  { name: "Wed", count: 27 },
+  { name: "Thu", count: 23 },
+  { name: "Fri", count: 19 },
+]
 
 export function SimpleDashboard() {
-  const { filters, isLoading } = useDashboard()
-  const [metricsData, setMetricsData] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { filters } = useDashboard()
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch metrics data
-        const metricsResponse = await fetch("/api/dashboard/metrics")
-        const metricsResult = await metricsResponse.json()
-
-        if (metricsResult.success) {
-          setMetricsData(metricsResult.data)
-        } else {
-          setError(metricsResult.error || "Failed to load metrics data")
-          // Provide fallback data
-          setMetricsData({
-            patientCount: 0,
-            patientGrowth: 0,
-            appointmentsToday: 0,
-            appointmentsPending: 0,
-            carePlansActive: 0,
-            carePlansReview: 0,
-            staffCompliance: 0,
-            certificationsExpiring: 0,
-            tasksAssigned: 0,
-            tasksCompleted: 0,
-            outstandingInvoices: 0,
-            overduePayments: 0,
-          })
-        }
-      } catch (err) {
-        console.error("Error fetching dashboard data:", err)
-        setError("Failed to load dashboard data")
-        // Set fallback data
-        setMetricsData({
-          patientCount: 0,
-          patientGrowth: 0,
-          appointmentsToday: 0,
-          appointmentsPending: 0,
-          carePlansActive: 0,
-          carePlansReview: 0,
-          staffCompliance: 0,
-          certificationsExpiring: 0,
-          tasksAssigned: 0,
-          tasksCompleted: 0,
-          outstandingInvoices: 0,
-          overduePayments: 0,
-        })
-      }
-    }
-
-    fetchData()
-  }, [filters])
-
-  // If we're still loading or don't have data yet, show skeletons
-  if (isLoading || !metricsData) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-[120px]" />
-          ))}
-        </div>
-        <Skeleton className="h-[300px] w-full" />
-      </div>
-    )
-  }
-
-  // Sample data for the chart
-  const performanceData = [
-    { category: "Patients", value: metricsData.patientCount || 0 },
-    { category: "Appointments", value: metricsData.appointmentsToday || 0 },
-    { category: "Care Plans", value: metricsData.carePlansActive || 0 },
-    { category: "Tasks", value: metricsData.tasksAssigned || 0 },
-  ]
+  // In a real app, we would filter the data based on the filters
+  // For now, we'll just use the sample data
 
   return (
     <div className="space-y-6">
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle>Patients</CardTitle>
-            <CardDescription>Total patients and growth</CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{metricsData.patientCount || 0}</div>
-            <p className="text-sm text-muted-foreground mt-2">
-              {(metricsData.patientGrowth >= 0 ? "+" : "") + (metricsData.patientGrowth || 0)}% from last month
-            </p>
+            <div className="text-2xl font-bold">2,543</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Appointments</CardTitle>
-            <CardDescription>Today's appointments</CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Appointments</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{metricsData.appointmentsToday || 0}</div>
-            <p className="text-sm text-muted-foreground mt-2">{metricsData.appointmentsPending || 0} pending</p>
+            <div className="text-2xl font-bold">187</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Care Plans</CardTitle>
-            <CardDescription>Active care plans</CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Care Professionals</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{metricsData.carePlansActive || 0}</div>
-            <p className="text-sm text-muted-foreground mt-2">{metricsData.carePlansReview || 0} need review</p>
+            <div className="text-2xl font-bold">128</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Tasks</CardTitle>
-            <CardDescription>Assigned and completed tasks</CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Compliance Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{metricsData.tasksAssigned || 0}</div>
-            <p className="text-sm text-muted-foreground mt-2">{metricsData.tasksCompleted || 0} completed today</p>
+            <div className="text-2xl font-bold">94.3%</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Performance Overview</CardTitle>
-          <CardDescription>Key metrics visualization</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <BarChart
-            data={performanceData}
-            categories={["value"]}
-            index="category"
-            valueFormatter={(value) => `${value}`}
-            colors={["#2563eb"]}
-            className="h-[300px]"
-          />
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SectionErrorBoundary>
+          <Card className="col-span-1">
+            <CardHeader>
+              <CardTitle>Patient Status</CardTitle>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <PieChart data={patientStatusData} nameKey="name" valueKey="value" height={300} />
+            </CardContent>
+          </Card>
+        </SectionErrorBoundary>
 
-      {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6">
-            <p className="text-red-600">{error}</p>
-            <p className="text-sm text-red-500 mt-2">Some data may be using fallback values.</p>
-          </CardContent>
-        </Card>
-      )}
+        <SectionErrorBoundary>
+          <Card className="col-span-1">
+            <CardHeader>
+              <CardTitle>Weekly Appointments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BarChart data={appointmentData} xAxisKey="name" yAxisKeys={["count"]} height={300} />
+            </CardContent>
+          </Card>
+        </SectionErrorBoundary>
+      </div>
     </div>
   )
 }

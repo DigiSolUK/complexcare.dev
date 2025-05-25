@@ -7,13 +7,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { SimpleDashboard } from "@/components/dashboard/simple-dashboard"
 import { EnhancedDashboard } from "@/components/dashboard/enhanced-dashboard"
 import { DashboardProvider, useDashboard } from "@/components/dashboard/dashboard-context"
-import { DashboardFilters, type FilterOption } from "@/components/dashboard/dashboard-filters"
+import { DashboardFilters } from "@/components/dashboard/dashboard-filters"
 import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { SectionErrorBoundary } from "@/components/error-boundaries/section-error-boundary"
+import { SectionErrorBoundary } from "@/components/error-boundaries"
 
 // Filter options for the dashboard
-const filterOptions: FilterOption[] = [
+const filterOptions = [
   {
     id: "patientStatus",
     label: "Patient Status",

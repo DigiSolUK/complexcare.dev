@@ -1,15 +1,11 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import type { DateRange } from "react-day-picker"
 
-// Define the filter types
-export interface DateRange {
-  from: Date | undefined
-  to: Date | undefined
-}
-
+// Define the filter state type
 export interface FilterState {
-  dateRange: DateRange
+  dateRange: DateRange | undefined
   filters: Record<string, string[]>
 }
 
@@ -24,7 +20,7 @@ interface DashboardContextType {
 // Create the context with default values
 const DashboardContext = createContext<DashboardContextType>({
   filters: {
-    dateRange: { from: undefined, to: undefined },
+    dateRange: undefined,
     filters: {},
   },
   setFilters: () => {},

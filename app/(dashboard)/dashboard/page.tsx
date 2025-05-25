@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Skeleton } from "@/components/ui/skeleton"
-import { SectionErrorBoundary } from "@/components/error-boundaries/section-error-boundary"
+import { SectionErrorBoundary } from "@/components/error-boundaries"
 import DashboardClientPage from "./DashboardClientPage"
 
 export const metadata = {

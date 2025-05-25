@@ -1,23 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { X, ChevronDown } from "lucide-react"
 import type { DateRange } from "react-day-picker"
-import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { format } from "date-fns"
+
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { X } from "lucide-react"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
 import type { FilterState } from "./dashboard-context"
 
-export interface FilterOption {
+export type FilterOption = {
   id: string
   label: string
   options: {
@@ -26,176 +26,137 @@ export interface FilterOption {
   }[]
 }
 
-interface DashboardFiltersProps {
+export type DashboardFiltersProps = {
   filterOptions: FilterOption[]
   filters: FilterState
   onChange: (filters: FilterState) => void
 }
 
 export function DashboardFilters({ filterOptions, filters, onChange }: DashboardFiltersProps) {
-  const [selectedFilter, setSelectedFilter] = useState<string | null>(null)
-  const [selectedValue, setSelectedValue] = useState<string | null>(null)
-
   // Handle date range change
-  const handleDateRangeChange = (range: DateRange | undefined) => {
+  const handleDateRangeChange = (dateRange: DateRange | undefined) => {
     onChange({
       ...filters,
-      dateRange: range || { from: undefined, to: undefined },
+      dateRange,
     })
   }
 
-  // Handle filter selection
-  const handleFilterSelect = (filterId: string) => {
-    setSelectedFilter(filterId)
-    setSelectedValue(null)
+  // Handle filter change
+  const handleFilterChange = (filterId: string, value: string, checked: boolean) => {
+    const currentValues = filters.filters[filterId] || []
+    const newValues = checked ? [...currentValues, value] : currentValues.filter((v) => v !== value)
+
+    onChange({
+      ...filters,
+      filters: {
+        ...filters.filters,
+        [filterId]: newValues,
+      },
+    })
   }
 
-  // Handle filter value selection
-  const handleValueSelect = (value: string) => {
-    if (selectedFilter) {
-      setSelectedValue(value)
-    }
+  // Clear all filters
+  const clearAllFilters = () => {
+    onChange({
+      dateRange: undefined,
+      filters: {},
+    })
   }
 
-  // Add filter
-  const handleAddFilter = () => {
-    if (selectedFilter && selectedValue) {
-      const currentFilters = { ...filters.filters }
+  // Clear specific filter
+  const clearFilter = (filterId: string) => {
+    const newFilters = { ...filters.filters }
+    delete newFilters[filterId]
 
-      if (!currentFilters[selectedFilter]) {
-        currentFilters[selectedFilter] = []
-      }
-
-      if (!currentFilters[selectedFilter].includes(selectedValue)) {
-        currentFilters[selectedFilter] = [...currentFilters[selectedFilter], selectedValue]
-      }
-
-      onChange({
-        ...filters,
-        filters: currentFilters,
-      })
-
-      setSelectedFilter(null)
-      setSelectedValue(null)
-    }
+    onChange({
+      ...filters,
+      filters: newFilters,
+    })
   }
 
-  // Remove filter
-  const handleRemoveFilter = (filterId: string, value: string) => {
-    const currentFilters = { ...filters.filters }
-
-    if (currentFilters[filterId]) {
-      currentFilters[filterId] = currentFilters[filterId].filter((v) => v !== value)
-
-      if (currentFilters[filterId].length === 0) {
-        delete currentFilters[filterId]
-      }
-
-      onChange({
-        ...filters,
-        filters: currentFilters,
-      })
-    }
+  // Clear date range
+  const clearDateRange = () => {
+    onChange({
+      ...filters,
+      dateRange: undefined,
+    })
   }
 
-  // Get filter label by ID
-  const getFilterLabel = (filterId: string) => {
+  // Count active filters
+  const activeFilterCount = Object.values(filters.filters).reduce((count, values) => count + values.length, 0)
+
+  // Get filter label by value
+  const getFilterLabel = (filterId: string, value: string) => {
     const filter = filterOptions.find((f) => f.id === filterId)
-    return filter ? filter.label : filterId
-  }
-
-  // Get value label by filter ID and value
-  const getValueLabel = (filterId: string, value: string) => {
-    const filter = filterOptions.find((f) => f.id === filterId)
-    if (filter) {
-      const option = filter.options.find((o) => o.value === value)
-      return option ? option.label : value
-    }
-    return value
+    const option = filter?.options.find((o) => o.value === value)
+    return option?.label || value
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col md:flex-row gap-4">
-        <DateRangePicker value={filters.dateRange} onChange={handleDateRangeChange} className="w-full md:w-auto" />
+      <div className="flex flex-col sm:flex-row gap-2 sm:items-center justify-between">
+        <div className="flex flex-wrap gap-2 items-center">
+          <DateRangePicker value={filters.dateRange} onChange={handleDateRangeChange} />
 
-        <div className="flex flex-1 gap-2">
-          <Select value={selectedFilter || ""} onValueChange={handleFilterSelect}>
-            <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue placeholder="Select filter" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Filters</SelectLabel>
-                {filterOptions.map((filter) => (
-                  <SelectItem key={filter.id} value={filter.id}>
-                    {filter.label}
-                  </SelectItem>
+          {filterOptions.map((filter) => (
+            <DropdownMenu key={filter.id}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-1">
+                  {filter.label}
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>{filter.label}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {filter.options.map((option) => (
+                  <DropdownMenuCheckboxItem
+                    key={option.value}
+                    checked={(filters.filters[filter.id] || []).includes(option.value)}
+                    onCheckedChange={(checked) => handleFilterChange(filter.id, option.value, checked)}
+                  >
+                    {option.label}
+                  </DropdownMenuCheckboxItem>
                 ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ))}
 
-          {selectedFilter && (
-            <Select value={selectedValue || ""} onValueChange={handleValueSelect} disabled={!selectedFilter}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="Select value" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Values</SelectLabel>
-                  {filterOptions
-                    .find((f) => f.id === selectedFilter)
-                    ?.options.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+          {(activeFilterCount > 0 || filters.dateRange) && (
+            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-9 px-2 lg:px-3">
+              Reset
+              <X className="ml-2 h-4 w-4" />
+            </Button>
           )}
-
-          <Button
-            variant="outline"
-            onClick={handleAddFilter}
-            disabled={!selectedFilter || !selectedValue}
-            className="whitespace-nowrap"
-          >
-            Add Filter
-          </Button>
         </div>
       </div>
 
       {/* Active filters */}
-      {Object.keys(filters.filters).length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-2">
-          {Object.entries(filters.filters).map(([filterId, values]) =>
-            values.map((value) => (
-              <Badge key={`${filterId}-${value}`} variant="outline" className="flex items-center gap-1">
-                <span className="font-medium">{getFilterLabel(filterId)}:</span> {getValueLabel(filterId, value)}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4 ml-1 p-0"
-                  onClick={() => handleRemoveFilter(filterId, value)}
-                >
-                  <X className="h-3 w-3" />
-                  <span className="sr-only">Remove filter</span>
-                </Button>
-              </Badge>
-            )),
+      {(activeFilterCount > 0 || filters.dateRange) && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm text-muted-foreground">Active filters:</span>
+
+          {filters.dateRange?.from && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <span>
+                {format(filters.dateRange.from, "MMM d, yyyy")} -
+                {filters.dateRange.to ? format(filters.dateRange.to, " MMM d, yyyy") : " Present"}
+              </span>
+              <button onClick={clearDateRange} className="ml-1 rounded-full">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
           )}
 
-          {Object.keys(filters.filters).length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-xs"
-              onClick={() => onChange({ ...filters, filters: {} })}
-            >
-              Clear all
-            </Button>
+          {Object.entries(filters.filters).map(([filterId, values]) =>
+            values.map((value) => (
+              <Badge key={`${filterId}-${value}`} variant="secondary" className="flex items-center gap-1">
+                <span>{getFilterLabel(filterId, value)}</span>
+                <button onClick={() => handleFilterChange(filterId, value, false)} className="ml-1 rounded-full">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )),
           )}
         </div>
       )}

@@ -1,77 +1,47 @@
-"use client"
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertTriangle } from "lucide-react"
-import { useRouter } from "next/navigation"
 
-export function FallbackDashboard({ error }: { error?: Error }) {
-  const router = useRouter()
-
+export function FallbackDashboard() {
   return (
     <div className="space-y-6">
-      <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Dashboard Error</AlertTitle>
-        <AlertDescription>{error?.message || "There was an error loading the dashboard components."}</AlertDescription>
-      </Alert>
+      <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/10 dark:border-amber-900/50">
+        <CardHeader>
+          <CardTitle className="flex items-center text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-5 w-5 mr-2" />
+            Dashboard Error
+          </CardTitle>
+          <CardDescription className="text-amber-600 dark:text-amber-500">
+            We encountered an issue loading the dashboard
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-amber-700 dark:text-amber-400">
+            The dashboard is currently unavailable. This could be due to a temporary issue with the data service or
+            connectivity problems. Basic information is displayed below.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Patients</CardTitle>
+            <CardTitle className="text-sm font-medium">System Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Data unavailable</p>
+            <div className="text-amber-600 font-medium">Limited Functionality</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Appointments</CardTitle>
+            <CardTitle className="text-sm font-medium">Last Update</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Data unavailable</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Care Plans</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Data unavailable</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Data unavailable</p>
+            <div className="text-sm">
+              {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Dashboard Information</CardTitle>
-          <CardDescription>Fallback view due to component error</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p>
-            The dashboard is currently displaying a simplified view due to an error in the visualization components.
-          </p>
-          <p className="mt-2">Please try refreshing the page or contact support if the issue persists.</p>
-          {error && (
-            <div className="mt-4 p-4 bg-gray-100 rounded-md overflow-auto">
-              <p className="font-mono text-sm">{error.toString()}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }
