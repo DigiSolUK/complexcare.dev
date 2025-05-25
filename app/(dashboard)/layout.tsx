@@ -1,20 +1,18 @@
-import type { ReactNode } from "react"
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { TenantProvider } from "@/components/providers/tenant-provider"
+import type React from "react"
+import { Sidebar } from "@/components/sidebar"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 export default function DashboardLayout({
   children,
 }: {
-  children: ReactNode
+  children: React.ReactNode
 }) {
   return (
-    <TenantProvider>
-      <div className="flex min-h-screen flex-col">
-        <div className="flex flex-1">
-          <Sidebar className="hidden md:block" />
-          <main className="flex-1 p-6 pt-4">{children}</main>
-        </div>
-      </div>
-    </TenantProvider>
+    <div className="flex min-h-screen">
+      <Sidebar className="hidden w-64 md:block" />
+      <main className="flex-1 overflow-y-auto">
+        <ErrorBoundary level="section">{children}</ErrorBoundary>
+      </main>
+    </div>
   )
 }

@@ -58,8 +58,8 @@ class ErrorBoundaryClass extends React.Component<ErrorBoundaryProps, ErrorBounda
         url: window.location.href,
       }
 
-      // Get tenant ID from environment variables
-      const tenantId = process.env.DEFAULT_TENANT_ID || "ba367cfe-6de0-4180-9566-1002b75cf82c"
+      // Get tenant ID from environment variables or use a default
+      const tenantId = process.env.DEFAULT_TENANT_ID || "default"
 
       // Determine severity based on level prop
       const severity = this.props.level === "critical" ? "high" : this.props.level === "section" ? "medium" : "low"
@@ -81,7 +81,7 @@ class ErrorBoundaryClass extends React.Component<ErrorBoundaryProps, ErrorBounda
           level: this.props.level || "component",
           timestamp: new Date().toISOString(),
         }),
-      })
+      }).catch(console.error) // Catch fetch errors to prevent cascading failures
     } catch (loggingError) {
       console.error("Failed to log error to server:", loggingError)
     }
@@ -142,27 +142,23 @@ function CriticalErrorFallback({ error }: { error: Error | null }) {
         <CardHeader className="bg-red-50">
           <CardTitle className="flex items-center gap-2 text-red-700">
             <AlertTriangle className="h-5 w-5" />
-            Critical Error
+            Something went wrong!
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <Alert variant="destructive" className="mb-4">
-            <AlertTitle>Something went seriously wrong</AlertTitle>
-            <AlertDescription>{error?.message || "An unexpected error occurred"}</AlertDescription>
+            <AlertTitle>We apologize for the inconvenience</AlertTitle>
+            <AlertDescription>Please try again or contact support if the problem persists.</AlertDescription>
           </Alert>
-          <p className="text-sm text-muted-foreground mb-4">
-            The application has encountered a critical error. Our team has been notified and is working to resolve the
-            issue.
-          </p>
         </CardContent>
         <CardFooter className="flex flex-col gap-2">
           <Button onClick={() => window.location.reload()} className="w-full">
             <RefreshCw className="mr-2 h-4 w-4" />
-            Reload application
+            Try Again
           </Button>
           <Button variant="outline" onClick={() => router.push("/")} className="w-full">
             <Home className="mr-2 h-4 w-4" />
-            Return to home
+            Return Home
           </Button>
         </CardFooter>
       </Card>
@@ -182,7 +178,6 @@ function SectionErrorFallback({ error }: { error: Error | null }) {
       </CardHeader>
       <CardContent className="pt-6">
         <p className="text-sm text-muted-foreground mb-2">This section encountered an error and cannot be displayed.</p>
-        <p className="text-sm font-mono bg-gray-100 p-2 rounded">{error?.message || "Unknown error"}</p>
       </CardContent>
       <CardFooter>
         <Button onClick={() => window.location.reload()} size="sm">
@@ -204,11 +199,6 @@ function ComponentErrorFallback({ error }: { error: Error | null }) {
         <AlertTriangle className="h-4 w-4" />
         Component Error
       </div>
-      {isExpanded && (
-        <p className="text-xs font-mono bg-white mt-2 p-2 rounded border border-red-100">
-          {error?.message || "Unknown error"}
-        </p>
-      )}
       <div className="flex gap-2 mt-2">
         <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)} className="h-7 text-xs">
           {isExpanded ? "Hide details" : "Show details"}

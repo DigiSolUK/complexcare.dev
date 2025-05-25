@@ -88,6 +88,7 @@
     "next-themes": "latest",
     "nodemailer": "latest",
     "pg": "latest",
+    "pg-native": "latest",
     "postgres": "latest",
     "react": "^19",
     "react-big-calendar": "latest",

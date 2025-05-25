@@ -1,15 +1,53 @@
 import { neon } from "@neondatabase/serverless"
+import { Pool } from "pg"
 import { DEFAULT_TENANT_ID } from "./constants"
 
-// Create a SQL client using the Neon serverless driver
-export const sql = neon(process.env.DATABASE_URL!)
+// Use environment variables for database connection
+const connectionString = process.env.DATABASE_URL || ""
+
+// Create a connection pool for PostgreSQL
+export const pool = new Pool({
+  connectionString,
+  max: 10,
+  ssl: true,
+})
+
+// Create a neon client for serverless functions
+export const sql = neon(connectionString)
+
+// Simple query wrapper for the pool
+export const db = {
+  query: async (text: string, params: any[] = []) => {
+    try {
+      return await pool.query(text, params)
+    } catch (error) {
+      console.error("Database query error:", error)
+      throw error
+    }
+  },
+  // For transactions
+  getClient: async () => {
+    const client = await pool.connect()
+    return client
+  },
+}
+
+// For serverless functions
+export async function executeQuery(text: string, params: any[] = []) {
+  try {
+    return await sql(text, params)
+  } catch (error) {
+    console.error("Serverless database query error:", error)
+    throw error
+  }
+}
 
 // Helper function to get a connection with tenant context
 export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
   return {
     query: async (text: string, params: any[] = []) => {
       try {
-        const result = await sql.query(text, params)
+        const result = await sql(text, params)
         return result
       } catch (error) {
         console.error("Database query error:", error)
@@ -17,22 +55,6 @@ export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
       }
     },
   }
-}
-
-// Execute a query with parameters
-export async function executeQuery(text: string, params: any[] = []) {
-  try {
-    const result = await sql.query(text, params)
-    return result
-  } catch (error) {
-    console.error("Database query error:", error)
-    throw error
-  }
-}
-
-// Export db object for compatibility
-export const db = {
-  query: executeQuery,
 }
 
 // Generic function to get a record by ID
@@ -98,12 +120,12 @@ export async function remove(table: string, id: string, tenantId = DEFAULT_TENAN
 // Helper function to execute a transaction
 export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
   try {
-    await sql.query("BEGIN")
+    await sql("BEGIN")
     const result = await callback(sql)
-    await sql.query("COMMIT")
+    await sql("COMMIT")
     return result
   } catch (error) {
-    await sql.query("ROLLBACK")
+    await sql("ROLLBACK")
     console.error("Transaction error:", error)
     throw error
   }

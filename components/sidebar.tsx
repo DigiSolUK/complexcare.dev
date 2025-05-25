@@ -1,141 +1,140 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
 import {
-  LayoutDashboard,
   Users,
   Calendar,
-  ClipboardList,
   FileText,
-  Settings,
-  Shield,
-  BarChart,
-  Building2,
+  Clipboard,
+  Clock,
   CreditCard,
-  Brain,
+  Settings,
+  Home,
+  Menu,
+  X,
+  Shield,
+  Activity,
+  BookOpen,
+  Pill,
+  BarChart2,
 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { routes } from "@/lib/routes"
 
-// Super admin sidebar items
-const superAdminItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Tenants",
-    href: "/tenants",
-    icon: Building2,
-  },
-  {
-    title: "Billing",
-    href: "/billing",
-    icon: CreditCard,
-  },
-  {
-    title: "AI Tools",
-    href: "/ai-tools",
-    icon: Brain,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-]
+interface SidebarProps {
+  className?: string
+}
 
-// Tenant admin sidebar items
-const tenantAdminItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Patients",
-    href: "/patients",
-    icon: Users,
-  },
-  {
-    title: "Appointments",
-    href: "/appointments",
-    icon: Calendar,
-  },
-  {
-    title: "Tasks",
-    href: "/tasks",
-    icon: ClipboardList,
-  },
-  {
-    title: "Documents",
-    href: "/documents",
-    icon: FileText,
-  },
-  {
-    title: "Compliance",
-    href: "/compliance",
-    icon: Shield,
-  },
-  {
-    title: "Reports",
-    href: "/reports",
-    icon: BarChart,
-  },
-  {
-    title: "AI Tools",
-    href: "/ai-tools",
-    icon: Brain,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-]
-
-export function Sidebar() {
+export function Sidebar({ className }: SidebarProps) {
+  const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
 
-  // For this implementation, we'll assume the current user is a superadmin
-  // In a real implementation, you would check the user's role from the session
-  const isSuperAdmin = true
-  const sidebarNavItems = isSuperAdmin ? superAdminItems : tenantAdminItems
+  const toggleSidebar = () => {
+    setCollapsed(!collapsed)
+  }
+
+  const navItems = [
+    {
+      title: "Dashboard",
+      href: routes.dashboard,
+      icon: Home,
+    },
+    {
+      title: "Patients",
+      href: routes.patients.list,
+      icon: Users,
+    },
+    {
+      title: "Care Professionals",
+      href: routes.careProfessionals.list,
+      icon: Shield,
+    },
+    {
+      title: "Appointments",
+      href: routes.appointments,
+      icon: Calendar,
+    },
+    {
+      title: "Clinical Notes",
+      href: routes.clinicalNotes,
+      icon: FileText,
+    },
+    {
+      title: "Care Plans",
+      href: routes.carePlans,
+      icon: BookOpen,
+    },
+    {
+      title: "Medications",
+      href: "/medications",
+      icon: Pill,
+    },
+    {
+      title: "Tasks",
+      href: routes.tasks,
+      icon: Clipboard,
+    },
+    {
+      title: "Timesheets",
+      href: routes.timesheets,
+      icon: Clock,
+    },
+    {
+      title: "Invoicing",
+      href: routes.invoicing.list,
+      icon: CreditCard,
+    },
+    {
+      title: "Analytics",
+      href: "/analytics",
+      icon: BarChart2,
+    },
+    {
+      title: "Compliance",
+      href: "/compliance",
+      icon: Activity,
+    },
+    {
+      title: "Settings",
+      href: routes.settings.general,
+      icon: Settings,
+    },
+  ]
 
   return (
-    <div className="hidden border-r md:block">
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          {isSuperAdmin && (
-            <div className="mb-4 px-4">
-              <div className="rounded-md bg-primary/10 p-2 text-center">
-                <span className="text-xs font-semibold text-primary">SUPER ADMIN</span>
-              </div>
-            </div>
-          )}
-          <div className="space-y-1">
-            <h2 className="mb-2 px-4 text-xl font-semibold tracking-tight">Menu</h2>
-            <nav className="flex flex-col space-y-1">
-              {sidebarNavItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    pathname === item.href || (pathname?.startsWith(item.href) && item.href !== "/")
-                      ? "bg-accent text-accent-foreground"
-                      : "transparent",
-                  )}
-                >
-                  <item.icon className="mr-2 h-4 w-4" />
-                  <span>{item.title}</span>
-                </Link>
-              ))}
-            </nav>
-          </div>
-        </div>
+    <div className={cn("relative border-r bg-background", className)}>
+      <div className="flex h-16 items-center justify-between border-b px-4">
+        <Link href="/" className="flex items-center gap-2 font-semibold">
+          <span className={cn("text-lg font-bold", collapsed ? "hidden" : "block")}>ComplexCare CRM</span>
+        </Link>
+        <Button variant="ghost" size="icon" onClick={toggleSidebar}>
+          {collapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
+        </Button>
       </div>
+      <ScrollArea className="h-[calc(100vh-4rem)]">
+        <div className="flex flex-col gap-2 p-2">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname === item.href ? "bg-accent text-accent-foreground" : "transparent",
+                collapsed ? "justify-center" : "",
+              )}
+            >
+              <item.icon className="h-5 w-5" />
+              {!collapsed && <span>{item.title}</span>}
+            </Link>
+          ))}
+        </div>
+      </ScrollArea>
     </div>
   )
 }
+
+export default Sidebar
