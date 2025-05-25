@@ -1,6 +1,7 @@
-// lib/tenant-utils.ts
+import { cookies } from "next/headers"
 
-const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
+// Default tenant ID to use if none is found
+export const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || "default-tenant"
 
 /**
  * Get tenant ID from request headers or default
@@ -28,12 +29,20 @@ export function getTenantFromRequest(req: Request): { id: string } {
 }
 
 /**
- * Get current tenant object
+ * Get the current tenant ID from cookies or environment variables
  */
 export function getCurrentTenant(): string {
-  // In a real implementation, this would get the tenant from context or cookies
-  // For now, return the default tenant ID
-  return DEFAULT_TENANT_ID
+  try {
+    // Try to get tenant ID from cookies
+    const cookieStore = cookies()
+    const tenantId = cookieStore.get("tenantId")?.value
+
+    // Return the tenant ID from cookies if it exists, otherwise use the default
+    return tenantId || DEFAULT_TENANT_ID
+  } catch (error) {
+    // If there's an error (e.g., in a non-request context), return the default
+    return DEFAULT_TENANT_ID
+  }
 }
 
 /**
@@ -73,7 +82,9 @@ export function getTenantIdFromCookies(): string {
   try {
     // This would normally use cookies() from next/headers
     // For now, return the default tenant ID
-    return DEFAULT_TENANT_ID
+    const cookieStore = cookies()
+    const tenantId = cookieStore.get("tenantId")?.value
+    return tenantId || DEFAULT_TENANT_ID
   } catch (error) {
     console.error("Error getting tenant ID from cookies:", error)
     return DEFAULT_TENANT_ID
