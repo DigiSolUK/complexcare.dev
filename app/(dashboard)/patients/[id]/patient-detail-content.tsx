@@ -1,146 +1,110 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle } from "lucide-react"
-import { PatientDemographics } from "@/components/patients/patient-demographics"
-import { PatientMedicalHistory } from "@/components/patients/patient-medical-history"
-import { PatientAllergies } from "@/components/patients/patient-allergies"
-import { PatientDocuments } from "@/components/patients/patient-documents"
-import { PatientRiskAssessment } from "@/components/patients/patient-risk-assessment"
-import { PatientClinicalNotesSummary } from "@/components/patients/patient-clinical-notes-summary"
-import { PatientMedicationsSummary } from "@/components/patients/patient-medications-summary"
-import { PatientCarePlansSummary } from "@/components/patients/patient-care-plans-summary"
 import { PatientHeader } from "@/components/patients/patient-header"
-import type { Patient } from "@/types/patient"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { PatientDemographics } from "@/components/patients/patient-demographics"
+import { PatientMedicationsTable } from "@/components/patients/patient-medications-table"
+import { PatientAppointmentsTable } from "@/components/patients/patient-appointments-table"
+import { PatientDocumentsTable } from "@/components/patients/patient-documents-table"
+import { PatientCarePlansTable } from "@/components/patients/patient-care-plans-table"
+import { PatientActivityHistory } from "@/components/patients/patient-activity-history"
+import { EnhancedMedicalHistory } from "@/components/patients/enhanced-medical-history"
+import { toast } from "@/components/ui/use-toast"
 
-export function PatientDetailContent({ patientId }: { patientId: string }) {
-  const [patient, setPatient] = useState<Patient | null>(null)
+export default function PatientDetailContent() {
+  const params = useParams()
+  const patientId = params.id as string
+  const [patient, setPatient] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchPatient() {
+    const fetchPatient = async () => {
       try {
-        const response = await fetch(`/api/patients/${patientId}`)
-        if (!response.ok) {
-          throw new Error("Failed to fetch patient data")
+        // In a real implementation, this would fetch from an API
+        // For demo purposes, we'll use mock data
+        const mockPatient = {
+          id: patientId,
+          firstName: "John",
+          lastName: "Smith",
+          dateOfBirth: "1975-05-15",
+          gender: "Male",
+          nhsNumber: "1234567890",
+          address: "123 Main St, London, UK",
+          phone: "020 1234 5678",
+          email: "john.smith@example.com",
+          tenantId: "demo-tenant",
         }
-        const data = await response.json()
-        setPatient(data)
-      } catch (err) {
-        setError("Error loading patient data. Please try again.")
-        console.error(err)
+
+        setPatient(mockPatient)
+      } catch (error) {
+        console.error("Error fetching patient:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load patient details",
+          variant: "destructive",
+        })
       } finally {
         setLoading(false)
       }
     }
 
-    fetchPatient()
+    if (patientId) {
+      fetchPatient()
+    }
   }, [patientId])
 
-  if (loading) {
-    return <div>Loading patient information...</div>
-  }
-
-  if (error || !patient) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{error || "Patient not found. Please check the patient ID and try again."}</AlertDescription>
-      </Alert>
-    )
+  if (loading || !patient) {
+    return <div>Loading patient details...</div>
   }
 
   return (
     <div className="space-y-6">
       <PatientHeader patient={patient} />
 
-      <Tabs defaultValue="demographics" className="w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 w-full">
-          <TabsTrigger value="demographics">Demographics</TabsTrigger>
+      <Tabs defaultValue="overview">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="medical-history">Medical History</TabsTrigger>
-          <TabsTrigger value="allergies">Allergies</TabsTrigger>
           <TabsTrigger value="medications">Medications</TabsTrigger>
-          <TabsTrigger value="care-plans">Care Plans</TabsTrigger>
-          <TabsTrigger value="clinical-notes">Clinical Notes</TabsTrigger>
+          <TabsTrigger value="appointments">Appointments</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="risk">Risk Assessment</TabsTrigger>
+          <TabsTrigger value="care-plans">Care Plans</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
-        <div className="mt-6">
-          <TabsContent value="demographics">
-            <ErrorBoundary fallback={<ErrorCard title="Demographics" />}>
-              <PatientDemographics patient={patient} />
-            </ErrorBoundary>
-          </TabsContent>
+        <TabsContent value="overview">
+          <div className="grid gap-6 md:grid-cols-2">
+            <PatientDemographics patient={patient} />
+            {/* Other overview components */}
+          </div>
+        </TabsContent>
 
-          <TabsContent value="medical-history">
-            <ErrorBoundary fallback={<ErrorCard title="Medical History" />}>
-              <PatientMedicalHistory patientId={patient.id} />
-            </ErrorBoundary>
-          </TabsContent>
+        <TabsContent value="medical-history">
+          <EnhancedMedicalHistory patientId={patient.id} nhsNumber={patient.nhsNumber} tenantId={patient.tenantId} />
+        </TabsContent>
 
-          <TabsContent value="allergies">
-            <ErrorBoundary fallback={<ErrorCard title="Allergies" />}>
-              <PatientAllergies patientId={patient.id} />
-            </ErrorBoundary>
-          </TabsContent>
+        <TabsContent value="medications">
+          <PatientMedicationsTable patientId={patient.id} />
+        </TabsContent>
 
-          <TabsContent value="medications">
-            <ErrorBoundary fallback={<ErrorCard title="Medications" />}>
-              <PatientMedicationsSummary patientId={patient.id} />
-            </ErrorBoundary>
-          </TabsContent>
+        <TabsContent value="appointments">
+          <PatientAppointmentsTable patientId={patient.id} />
+        </TabsContent>
 
-          <TabsContent value="care-plans">
-            <ErrorBoundary fallback={<ErrorCard title="Care Plans" />}>
-              <PatientCarePlansSummary patientId={patient.id} />
-            </ErrorBoundary>
-          </TabsContent>
+        <TabsContent value="documents">
+          <PatientDocumentsTable patientId={patient.id} />
+        </TabsContent>
 
-          <TabsContent value="clinical-notes">
-            <ErrorBoundary fallback={<ErrorCard title="Clinical Notes" />}>
-              <PatientClinicalNotesSummary patientId={patient.id} />
-            </ErrorBoundary>
-          </TabsContent>
+        <TabsContent value="care-plans">
+          <PatientCarePlansTable patientId={patient.id} />
+        </TabsContent>
 
-          <TabsContent value="documents">
-            <ErrorBoundary fallback={<ErrorCard title="Documents" />}>
-              <PatientDocuments patientId={patient.id} />
-            </ErrorBoundary>
-          </TabsContent>
-
-          <TabsContent value="risk">
-            <ErrorBoundary fallback={<ErrorCard title="Risk Assessment" />}>
-              <PatientRiskAssessment patientId={patient.id} />
-            </ErrorBoundary>
-          </TabsContent>
-        </div>
+        <TabsContent value="activity">
+          <PatientActivityHistory patientId={patient.id} />
+        </TabsContent>
       </Tabs>
     </div>
-  )
-}
-
-function ErrorCard({ title }: { title: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            Failed to load {title.toLowerCase()} data. Please try refreshing the page.
-          </AlertDescription>
-        </Alert>
-      </CardContent>
-    </Card>
   )
 }
