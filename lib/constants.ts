@@ -1,7 +1,7 @@
-// Default tenant ID for the application
-export const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
+// Default tenant ID to use when none is selected
+export const DEFAULT_TENANT_ID = "tenant-1"
 
-// Application settings
+// Other application constants can be added here
 export const APP_NAME = "ComplexCare CRM"
 export const APP_VERSION = "1.0.0"
 

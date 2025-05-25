@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ResponsiveTenantSwitcher } from "@/components/tenant/responsive-tenant-switcher"
+import { TenantSwitcher } from "@/components/tenant/tenant-switcher"
 import { UserNav } from "@/components/user-nav"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
@@ -27,7 +27,7 @@ export function DashboardHeader({ toggleSidebar }: DashboardHeaderProps) {
           </Link>
         </div>
         <div className="flex items-center gap-4">
-          <ResponsiveTenantSwitcher />
+          <TenantSwitcher />
           <ModeToggle />
           <UserNav />
         </div>
