@@ -1,13 +1,10 @@
 "use client"
 
-import { CardFooter } from "@/components/ui/card"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { PageHeader } from "@/components/page-header"
 
 export default function DatabaseDiagnostics() {
   const [loading, setLoading] = useState(true)
@@ -71,32 +68,31 @@ export default function DatabaseDiagnostics() {
 
   return (
     <div className="container mx-auto py-10">
-      <PageHeader heading="Database Diagnostics" text="Check database connection and view table information" />
+      <h1 className="text-3xl font-bold mb-6">Database Diagnostics</h1>
 
-      <div className="grid gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card>
           <CardHeader>
             <CardTitle>Database Connection</CardTitle>
-            <CardDescription>Check if the application can connect to the database</CardDescription>
+            <CardDescription>Check database connection and schema</CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Click the button below to test the database connection.
-            </p>
+          <CardFooter>
             <Button onClick={fetchDiagnostics} disabled={loading}>
-              {loading ? "Loading..." : "Test Connection"}
+              {loading ? "Loading..." : "Check Database"}
             </Button>
-          </CardContent>
+          </CardFooter>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Database Tables</CardTitle>
-            <CardDescription>View information about database tables</CardDescription>
+            <CardTitle>Patient Diagnostics</CardTitle>
+            <CardDescription>Check patient table and data</CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">This feature is currently disabled in preview mode.</p>
-          </CardContent>
+          <CardFooter>
+            <Button onClick={fetchPatientDiagnostics} disabled={loading}>
+              {loading ? "Loading..." : "Check Patients"}
+            </Button>
+          </CardFooter>
         </Card>
       </div>
 

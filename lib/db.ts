@@ -35,26 +35,6 @@ export async function executeQuery(
   }
 }
 
-// Simple query wrapper
-export async function query(sql: string, params: any[] = []) {
-  try {
-    return await db.query(sql, params)
-  } catch (error) {
-    console.error("Database query error:", error)
-    throw error
-  }
-}
-
-// Simple transaction wrapper
-export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
-  try {
-    return await db.transaction(callback)
-  } catch (error) {
-    console.error("Database transaction error:", error)
-    throw error
-  }
-}
-
 // Helper function to get a connection with tenant context
 export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
   return {
@@ -67,6 +47,20 @@ export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
         throw error
       }
     },
+  }
+}
+
+// Helper function to execute a transaction
+export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
+  try {
+    await sql.query("BEGIN")
+    const result = await callback(sql)
+    await sql.query("COMMIT")
+    return result
+  } catch (error) {
+    await sql.query("ROLLBACK")
+    console.error("Transaction error:", error)
+    throw error
   }
 }
 

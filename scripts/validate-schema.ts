@@ -1,4 +1,3 @@
-// Simple schema validator without commander
 import { validateDatabaseSchema, generateFixSql } from "../lib/db/schema-validator"
 
 async function main() {
@@ -25,8 +24,8 @@ async function main() {
     }
   } catch (error) {
     console.error("Schema validation failed:", error)
+    process.exit(1)
   }
 }
 
-// Run if this file is executed directly
 main()

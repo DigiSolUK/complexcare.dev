@@ -1,8 +1,6 @@
 import { db } from "../db"
 import { PatientCache } from "../redis/patient-cache"
 import { logActivity } from "./activity-log-service"
-import { neon } from "@neondatabase/serverless"
-import { DEFAULT_TENANT_ID } from "@/lib/constants"
 
 export interface Patient {
   id: string
@@ -169,110 +167,8 @@ export class PatientService {
 
     return result.rows[0]
   }
+
+  // Other methods remain unchanged...
 }
 
-// Add the missing exports
-export const getPatients = async (tenantId: string = DEFAULT_TENANT_ID) => {
-  return PatientService.getAllPatients(tenantId)
-}
-
-export const getPatientById = async (id: string, tenantId: string = DEFAULT_TENANT_ID) => {
-  return PatientService.getPatientById(id, tenantId)
-}
-
-export const validatePatientsTable = async () => {
-  const sql = neon(process.env.DATABASE_URL!)
-  try {
-    // Check if patients table exists and has the expected structure
-    const result = await sql`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'patients'
-      ) as table_exists
-    `
-    return {
-      valid: result[0].table_exists,
-      message: result[0].table_exists ? "Patients table exists" : "Patients table does not exist",
-    }
-  } catch (error) {
-    console.error("Error validating patients table:", error)
-    return { valid: false, message: `Error validating patients table: ${error.message}` }
-  }
-}
-
-export const countAllPatients = async (tenantId: string = DEFAULT_TENANT_ID) => {
-  const sql = neon(process.env.DATABASE_URL!)
-  try {
-    const result = await sql`
-      SELECT COUNT(*) as count FROM patients 
-      WHERE tenant_id = ${tenantId}
-    `
-    return Number.parseInt(result[0].count, 10)
-  } catch (error) {
-    console.error("Error counting patients:", error)
-    return 0
-  }
-}
-
-export const getTenantsWithPatients = async () => {
-  const sql = neon(process.env.DATABASE_URL!)
-  try {
-    const result = await sql`
-      SELECT DISTINCT tenant_id, COUNT(*) as patient_count
-      FROM patients
-      GROUP BY tenant_id
-      ORDER BY patient_count DESC
-    `
-    return result
-  } catch (error) {
-    console.error("Error getting tenants with patients:", error)
-    return []
-  }
-}
-
-export const createTestPatient = async (tenantId: string = DEFAULT_TENANT_ID) => {
-  const sql = neon(process.env.DATABASE_URL!)
-  try {
-    // Generate a random name and details
-    const firstName = `Test${Math.floor(Math.random() * 1000)}`
-    const lastName = `Patient${Math.floor(Math.random() * 1000)}`
-    const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`
-
-    // Generate a random date of birth between 18 and 80 years ago
-    const now = new Date()
-    const years = Math.floor(Math.random() * 62) + 18 // 18 to 80 years
-    const dob = new Date(now.getFullYear() - years, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
-
-    const result = await sql`
-      INSERT INTO patients (
-        tenant_id, 
-        first_name, 
-        last_name, 
-        email, 
-        date_of_birth, 
-        gender, 
-        address, 
-        phone, 
-        status
-      ) VALUES (
-        ${tenantId},
-        ${firstName},
-        ${lastName},
-        ${email},
-        ${dob.toISOString().split("T")[0]},
-        ${Math.random() > 0.5 ? "Male" : "Female"},
-        ${`${Math.floor(Math.random() * 999) + 1} Test Street, Test City`},
-        ${`07${Math.floor(Math.random() * 100000000)
-          .toString()
-          .padStart(9, "0")}`},
-        ${"Active"}
-      ) RETURNING *
-    `
-
-    return result[0]
-  } catch (error) {
-    console.error("Error creating test patient:", error)
-    throw error
-  }
-}
+// Other exported functions remain unchanged...

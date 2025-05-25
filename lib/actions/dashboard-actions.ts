@@ -248,14 +248,8 @@ export async function getDashboardData(): Promise<DashboardData> {
         CONCAT(p.first_name, ' ', p.last_name) as patient_name,
         p.id as patient_id,
         a.appointment_date as date_time,
-        COALESCE(
-          (SELECT a.duration WHERE EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_name = 'appointments' AND column_name = 'duration'
-          )),
-          30
-        ) as duration,
-        a.type,
+        COALESCE(a.duration, 30) as duration,
+        a.appointment_type as type,
         a.status
       FROM appointments a
       JOIN patients p ON a.patient_id = p.id
@@ -272,7 +266,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       patientName: appointment.patient_name,
       patientId: appointment.patient_id,
       dateTime: new Date(appointment.date_time).toISOString(),
-      duration: appointment.duration ? Number.parseInt(appointment.duration) : 30, // Default to 30 minutes if NULL
+      duration: Number.parseInt(appointment.duration || "30"),
       type: appointment.type,
       status: appointment.status,
     }))
@@ -327,10 +321,10 @@ export async function getDashboardData(): Promise<DashboardData> {
         const recentActivityResult = await sql`
           SELECT 
             a.id,
-            a.activity_type as type,
+            a.activity_type,
             a.description,
             a.created_at as timestamp,
-            CONCAT(u.first_name, ' ', u.last_name) as user
+            CONCAT(u.first_name, ' ', u.last_name) as user_name
           FROM activity_logs a
           LEFT JOIN users u ON a.user_id = u.id
           WHERE a.tenant_id = ${tenantId}
@@ -340,10 +334,10 @@ export async function getDashboardData(): Promise<DashboardData> {
 
         recentActivity = recentActivityResult.map((activity) => ({
           id: activity.id,
-          type: activity.type,
+          type: activity.activity_type,
           description: activity.description,
           timestamp: new Date(activity.timestamp).toISOString(),
-          user: activity.user,
+          user: activity.user_name || "Unknown User",
         }))
       }
     } catch (error) {

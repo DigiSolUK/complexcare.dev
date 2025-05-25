@@ -1,8 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { redirect } from "next/navigation"
-import { getSession } from "next-auth/react"
 
 // Server-side function to get current user
 export async function getCurrentUser() {
@@ -77,21 +75,4 @@ export const authorizeRequest = async (request: any, requiredRole: string) => {
     console.error("Error during authorization:", error)
     return { success: false, message: "Authorization failed" }
   }
-}
-
-// Add the missing export
-export const requireAdmin = async (context: any) => {
-  const session = await getSession(context)
-
-  if (!session) {
-    return redirect("/login?callbackUrl=" + encodeURIComponent(context.resolvedUrl || "/"))
-  }
-
-  const user = session.user
-
-  if (!user || user.role !== "admin") {
-    return redirect("/unauthorized")
-  }
-
-  return user
 }

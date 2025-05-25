@@ -69,8 +69,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
-    "commander": "latest",
-    "crypto": "latest",
     "date-fns": "latest",
     "dotenv": "latest",
     "drizzle-orm": "latest",
