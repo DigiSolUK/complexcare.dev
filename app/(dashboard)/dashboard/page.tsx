@@ -1,35 +1,35 @@
 import { Suspense } from "react"
-import { PageHeader } from "@/components/page-header"
-import { Skeleton } from "@/components/ui/skeleton"
-import { SectionErrorBoundary } from "@/components/error-boundaries"
-import DashboardClientPage from "./DashboardClientPage"
+import { DashboardClientPage } from "./DashboardClientPage"
+import { PageErrorBoundary } from "@/components/error-boundaries"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export const metadata = {
   title: "Dashboard | ComplexCare CRM",
-  description: "Overview of key metrics and performance indicators",
+  description: "View your key metrics and performance indicators",
 }
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
-      <PageHeader heading="Dashboard" subheading="Overview of key metrics and performance indicators" />
-
-      <SectionErrorBoundary>
+    <PageErrorBoundary>
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <Suspense
           fallback={
-            <div className="space-y-6">
-              <Skeleton className="h-[400px] w-full" />
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[...Array(4)].map((_, i) => (
-                  <Skeleton key={i} className="h-[120px]" />
-                ))}
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Loading dashboard data...</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[400px] flex items-center justify-center">
+                  <div className="animate-pulse text-muted-foreground">Loading metrics and charts...</div>
+                </div>
+              </CardContent>
+            </Card>
           }
         >
           <DashboardClientPage />
         </Suspense>
-      </SectionErrorBoundary>
-    </div>
+      </div>
+    </PageErrorBoundary>
   )
 }

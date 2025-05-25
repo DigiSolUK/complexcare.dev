@@ -1,10 +1,10 @@
 "use client"
 
 import type React from "react"
-import { AlertTriangle, RefreshCw } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ErrorBoundary } from "../error-boundary"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { AlertTriangle, RefreshCw } from "lucide-react"
 
 interface SectionErrorFallbackProps {
   error: Error
@@ -13,28 +13,17 @@ interface SectionErrorFallbackProps {
 
 function SectionErrorFallback({ error, resetError }: SectionErrorFallbackProps) {
   return (
-    <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/10 dark:border-amber-900/50">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center text-amber-700 dark:text-amber-400 text-base">
-          <AlertTriangle className="h-4 w-4 mr-2" />
-          Section Error
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">
-          {error.message || "An error occurred in this section"}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={resetError}
-          className="flex items-center text-amber-700 border-amber-300 hover:bg-amber-100 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/20"
-        >
-          <RefreshCw className="h-3 w-3 mr-2" />
+    <Alert variant="destructive" className="my-4">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertTitle>Section Error</AlertTitle>
+      <AlertDescription className="flex flex-col gap-2">
+        <p>{error.message || "An error occurred in this section"}</p>
+        <Button onClick={resetError} size="sm" variant="outline" className="w-fit gap-2">
+          <RefreshCw className="h-4 w-4" />
           Retry
         </Button>
-      </CardContent>
-    </Card>
+      </AlertDescription>
+    </Alert>
   )
 }
 
