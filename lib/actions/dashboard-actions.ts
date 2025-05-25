@@ -248,8 +248,8 @@ export async function getDashboardData(): Promise<DashboardData> {
         CONCAT(p.first_name, ' ', p.last_name) as patient_name,
         p.id as patient_id,
         a.appointment_date as date_time,
-        COALESCE(a.duration, 30) as duration,
-        a.appointment_type as type,
+        a.duration,
+        a.type,
         a.status
       FROM appointments a
       JOIN patients p ON a.patient_id = p.id
@@ -266,7 +266,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       patientName: appointment.patient_name,
       patientId: appointment.patient_id,
       dateTime: new Date(appointment.date_time).toISOString(),
-      duration: Number.parseInt(appointment.duration || "30"),
+      duration: Number.parseInt(appointment.duration),
       type: appointment.type,
       status: appointment.status,
     }))
@@ -318,27 +318,45 @@ export async function getDashboardData(): Promise<DashboardData> {
       const tableExists = tableCheckResult[0]?.table_exists === true
 
       if (tableExists) {
-        const recentActivityResult = await sql`
-          SELECT 
-            a.id,
-            a.activity_type,
-            a.description,
-            a.created_at as timestamp,
-            CONCAT(u.first_name, ' ', u.last_name) as user_name
-          FROM activity_logs a
-          LEFT JOIN users u ON a.user_id = u.id
-          WHERE a.tenant_id = ${tenantId}
-          ORDER BY a.created_at DESC
-          LIMIT 10
+        // Check which columns exist in the activity_logs table
+        const columnsCheckResult = await sql`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_schema = 'public' 
+          AND table_name = 'activity_logs';
         `
 
-        recentActivity = recentActivityResult.map((activity) => ({
-          id: activity.id,
-          type: activity.activity_type,
-          description: activity.description,
-          timestamp: new Date(activity.timestamp).toISOString(),
-          user: activity.user_name || "Unknown User",
-        }))
+        const columns = columnsCheckResult.map((col) => col.column_name)
+        const hasActivityType = columns.includes("activity_type")
+
+        // Adjust query based on available columns
+        if (hasActivityType) {
+          const recentActivityResult = await sql`
+            SELECT 
+              a.id,
+              a.activity_type,
+              a.description,
+              a.created_at,
+              CONCAT(u.first_name, ' ', u.last_name) as user_name
+            FROM activity_logs a
+            LEFT JOIN users u ON a.user_id = u.id
+            WHERE a.tenant_id = ${tenantId}
+            ORDER BY a.created_at DESC
+            LIMIT 10
+          `
+
+          recentActivity = recentActivityResult.map((activity) => ({
+            id: activity.id,
+            type: activity.activity_type,
+            description: activity.description,
+            timestamp: new Date(activity.created_at).toISOString(),
+            user: activity.user_name || "Unknown User",
+          }))
+        } else {
+          // Fallback if activity_type column doesn't exist
+          console.log("activity_type column not found in activity_logs table")
+          recentActivity = []
+        }
       }
     } catch (error) {
       console.error("Error checking for activity_logs table:", error)
