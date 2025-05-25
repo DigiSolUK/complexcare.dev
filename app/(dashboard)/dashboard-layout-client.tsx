@@ -1,35 +1,28 @@
 "use client"
 
 import type React from "react"
+import { useState } from "react"
+import { Sidebar } from "@/components/dashboard/sidebar"
+import { Header } from "@/components/dashboard/header"
 
-import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
-import { Sidebar as DashboardSidebar } from "@/components/dashboard/sidebar"
-import { MobileSidebar } from "@/components/dashboard/mobile-sidebar"
+export function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
-interface DashboardLayoutClientProps {
-  children: React.ReactNode
-}
-
-export const DashboardLayoutClient: React.FC<DashboardLayoutClientProps> = ({ children }) => {
-  const pathname = usePathname()
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  if (!isMounted) {
-    return null
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen)
   }
 
   return (
     <>
-      <MobileSidebar />
-      <div className="hidden md:flex h-full w-56 flex-col fixed inset-y-0 z-[80] bg-gray-900">
-        <DashboardSidebar />
+      <Header toggleSidebar={toggleSidebar} />
+      <div className="flex flex-1">
+        <div className={`${sidebarOpen ? "w-64" : "w-0 -ml-64"} transition-all duration-300 md:ml-0 md:w-64`}>
+          <Sidebar />
+        </div>
+        <main className="flex-1 overflow-y-auto bg-muted/20">
+          <div className="container mx-auto p-6">{children}</div>
+        </main>
       </div>
-      <main className="md:pl-56 pt-16 h-full">{children}</main>
     </>
   )
 }
