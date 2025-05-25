@@ -12,11 +12,11 @@ export const sql = neon(DATABASE_URL!)
 export const db = sql
 
 // Helper function to execute queries with tenant context
-export async function executeQuery(
+export async function executeQuery<T = any>(
   query: string,
   params: any[] = [],
   tenantId: string = DEFAULT_TENANT_ID,
-): Promise<any[]> {
+): Promise<T[]> {
   try {
     const result = await sql.query(query, params)
     return result.rows || []
@@ -186,5 +186,5 @@ export function buildWhereClause(
   }
 }
 
-// Re-export everything from db-connection.ts
-export * from "./db-manager"
+// Export additional database utilities
+export * from "./db/index"

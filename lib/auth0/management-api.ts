@@ -1,21 +1,29 @@
-import { ManagementClient } from "auth0-js"
+import { ManagementClient } from "auth0"
 
-// Initialize the Auth0 Management API client
-const getManagementClient = () => {
-  const domain = process.env.AUTH0_ISSUER_BASE_URL?.replace("https://", "") || ""
-  const clientId = process.env.AUTH0_CLIENT_ID || ""
-  const clientSecret = process.env.AUTH0_CLIENT_SECRET || ""
+// Cache the management client instance
+let managementClient: ManagementClient | null = null
 
-  if (!domain || !clientId || !clientSecret) {
-    throw new Error("Auth0 configuration is missing. Please check your environment variables.")
+export default function getManagementClient(): ManagementClient {
+  if (managementClient) {
+    return managementClient
   }
 
-  return new ManagementClient({
+  // Check for required environment variables
+  const domain = process.env.AUTH0_ISSUER_BASE_URL?.replace(/^https?:\/\//, "") || ""
+  const clientId = process.env.AUTH0_CLIENT_ID
+  const clientSecret = process.env.AUTH0_CLIENT_SECRET
+
+  if (!domain || !clientId || !clientSecret) {
+    throw new Error("Missing required Auth0 environment variables")
+  }
+
+  // Create a new management client
+  managementClient = new ManagementClient({
     domain,
     clientId,
     clientSecret,
-    scope: "read:users update:users delete:users create:users read:user_idp_tokens read:logs",
+    scope: "read:users update:users delete:users create:users read:roles create:roles",
   })
-}
 
-export default getManagementClient
+  return managementClient
+}
