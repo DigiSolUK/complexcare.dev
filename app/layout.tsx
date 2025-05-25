@@ -5,6 +5,7 @@ import "./globals.css"
 import { GlobalErrorHandler } from "@/components/global-error-handler"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ErrorTrackingProvider } from "@/components/error-tracking-provider"
+import { Providers } from "./providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -25,7 +26,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <ErrorTrackingProvider>
             <GlobalErrorHandler />
-            {children}
+            <Providers>{children}</Providers>
           </ErrorTrackingProvider>
         </ThemeProvider>
       </body>

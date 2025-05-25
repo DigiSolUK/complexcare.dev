@@ -43,7 +43,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   )
 }
 
-// Create a hook for using the tenant context
+// Export both useTenant and useTenantContext for backward compatibility
 export function useTenant() {
   const context = useContext(TenantContext)
 
@@ -53,3 +53,6 @@ export function useTenant() {
 
   return context
 }
+
+// Add this alias for backward compatibility
+export const useTenantContext = useTenant

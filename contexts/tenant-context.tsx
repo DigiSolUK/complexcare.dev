@@ -1,10 +1,12 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { DEFAULT_TENANT_ID, getCurrentTenantId } from "@/lib/tenant"
 import type { Tenant } from "@/types"
 
 interface TenantContextType {
+  tenantId: string
+  setTenantId: (id: string) => void
   currentTenant: Tenant | null
   tenants: Tenant[]
   isLoading: boolean
@@ -14,6 +16,8 @@ interface TenantContextType {
 }
 
 const TenantContext = createContext<TenantContextType>({
+  tenantId: DEFAULT_TENANT_ID,
+  setTenantId: () => {},
   currentTenant: null,
   tenants: [],
   isLoading: true,
@@ -22,13 +26,18 @@ const TenantContext = createContext<TenantContextType>({
   refreshTenants: async () => {},
 })
 
-export const useTenant = () => useContext(TenantContext)
-
-export function TenantProvider({ children }: { children: React.ReactNode }) {
+export function TenantProvider({ children }: { children: ReactNode }) {
+  const [tenantId, setTenantIdState] = useState<string>(DEFAULT_TENANT_ID)
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null)
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Function to validate and set tenant ID
+  const setTenantId = (id: string) => {
+    const validTenantId = getCurrentTenantId(id)
+    setTenantIdState(validTenantId)
+  }
 
   const fetchTenants = async () => {
     try {
@@ -51,9 +60,11 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       if (primaryResponse.ok) {
         const primaryTenant = await primaryResponse.json()
         setCurrentTenant(primaryTenant)
+        setTenantIdState(primaryTenant.id)
       } else if (tenantsData.length > 0) {
         // If no primary tenant is set but user has tenants, use the first one
         setCurrentTenant(tenantsData[0])
+        setTenantIdState(tenantsData[0].id)
       }
     } catch (err) {
       console.error("Error fetching tenants:", err)
@@ -63,13 +74,13 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const switchTenant = async (tenantId: string) => {
+  const switchTenant = async (newTenantId: string) => {
     try {
       setIsLoading(true)
       setError(null)
 
       // Find the tenant in the list
-      const tenant = tenants.find((t) => t.id === tenantId)
+      const tenant = tenants.find((t) => t.id === newTenantId)
 
       if (!tenant) {
         throw new Error("Tenant not found")
@@ -81,7 +92,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ tenantId }),
+        body: JSON.stringify({ tenantId: newTenantId }),
       })
 
       if (!response.ok) {
@@ -89,6 +100,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       }
 
       setCurrentTenant(tenant)
+      setTenantIdState(newTenantId)
 
       // Reload the page to refresh data for the new tenant
       window.location.reload()
@@ -108,9 +120,16 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     fetchTenants()
   }, [])
 
+  // Log tenant ID changes for debugging
+  useEffect(() => {
+    console.log("Tenant ID set to:", tenantId)
+  }, [tenantId])
+
   return (
     <TenantContext.Provider
       value={{
+        tenantId,
+        setTenantId,
         currentTenant,
         tenants,
         isLoading,
@@ -124,5 +143,15 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-// At the end of the file, add this export for backward compatibility
+// Export both names for compatibility
+export function useTenant() {
+  const context = useContext(TenantContext)
+
+  if (!context) {
+    throw new Error("useTenant must be used within a TenantProvider")
+  }
+
+  return context
+}
+
 export const useTenantContext = useTenant
