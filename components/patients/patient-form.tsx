@@ -16,6 +16,7 @@ import { format } from "date-fns"
 import { CalendarIcon, Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createPatient, updatePatient } from "@/lib/actions/patient-actions"
+import { useErrorTracking } from "@/lib/error-tracking"
 
 // Define the schema for patient form validation
 const patientFormSchema = z.object({
@@ -48,6 +49,7 @@ interface PatientFormProps {
 
 export function PatientForm({ initialData, onSuccess, isEdit = false, patientId }: PatientFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { trackError } = useErrorTracking()
 
   // Set default values for the form
   const defaultValues: Partial<PatientFormValues> = {
@@ -89,6 +91,21 @@ export function PatientForm({ initialData, onSuccess, isEdit = false, patientId 
         throw new Error(result.error || "An error occurred")
       }
     } catch (error: any) {
+      // Track the error with detailed context
+      trackError(error, {
+        component: "PatientForm",
+        action: isEdit ? "updatePatient" : "createPatient",
+        patientId: patientId,
+        formData: {
+          firstName: data.first_name,
+          lastName: data.last_name,
+          hasEmail: !!data.email,
+          hasNhsNumber: !!data.nhs_number,
+        },
+        severity: "high",
+        category: "database",
+      })
+
       toast({
         variant: "destructive",
         title: "Error",

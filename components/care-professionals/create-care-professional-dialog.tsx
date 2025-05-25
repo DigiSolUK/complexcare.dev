@@ -21,6 +21,8 @@ import { Switch } from "@/components/ui/switch"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import type { CareProfessional } from "@/types"
+import { useErrorTracking } from "@/lib/error-tracking"
+import { toast } from "@/components/ui/use-toast"
 
 const formSchema = z.object({
   first_name: z.string().min(2, "First name must be at least 2 characters"),
@@ -48,6 +50,7 @@ interface CreateCareProfessionalDialogProps {
 export function CreateCareProfessionalDialog({ open, onOpenChange, onSuccess }: CreateCareProfessionalDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { trackError } = useErrorTracking()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -87,6 +90,11 @@ export function CreateCareProfessionalDialog({ open, onOpenChange, onSuccess }: 
 
       const newProfessional = await response.json()
 
+      toast({
+        title: "Success",
+        description: "Care professional created successfully.",
+      })
+
       if (onSuccess) {
         onSuccess(newProfessional)
       }
@@ -95,7 +103,26 @@ export function CreateCareProfessionalDialog({ open, onOpenChange, onSuccess }: 
       onOpenChange(false)
     } catch (err) {
       console.error("Error creating care professional:", err)
-      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred"
+      setError(errorMessage)
+
+      trackError(err as Error, {
+        component: "CreateCareProfessionalDialog",
+        action: "createCareProfessional",
+        severity: "high",
+        category: "database",
+        metadata: {
+          email: values.email,
+          role: values.role,
+          hasLicenseNumber: !!values.license_number,
+        },
+      })
+
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: errorMessage,
+      })
     } finally {
       setIsSubmitting(false)
     }
