@@ -1,16 +1,12 @@
 import type React from "react"
-import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { GlobalErrorHandler } from "@/components/global-error-handler"
-import { ThemeProvider } from "@/components/theme-provider"
-import { ErrorTrackingProvider } from "@/components/error-tracking-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "ComplexCare CRM",
-  description: "A comprehensive CRM for complex care management in the UK",
+  description: "A comprehensive care management system for complex care providers",
     generator: 'v0.dev'
 }
 
@@ -20,15 +16,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <ErrorTrackingProvider>
-            <GlobalErrorHandler />
-            {children}
-          </ErrorTrackingProvider>
-        </ThemeProvider>
-      </body>
+    <html lang="en">
+      <body className={inter.className}>{children}</body>
     </html>
   )
 }

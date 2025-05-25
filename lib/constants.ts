@@ -1,5 +1,5 @@
 // Default tenant ID for the application
-export const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
+export const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || "default"
 
 // Application settings
 export const APP_NAME = "ComplexCare CRM"

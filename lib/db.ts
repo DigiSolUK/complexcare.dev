@@ -1,31 +1,19 @@
 import { neon } from "@neondatabase/serverless"
 import { DEFAULT_TENANT_ID } from "./constants"
 
-// Create a database client
-export const db = neon(process.env.DATABASE_URL || "")
-
-// Simple query wrapper
-export async function query(sql: string, params: any[] = []) {
-  try {
-    return await db.query(sql, params)
-  } catch (error) {
-    console.error("Database query error:", error)
-    throw error
-  }
-}
-
-// Simple transaction wrapper
-export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
-  try {
-    return await db.transaction(callback)
-  } catch (error) {
-    console.error("Database transaction error:", error)
-    throw error
-  }
-}
+// Create a SQL client using the Neon serverless driver
+export const sql = process.env.DATABASE_URL
+  ? neon(process.env.DATABASE_URL)
+  : {
+      // Provide a mock implementation when DATABASE_URL is not available
+      query: async () => {
+        console.warn("No DATABASE_URL provided, mock SQL client being used")
+        return { rows: [] }
+      },
+    }
 
 // Legacy alias for compatibility
-export const sql = db
+export const db = sql
 
 // Helper function to execute queries with tenant context
 export async function executeQuery(
@@ -43,6 +31,26 @@ export async function executeQuery(
     return result.rows || []
   } catch (error) {
     console.error("Database query error:", error)
+    throw error
+  }
+}
+
+// Simple query wrapper
+export async function query(sql: string, params: any[] = []) {
+  try {
+    return await db.query(sql, params)
+  } catch (error) {
+    console.error("Database query error:", error)
+    throw error
+  }
+}
+
+// Simple transaction wrapper
+export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
+  try {
+    return await db.transaction(callback)
+  } catch (error) {
+    console.error("Database transaction error:", error)
     throw error
   }
 }
