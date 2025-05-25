@@ -1,75 +1,137 @@
-import { NextResponse } from "next/server"
-import { sql } from "@/lib/db"
-import { DEFAULT_TENANT_ID } from "@/lib/constants"
+import { type NextRequest, NextResponse } from "next/server"
+import { neon } from "@neondatabase/serverless"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { getTenantId } from "@/lib/tenant-utils"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+const sql = neon(process.env.DATABASE_URL!)
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tenantId = await getTenantId()
     const patientId = params.id
 
-    // Get documents from the database
-    const result = await sql`
+    // Get documents for the patient
+    const documents = await sql`
       SELECT 
-        d.*,
-        CONCAT(u.first_name, ' ', u.last_name) as uploaded_by_name
-      FROM patient_documents d
-      LEFT JOIN users u ON d.uploaded_by = u.id
-      WHERE d.patient_id = ${patientId}
-      AND d.tenant_id = ${DEFAULT_TENANT_ID}
-      ORDER BY d.created_at DESC
+        id, 
+        document_name, 
+        document_type, 
+        file_path, 
+        file_size, 
+        mime_type, 
+        upload_date, 
+        description, 
+        is_confidential,
+        created_at,
+        updated_at
+      FROM patient_documents
+      WHERE patient_id = ${Number.parseInt(patientId)}
+      AND tenant_id = ${tenantId}
+      ORDER BY upload_date DESC
     `
 
-    return NextResponse.json(result)
+    return NextResponse.json(documents)
   } catch (error) {
     console.error("Error fetching patient documents:", error)
     return NextResponse.json({ error: "Failed to fetch patient documents" }, { status: 500 })
   }
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const patientId = params.id
-    const data = await request.json()
-
-    // Validate required fields
-    if (!data.title || !data.file_name || !data.file_type || !data.category) {
-      return NextResponse.json(
-        { error: "Missing required fields: title, file_name, file_type, category" },
-        { status: 400 },
-      )
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Insert into database
+    const tenantId = await getTenantId()
+    const patientId = params.id
+    const data = await request.json()
+    const userId = session.user.id
+
+    // Validate required fields
+    if (!data.document_name || !data.document_type || !data.file_path) {
+      return NextResponse.json({ error: "Document name, type, and file path are required" }, { status: 400 })
+    }
+
+    // Insert new document record
     const result = await sql`
       INSERT INTO patient_documents (
+        patient_id, 
+        document_name, 
+        document_type, 
+        file_path, 
+        file_size, 
+        mime_type, 
+        description, 
+        is_confidential,
         tenant_id,
-        patient_id,
-        title,
-        file_name,
-        file_type,
-        file_size,
-        category,
-        description,
-        uploaded_by,
-        created_at,
-        updated_at
+        created_by,
+        updated_by
       ) VALUES (
-        ${DEFAULT_TENANT_ID},
-        ${patientId},
-        ${data.title},
-        ${data.file_name},
-        ${data.file_type},
-        ${data.file_size},
-        ${data.category},
-        ${data.description || null},
-        ${data.uploaded_by},
-        NOW(),
-        NOW()
-      ) RETURNING *
+        ${Number.parseInt(patientId)}, 
+        ${data.document_name}, 
+        ${data.document_type}, 
+        ${data.file_path}, 
+        ${data.file_size || null}, 
+        ${data.mime_type || null}, 
+        ${data.description || null}, 
+        ${data.is_confidential || false},
+        ${tenantId},
+        ${userId},
+        ${userId}
+      )
+      RETURNING id
     `
 
-    return NextResponse.json(result[0], { status: 201 })
+    return NextResponse.json(
+      {
+        id: result[0].id,
+        message: "Document record created successfully",
+      },
+      { status: 201 },
+    )
   } catch (error) {
     console.error("Error creating patient document:", error)
     return NextResponse.json({ error: "Failed to create patient document" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tenantId = await getTenantId()
+    const patientId = params.id
+    const url = new URL(request.url)
+    const recordId = url.searchParams.get("recordId")
+
+    if (!recordId) {
+      return NextResponse.json({ error: "Document record ID is required" }, { status: 400 })
+    }
+
+    // Delete document record
+    await sql`
+      DELETE FROM patient_documents
+      WHERE id = ${Number.parseInt(recordId)}
+      AND patient_id = ${Number.parseInt(patientId)}
+      AND tenant_id = ${tenantId}
+    `
+
+    return NextResponse.json({
+      message: "Document record deleted successfully",
+    })
+  } catch (error) {
+    console.error("Error deleting patient document:", error)
+    return NextResponse.json({ error: "Failed to delete patient document" }, { status: 500 })
   }
 }
