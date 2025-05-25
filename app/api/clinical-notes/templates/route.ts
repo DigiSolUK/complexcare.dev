@@ -1,63 +1,50 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getClinicalNoteTemplates, createClinicalNoteTemplate } from "@/lib/services/clinical-notes-service"
-import { DEFAULT_TENANT_ID } from "@/lib/constants"
+import clinicalNotesService from "@/lib/services/clinical-notes-service"
+import { getCurrentTenant } from "@/lib/tenant-utils"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "@/lib/auth-config"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const searchParams = request.nextUrl.searchParams
-    const tenantId = searchParams.get("tenantId") || DEFAULT_TENANT_ID
-    const categoryId = searchParams.get("categoryId")
+    const tenant = await getCurrentTenant()
+    if (!tenant) {
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+    }
 
-    const templates = await getClinicalNoteTemplates(tenantId)
+    const templates = await clinicalNotesService.getTemplates(tenant.id)
 
-    // Filter by category if specified
-    const filteredTemplates = categoryId
-      ? templates.filter((template) => template.category_id === categoryId)
-      : templates
-
-    return NextResponse.json(filteredTemplates)
+    return NextResponse.json(templates)
   } catch (error) {
-    console.error("Error in GET /api/clinical-notes/templates:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.error("Error fetching clinical note templates:", error)
+    return NextResponse.json({ error: "Failed to fetch clinical note templates" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const tenant = await getCurrentTenant()
+    if (!tenant) {
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+    }
+
     const data = await request.json()
-    const tenantId = data.tenant_id || DEFAULT_TENANT_ID
+    const userId = session.user.id
 
-    // Validate required fields
-    if (!data.name || !data.content) {
-      return NextResponse.json({ error: "Template name and content are required" }, { status: 400 })
-    }
-
-    // Set created_by from session if not provided
-    if (!data.created_by) {
-      data.created_by = session.user?.id || session.user?.email
-    }
-
-    const template = await createClinicalNoteTemplate(data, tenantId)
-
-    if (!template) {
-      return NextResponse.json({ error: "Failed to create template" }, { status: 500 })
-    }
+    const template = await clinicalNotesService.createTemplate(tenant.id, userId, data)
 
     return NextResponse.json(template, { status: 201 })
   } catch (error) {
-    console.error("Error in POST /api/clinical-notes/templates:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.error("Error creating clinical note template:", error)
+    return NextResponse.json({ error: "Failed to create clinical note template" }, { status: 500 })
   }
 }

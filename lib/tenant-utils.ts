@@ -30,25 +30,10 @@ export function getTenantFromRequest(req: Request): { id: string } {
 /**
  * Get current tenant object
  */
-export function getCurrentTenant(): string {
+export function getCurrentTenant(): { id: string } {
   // In a real implementation, this would get the tenant from context or cookies
   // For now, return the default tenant ID
-  return DEFAULT_TENANT_ID
-}
-
-/**
- * Safely extract tenant ID from tenant object or string
- */
-export function extractTenantId(tenant: any): string {
-  if (!tenant) return DEFAULT_TENANT_ID
-
-  if (typeof tenant === "string") return tenant
-
-  if (typeof tenant === "object" && tenant !== null && "id" in tenant) {
-    return tenant.id
-  }
-
-  return DEFAULT_TENANT_ID
+  return { id: DEFAULT_TENANT_ID }
 }
 
 /**

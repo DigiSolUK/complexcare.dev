@@ -1,25 +1,37 @@
-export type AppointmentStatus = "scheduled" | "confirmed" | "completed" | "cancelled" | "no-show"
-
 export interface Appointment {
   id: string
+  tenant_id: string
   patient_id: string
-  patient_name?: string
   provider_id: string
-  provider_name?: string
   title: string
   start_time: string
   end_time: string
-  status: string
-  type: string
+  status: AppointmentStatus
+  type: AppointmentType
   notes?: string
   location?: string
-  is_recurring?: boolean
-  recurrence_pattern?: string
-  recurrence_end_date?: string
   created_at: string
   updated_at: string
-  tenant_id: string
+  deleted_at?: string
+  patient_name?: string
+  provider_name?: string
+  is_recurring?: boolean
+  recurrence_pattern?: RecurrencePattern
+  recurrence_end_date?: string
 }
+
+export type AppointmentStatus = "scheduled" | "confirmed" | "completed" | "cancelled" | "no-show"
+
+export type AppointmentType =
+  | "initial_assessment"
+  | "follow_up"
+  | "therapy"
+  | "medication_review"
+  | "care_plan_review"
+  | "emergency"
+  | "other"
+
+export type RecurrencePattern = "daily" | "weekly" | "bi-weekly" | "monthly" | "custom"
 
 export interface AppointmentFormData {
   patient_id: string
@@ -27,12 +39,12 @@ export interface AppointmentFormData {
   title: string
   start_time: string
   end_time: string
-  status: string
-  type: string
+  status: AppointmentStatus
+  type: AppointmentType
   notes?: string
   location?: string
   is_recurring?: boolean
-  recurrence_pattern?: string
+  recurrence_pattern?: RecurrencePattern
   recurrence_end_date?: string
 }
 
@@ -42,7 +54,7 @@ export interface CalendarEvent {
   start: Date
   end: Date
   status: AppointmentStatus
-  type: string
+  type: AppointmentType
   patientId: string
   patientName: string
   providerId: string

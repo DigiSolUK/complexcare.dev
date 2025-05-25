@@ -1,131 +1,102 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Calendar } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
+import { FileCheck } from "lucide-react"
 
-interface Credential {
+interface ExpiringCredential {
   id: string
-  care_professional_id: string
-  care_professional_name: string
-  credential_type: string
-  expiry_date: string
-  status: string
+  name: string
+  role: string
+  credentialType: string
+  expiryDate: string
+  daysRemaining: number
 }
 
 export function CredentialsSummary() {
-  const [expiringCredentials, setExpiringCredentials] = useState<Credential[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [credentials, setCredentials] = useState<ExpiringCredential[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchExpiringCredentials = async () => {
-      setIsLoading(true)
-      setError(null)
       try {
-        // In a real app, this would be an API call
-        // const response = await fetch("/api/credentials/expiring")
-        // const data = await response.json()
+        setLoading(true)
 
-        // For demo purposes, we'll use mock data
-        const mockData = [
+        // Demo data
+        setCredentials([
           {
-            id: "cred-1",
-            care_professional_id: "cp-001",
-            care_professional_name: "Sarah Johnson",
-            credential_type: "Nursing Registration",
-            expiry_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-            status: "expiring-soon",
+            id: "cp-001",
+            name: "Sarah Johnson",
+            role: "Registered Nurse",
+            credentialType: "Nursing Registration",
+            expiryDate: "2023-05-15",
+            daysRemaining: 15,
           },
           {
-            id: "cred-2",
-            care_professional_id: "cp-002",
-            care_professional_name: "James Williams",
-            credential_type: "DBS Check",
-            expiry_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-            status: "expiring-soon",
+            id: "cp-003",
+            name: "Emily Brown",
+            role: "Occupational Therapist",
+            credentialType: "HCPC Registration",
+            expiryDate: "2023-05-25",
+            daysRemaining: 25,
           },
+        ])
+      } catch (error) {
+        console.error("Error fetching expiring credentials:", error)
+        // Fallback demo data
+        setCredentials([
           {
-            id: "cred-3",
-            care_professional_id: "cp-003",
-            care_professional_name: "Emily Brown",
-            credential_type: "Professional Indemnity Insurance",
-            expiry_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            status: "expired",
+            id: "cp-001",
+            name: "Sarah Johnson",
+            role: "Registered Nurse",
+            credentialType: "Nursing Registration",
+            expiryDate: "2023-05-15",
+            daysRemaining: 15,
           },
-        ]
-
-        setExpiringCredentials(mockData)
-      } catch (err) {
-        console.error("Error fetching expiring credentials:", err)
-        setError("Failed to load credential information")
+        ])
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
     fetchExpiringCredentials()
   }, [])
 
+  const getBadgeVariant = (days: number) => {
+    if (days <= 7) return "destructive"
+    if (days <= 14) return "warning"
+    return "outline"
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Credential Alerts</CardTitle>
-        <CardDescription>Expiring and expired credentials</CardDescription>
+        <CardTitle className="flex items-center text-base font-medium">
+          <FileCheck className="h-4 w-4 mr-2" />
+          Expiring Credentials
+        </CardTitle>
+        <CardDescription>Credentials expiring in the next 30 days</CardDescription>
       </CardHeader>
       <CardContent>
-        {error ? (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : isLoading ? (
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : credentials.length > 0 ? (
           <div className="space-y-4">
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-14 w-full" />
-          </div>
-        ) : expiringCredentials.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <p className="text-muted-foreground">No credential alerts at this time</p>
+            {credentials.map((credential) => (
+              <div key={`${credential.id}-${credential.credentialType}`} className="flex flex-col space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{credential.name}</span>
+                  <Badge variant={getBadgeVariant(credential.daysRemaining)}>
+                    {credential.daysRemaining} days left
+                  </Badge>
+                </div>
+                <div className="text-sm text-muted-foreground">{credential.credentialType}</div>
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="space-y-4">
-            {expiringCredentials.map((credential) => {
-              const expiryDate = new Date(credential.expiry_date)
-              const isExpired = expiryDate < new Date()
-
-              return (
-                <div key={credential.id} className="flex flex-col space-y-2 rounded-md border p-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-medium">{credential.care_professional_name}</h4>
-                      <p className="text-sm text-muted-foreground">{credential.credential_type}</p>
-                    </div>
-                    <Badge variant={isExpired ? "destructive" : "warning"}>
-                      {isExpired ? "Expired" : "Expiring Soon"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Calendar className="mr-1 h-3 w-3" />
-                    {isExpired
-                      ? `Expired ${formatDistanceToNow(expiryDate, { addSuffix: true })}`
-                      : `Expires ${formatDistanceToNow(expiryDate, { addSuffix: true })}`}
-                  </div>
-                </div>
-              )
-            })}
-
-            <Button variant="outline" className="w-full" size="sm">
-              View All Credentials
-            </Button>
-          </div>
+          <p className="text-sm text-muted-foreground">No expiring credentials</p>
         )}
       </CardContent>
     </Card>

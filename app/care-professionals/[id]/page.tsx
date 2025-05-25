@@ -3,15 +3,9 @@ import CareProfessionalDetailClient from "./care-professional-detail-client"
 
 export const metadata: Metadata = {
   title: "Care Professional Details | ComplexCare CRM",
-  description: "View care professional details and information",
+  description: "View and manage care professional details",
 }
 
-interface PageProps {
-  params: {
-    id: string
-  }
-}
-
-export default function CareProfessionalDetailPage({ params }: PageProps) {
+export default function CareProfessionalDetailPage({ params }: { params: { id: string } }) {
   return <CareProfessionalDetailClient careProfessionalId={params.id} />
 }

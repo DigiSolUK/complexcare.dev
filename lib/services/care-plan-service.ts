@@ -1,5 +1,4 @@
 import { tenantQuery, tenantInsert, tenantUpdate, tenantDelete } from "@/lib/db-utils"
-import { logActivity } from "./activity-log-service"
 
 export type CarePlan = {
   id: string
@@ -39,14 +38,6 @@ export async function getCarePlans(tenantId: string): Promise<CarePlan[]> {
 // Get care plans for a patient
 export async function getCarePlansForPatient(tenantId: string, patientId: string): Promise<CarePlan[]> {
   try {
-    // Log activity for viewing care plans
-    await logActivity({
-      tenantId,
-      activityType: "care_plans_viewed",
-      description: `Patient care plans viewed`,
-      patientId,
-    })
-
     return tenantQuery<CarePlan>(
       tenantId,
       `
@@ -73,27 +64,7 @@ export async function getCarePlanById(tenantId: string, carePlanId: string): Pro
     `,
       [carePlanId],
     )
-
-    if (carePlans.length > 0) {
-      const carePlan = carePlans[0]
-
-      // Log activity for viewing a specific care plan
-      await logActivity({
-        tenantId,
-        activityType: "care_plan_viewed",
-        description: `Care plan viewed: ${carePlan.title}`,
-        patientId: carePlan.patient_id,
-        metadata: {
-          carePlanId,
-          carePlanTitle: carePlan.title,
-          status: carePlan.status,
-        },
-      })
-
-      return carePlan
-    }
-
-    return null
+    return carePlans.length > 0 ? carePlans[0] : null
   } catch (error) {
     console.error("Error fetching care plan:", error)
     return null
@@ -116,30 +87,7 @@ export async function createCarePlan(
       created_by: userId,
       updated_by: userId,
     })
-
-    if (carePlans.length > 0) {
-      const newCarePlan = carePlans[0]
-
-      // Log activity for creating a care plan
-      await logActivity({
-        tenantId,
-        activityType: "care_plan_created",
-        description: `Care plan created: ${newCarePlan.title}`,
-        patientId: carePlanData.patient_id,
-        userId,
-        metadata: {
-          carePlanId: newCarePlan.id,
-          carePlanTitle: newCarePlan.title,
-          status: newCarePlan.status,
-          startDate: newCarePlan.start_date,
-          endDate: newCarePlan.end_date,
-        },
-      })
-
-      return newCarePlan
-    }
-
-    return null
+    return carePlans.length > 0 ? carePlans[0] : null
   } catch (error) {
     console.error("Error creating care plan:", error)
     return null
@@ -154,94 +102,13 @@ export async function updateCarePlan(
   userId: string,
 ): Promise<CarePlan | null> {
   try {
-    // Get original care plan data for comparison
-    const originalCarePlan = await getCarePlanById(tenantId, carePlanId)
-    if (!originalCarePlan) return null
-
     const now = new Date().toISOString()
     const carePlans = await tenantUpdate<CarePlan>(tenantId, "care_plans", carePlanId, {
       ...carePlanData,
       updated_at: now,
       updated_by: userId,
     })
-
-    if (carePlans.length > 0) {
-      const updatedCarePlan = carePlans[0]
-
-      // Determine which fields were updated
-      const updatedFields = []
-      if (carePlanData.title && carePlanData.title !== originalCarePlan.title) updatedFields.push("title")
-      if (carePlanData.description && carePlanData.description !== originalCarePlan.description)
-        updatedFields.push("description")
-      if (carePlanData.start_date && carePlanData.start_date !== originalCarePlan.start_date)
-        updatedFields.push("start_date")
-      if (carePlanData.end_date && carePlanData.end_date !== originalCarePlan.end_date) updatedFields.push("end_date")
-      if (carePlanData.status && carePlanData.status !== originalCarePlan.status) updatedFields.push("status")
-      if (carePlanData.goals && carePlanData.goals !== originalCarePlan.goals) updatedFields.push("goals")
-      if (carePlanData.interventions && carePlanData.interventions !== originalCarePlan.interventions)
-        updatedFields.push("interventions")
-      if (carePlanData.review_date && carePlanData.review_date !== originalCarePlan.review_date)
-        updatedFields.push("review_date")
-      if (carePlanData.assigned_to && carePlanData.assigned_to !== originalCarePlan.assigned_to)
-        updatedFields.push("assigned_to")
-
-      // Log activity for updating a care plan
-      await logActivity({
-        tenantId,
-        activityType: "care_plan_updated",
-        description: `Care plan updated: ${updatedCarePlan.title}`,
-        patientId: updatedCarePlan.patient_id,
-        userId,
-        metadata: {
-          carePlanId,
-          carePlanTitle: updatedCarePlan.title,
-          updatedFields,
-          newStatus: carePlanData.status,
-        },
-      })
-
-      // If status changed, log a specific activity
-      if (carePlanData.status && carePlanData.status !== originalCarePlan.status) {
-        let statusChangeType = ""
-        let statusChangeDescription = ""
-
-        switch (carePlanData.status) {
-          case "active":
-            statusChangeType = "care_plan_activated"
-            statusChangeDescription = `Care plan activated: ${updatedCarePlan.title}`
-            break
-          case "completed":
-            statusChangeType = "care_plan_completed"
-            statusChangeDescription = `Care plan completed: ${updatedCarePlan.title}`
-            break
-          case "cancelled":
-            statusChangeType = "care_plan_cancelled"
-            statusChangeDescription = `Care plan cancelled: ${updatedCarePlan.title}`
-            break
-          default:
-            break
-        }
-
-        if (statusChangeType) {
-          await logActivity({
-            tenantId,
-            activityType: statusChangeType,
-            description: statusChangeDescription,
-            patientId: updatedCarePlan.patient_id,
-            userId,
-            metadata: {
-              carePlanId,
-              carePlanTitle: updatedCarePlan.title,
-              previousStatus: originalCarePlan.status,
-            },
-          })
-        }
-      }
-
-      return updatedCarePlan
-    }
-
-    return null
+    return carePlans.length > 0 ? carePlans[0] : null
   } catch (error) {
     console.error("Error updating care plan:", error)
     return null
@@ -249,33 +116,10 @@ export async function updateCarePlan(
 }
 
 // Delete a care plan
-export async function deleteCarePlan(tenantId: string, carePlanId: string, userId?: string): Promise<boolean> {
+export async function deleteCarePlan(tenantId: string, carePlanId: string): Promise<boolean> {
   try {
-    // Get care plan details before deletion
-    const carePlan = await getCarePlanById(tenantId, carePlanId)
-    if (!carePlan) return false
-
     const carePlans = await tenantDelete<CarePlan>(tenantId, "care_plans", carePlanId)
-
-    if (carePlans.length > 0) {
-      // Log activity for deleting a care plan
-      await logActivity({
-        tenantId,
-        activityType: "care_plan_deleted",
-        description: `Care plan deleted: ${carePlan.title}`,
-        patientId: carePlan.patient_id,
-        userId,
-        metadata: {
-          carePlanId,
-          carePlanTitle: carePlan.title,
-          status: carePlan.status,
-        },
-      })
-
-      return true
-    }
-
-    return false
+    return carePlans.length > 0
   } catch (error) {
     console.error("Error deleting care plan:", error)
     return false

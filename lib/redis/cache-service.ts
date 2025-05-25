@@ -97,4 +97,4 @@ export const cache = {\
     CacheService.set<T>(key, value, ttlSeconds),
   delete: (key: string): Promise<boolean> => CacheService.delete(key),
   exists: (key: string): Promise<boolean> => CacheService.exists(key),
-};
+}

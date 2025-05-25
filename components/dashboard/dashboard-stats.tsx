@@ -1,42 +1,25 @@
 import { Users, Calendar, ClipboardList, Heart, Activity, PoundSterling } from "lucide-react"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-interface DashboardStatsData {
-  patientCount: number
-  patientGrowth: number
-  appointmentsToday: number
-  appointmentsPending: number
-  carePlansActive: number
-  carePlansReview: number
-  staffCompliance: number
-  certificationsExpiring: number
-  tasksAssigned: number
-  tasksCompleted: number
-  outstandingInvoices: number
-  overduePayments: number
-}
-
 interface DashboardStatsProps {
-  data?: DashboardStatsData
+  data: {
+    patientCount: number
+    patientGrowth: number
+    appointmentsToday: number
+    appointmentsPending: number
+    carePlansActive: number
+    carePlansReview: number
+    staffCompliance: number
+    certificationsExpiring: number
+    tasksAssigned: number
+    tasksCompleted: number
+    outstandingInvoices: number
+    overduePayments: number
+  }
 }
 
-// Default data to use when no data is provided
-const defaultData: DashboardStatsData = {
-  patientCount: 248,
-  patientGrowth: 4,
-  appointmentsToday: 8,
-  appointmentsPending: 3,
-  carePlansActive: 187,
-  carePlansReview: 12,
-  staffCompliance: 92,
-  certificationsExpiring: 5,
-  tasksAssigned: 24,
-  tasksCompleted: 18,
-  outstandingInvoices: 12500,
-  overduePayments: 3,
-}
-
-export function DashboardStats({ data = defaultData }: DashboardStatsProps) {
+export function DashboardStats({ data }: DashboardStatsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 border-blue-200 dark:border-blue-800">
