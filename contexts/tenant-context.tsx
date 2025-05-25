@@ -1,35 +1,41 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { DEFAULT_TENANT_ID, getCurrentTenantId } from "@/lib/tenant"
+import type React from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 import type { Tenant } from "@/types"
+import { DEFAULT_TENANT_ID, getCurrentTenantId } from "@/lib/tenant"
 
 interface TenantContextType {
-  tenantId: string
-  setTenantId: (id: string) => void
+  // Current tenant info
   currentTenant: Tenant | null
   tenants: Tenant[]
+  tenantId: string
+
+  // Loading and error states
   isLoading: boolean
   error: string | null
+
+  // Actions
+  setTenantId: (id: string) => void
   switchTenant: (tenantId: string) => Promise<void>
   refreshTenants: () => Promise<void>
 }
 
 const TenantContext = createContext<TenantContextType>({
-  tenantId: DEFAULT_TENANT_ID,
-  setTenantId: () => {},
   currentTenant: null,
   tenants: [],
+  tenantId: DEFAULT_TENANT_ID,
   isLoading: true,
   error: null,
+  setTenantId: () => {},
   switchTenant: async () => {},
   refreshTenants: async () => {},
 })
 
-export function TenantProvider({ children }: { children: ReactNode }) {
-  const [tenantId, setTenantIdState] = useState<string>(DEFAULT_TENANT_ID)
+export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null)
   const [tenants, setTenants] = useState<Tenant[]>([])
+  const [tenantId, setTenantIdState] = useState<string>(DEFAULT_TENANT_ID)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -60,11 +66,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       if (primaryResponse.ok) {
         const primaryTenant = await primaryResponse.json()
         setCurrentTenant(primaryTenant)
-        setTenantIdState(primaryTenant.id)
+        setTenantId(primaryTenant.id)
       } else if (tenantsData.length > 0) {
         // If no primary tenant is set but user has tenants, use the first one
         setCurrentTenant(tenantsData[0])
-        setTenantIdState(tenantsData[0].id)
+        setTenantId(tenantsData[0].id)
       }
     } catch (err) {
       console.error("Error fetching tenants:", err)
@@ -100,7 +106,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       }
 
       setCurrentTenant(tenant)
-      setTenantIdState(newTenantId)
+      setTenantId(tenant.id)
 
       // Reload the page to refresh data for the new tenant
       window.location.reload()
@@ -120,20 +126,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     fetchTenants()
   }, [])
 
-  // Log tenant ID changes for debugging
-  useEffect(() => {
-    console.log("Tenant ID set to:", tenantId)
-  }, [tenantId])
-
   return (
     <TenantContext.Provider
       value={{
-        tenantId,
-        setTenantId,
         currentTenant,
         tenants,
+        tenantId,
         isLoading,
         error,
+        setTenantId,
         switchTenant,
         refreshTenants,
       }}
@@ -144,13 +145,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 }
 
 // Export both names for compatibility
-export function useTenant() {
+export const useTenant = () => {
   const context = useContext(TenantContext)
-
   if (!context) {
     throw new Error("useTenant must be used within a TenantProvider")
   }
-
   return context
 }
 

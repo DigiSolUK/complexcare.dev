@@ -1,99 +1,44 @@
-import { cookies } from "next/headers"
+import { useTenant } from "@/contexts"
 
-// Default tenant ID to use if none is found
-export const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || "default-tenant"
+// This file will contain utility functions related to tenant management.
+// For example, functions to get the current tenant, validate tenant IDs, etc.
 
 /**
- * Get tenant ID from request headers or default
+ * Retrieves the current tenant ID from the tenant context.
+ * @returns {string | undefined} The current tenant ID, or undefined if not available.
  */
-export function getTenantIdFromRequest(req: Request): string {
-  try {
-    // Try to get from headers first
-    const tenantId = req.headers.get("x-tenant-id")
-    if (tenantId) return tenantId
-
-    // Default to a hard-coded tenant ID
-    return DEFAULT_TENANT_ID
-  } catch (error) {
-    console.error("Error getting tenant ID from request:", error)
-    return DEFAULT_TENANT_ID
-  }
+export const useTenantId = (): string | undefined => {
+  const tenant = useTenant()
+  return tenant?.tenantId
 }
 
 /**
- * Get tenant object from request
+ * Checks if a given tenant ID is valid.
+ * This is a placeholder function; in a real application, you would
+ * likely have a more sophisticated validation mechanism.
+ * @param {string} tenantId The tenant ID to validate.
+ * @returns {boolean} True if the tenant ID is valid, false otherwise.
  */
-export function getTenantFromRequest(req: Request): { id: string } {
-  const tenantId = getTenantIdFromRequest(req)
-  return { id: tenantId }
+export const isValidTenantId = (tenantId: string): boolean => {
+  // Replace with your actual validation logic.
+  return typeof tenantId === "string" && tenantId.length > 0
 }
 
 /**
- * Get the current tenant ID from cookies or environment variables
+ * A placeholder function to fetch tenant-specific configuration.
+ * In a real application, this would likely involve an API call.
+ * @param {string} tenantId The tenant ID.
+ * @returns {Promise<any>} A promise that resolves to the tenant configuration.
  */
-export function getCurrentTenant(): string {
-  try {
-    // Try to get tenant ID from cookies
-    const cookieStore = cookies()
-    const tenantId = cookieStore.get("tenantId")?.value
-
-    // Return the tenant ID from cookies if it exists, otherwise use the default
-    return tenantId || DEFAULT_TENANT_ID
-  } catch (error) {
-    // If there's an error (e.g., in a non-request context), return the default
-    return DEFAULT_TENANT_ID
-  }
-}
-
-/**
- * Safely extract tenant ID from tenant object or string
- */
-export function extractTenantId(tenant: any): string {
-  if (!tenant) return DEFAULT_TENANT_ID
-
-  if (typeof tenant === "string") return tenant
-
-  if (typeof tenant === "object" && tenant !== null && "id" in tenant) {
-    return tenant.id
-  }
-
-  return DEFAULT_TENANT_ID
-}
-
-/**
- * Format tenant ID for display (short format)
- */
-export function formatTenantId(id: string): string {
-  return id.substring(0, 8)
-}
-
-/**
- * Check if a path is public (no tenant required)
- */
-export function isPublicPath(path: string): boolean {
-  const publicPaths = ["/login", "/register", "/forgot-password", "/api/auth", "/api/public"]
-  return publicPaths.some((p) => path.startsWith(p))
-}
-
-/**
- * Get tenant ID from cookies or default (server-side)
- */
-export function getTenantIdFromCookies(): string {
-  try {
-    // This would normally use cookies() from next/headers
-    // For now, return the default tenant ID
-    const cookieStore = cookies()
-    const tenantId = cookieStore.get("tenantId")?.value
-    return tenantId || DEFAULT_TENANT_ID
-  } catch (error) {
-    console.error("Error getting tenant ID from cookies:", error)
-    return DEFAULT_TENANT_ID
-  }
-}
-
-/**
- * Get current tenant ID (for server components)
- */
-export function getCurrentTenantId(): string {
-  return getTenantIdFromCookies()
+export const getTenantConfig = async (tenantId: string): Promise<any> => {
+  // Replace with your actual logic to fetch tenant configuration.
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        tenantId: tenantId,
+        theme: "default",
+        // Add more configuration properties as needed.
+      })
+    }, 500) // Simulate an API call with a 500ms delay.
+  })
 }

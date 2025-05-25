@@ -1,31 +1,27 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
-import { SectionErrorBoundary } from "@/components/error-boundaries"
 
-export function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+import { useTenant } from "@/contexts"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen)
+export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
+  const { tenant } = useTenant()
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (!tenant) {
+      router.push("/onboarding")
+    } else {
+      setIsLoading(false)
+    }
+  }, [tenant, router])
+
+  if (isLoading) {
+    return <div>Loading...</div>
   }
 
-  return (
-    <>
-      <Header toggleSidebar={toggleSidebar} />
-      <div className="flex flex-1">
-        <div className={`${sidebarOpen ? "w-64" : "w-0 -ml-64"} transition-all duration-300 md:ml-0 md:w-64`}>
-          <Sidebar />
-        </div>
-        <main className="flex-1 overflow-y-auto bg-muted/20">
-          <SectionErrorBoundary>
-            <div className="container mx-auto p-6">{children}</div>
-          </SectionErrorBoundary>
-        </main>
-      </div>
-    </>
-  )
+  return <>{children}</>
 }

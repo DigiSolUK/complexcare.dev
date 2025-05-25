@@ -1,11 +1,14 @@
-import type { Metadata } from "next"
-import InvoicingClient from "./invoicing-client"
+import { useTenant } from "@/contexts"
 
-export const metadata: Metadata = {
-  title: "Invoicing | ComplexCare CRM",
-  description: "Manage invoices and billing for your clients",
+const InvoicingPage = () => {
+  const { tenant } = useTenant()
+
+  return (
+    <div>
+      <h1>Invoicing</h1>
+      {tenant ? <p>Tenant ID: {tenant.id}</p> : <p>No tenant found.</p>}
+    </div>
+  )
 }
 
-export default function InvoicingPage() {
-  return <InvoicingClient />
-}
+export default InvoicingPage

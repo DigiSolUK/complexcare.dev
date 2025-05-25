@@ -1,65 +1,33 @@
-import { Building2, LayoutDashboard, type LucideIcon, Package2, Settings, ShoppingBag, Users } from "lucide-react"
+import type React from "react"
+import { useTenant } from "@/contexts"
 
-interface NavItem {
-  title: string
-  href: string
-  icon: LucideIcon
-  permission?: string[]
+const DashboardSidebar: React.FC = () => {
+  // Example usage of the tenant context
+  const { tenant } = useTenant()
+
+  return (
+    <aside className="bg-gray-100 w-64 p-4">
+      <h2 className="text-lg font-semibold mb-4">Dashboard Sidebar</h2>
+      {tenant && <p>Current Tenant: {tenant.name}</p>}
+      <ul>
+        <li>
+          <a href="#" className="block py-2 px-4 hover:bg-gray-200">
+            Overview
+          </a>
+        </li>
+        <li>
+          <a href="#" className="block py-2 px-4 hover:bg-gray-200">
+            Analytics
+          </a>
+        </li>
+        <li>
+          <a href="#" className="block py-2 px-4 hover:bg-gray-200">
+            Settings
+          </a>
+        </li>
+      </ul>
+    </aside>
+  )
 }
 
-interface NavSection {
-  title: string
-  items: NavItem[]
-}
-
-export const dashboardNavItems: NavSection[] = [
-  {
-    title: "General",
-    items: [
-      {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-      },
-    ],
-  },
-  {
-    title: "Management",
-    items: [
-      {
-        title: "Users",
-        href: "/dashboard/users",
-        icon: Users,
-        permission: ["admin", "superadmin"],
-      },
-      {
-        title: "Products",
-        href: "/dashboard/products",
-        icon: Package2,
-        permission: ["admin", "superadmin"],
-      },
-      {
-        title: "Orders",
-        href: "/dashboard/orders",
-        icon: ShoppingBag,
-        permission: ["admin", "superadmin"],
-      },
-    ],
-  },
-  {
-    title: "Settings",
-    items: [
-      {
-        title: "General",
-        href: "/settings",
-        icon: Settings,
-      },
-      {
-        title: "Database",
-        href: "/settings/database",
-        icon: Building2,
-        permission: ["admin", "superadmin"],
-      },
-    ],
-  },
-]
+export default DashboardSidebar
