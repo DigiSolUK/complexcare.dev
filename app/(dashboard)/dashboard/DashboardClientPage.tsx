@@ -1,120 +1,137 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RecentPatients } from "@/components/recent-patients"
-import { UpcomingAppointments } from "@/components/upcoming-appointments"
-import { PatientActivityChart } from "@/components/patient-activity-chart"
-import { DashboardStats } from "@/components/dashboard-stats"
+import { BarChart, LineChart } from "@/components/charts"
 
 export function DashboardClientPage() {
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [stats, setStats] = useState({
+    totalPatients: 0,
+    activeCarePlans: 0,
+    upcomingAppointments: 0,
+    pendingTasks: 0,
+  })
 
   useEffect(() => {
-    setIsLoaded(true)
+    // Simulate loading data
+    const timer = setTimeout(() => {
+      setStats({
+        totalPatients: 128,
+        activeCarePlans: 87,
+        upcomingAppointments: 24,
+        pendingTasks: 18,
+      })
+      setIsLoading(false)
+    }, 1000)
+
+    return () => clearTimeout(timer)
   }, [])
 
+  if (isLoading) {
+    return <div>Loading dashboard data...</div>
+  }
+
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <div className="flex items-center space-x-2">
-          <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
-              <TabsTrigger value="reports">Reports</TabsTrigger>
-            </TabsList>
-            <TabsContent value="overview" className="space-y-4">
-              <DashboardStats />
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4">
-                  <CardHeader>
-                    <CardTitle>Patient Activity</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pl-2">
-                    <PatientActivityChart />
-                  </CardContent>
-                </Card>
-                <Card className="col-span-3">
-                  <CardHeader>
-                    <CardTitle>Recent Patients</CardTitle>
-                    <CardDescription>{isLoaded ? "Recently updated patient records" : "Loading..."}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <RecentPatients />
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4">
-                  <CardHeader>
-                    <CardTitle>Upcoming Appointments</CardTitle>
-                    <CardDescription>You have {isLoaded ? "8" : "..."} appointments scheduled</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <UpcomingAppointments />
-                  </CardContent>
-                </Card>
-                <Card className="col-span-3">
-                  <CardHeader>
-                    <CardTitle>Tasks</CardTitle>
-                    <CardDescription>You have {isLoaded ? "5" : "..."} tasks due today</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {/* TasksList component would go here */}
-                    <div className="space-y-4">
-                      <div className="flex items-center">
-                        <div className="mr-2 h-2 w-2 rounded-full bg-blue-500" />
-                        <div>Review patient notes for John Smith</div>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="mr-2 h-2 w-2 rounded-full bg-yellow-500" />
-                        <div>Follow up on lab results for Jane Doe</div>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="mr-2 h-2 w-2 rounded-full bg-green-500" />
-                        <div>Schedule follow-up appointment for Tom Johnson</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-            <TabsContent value="analytics" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-7">
-                  <CardHeader>
-                    <CardTitle>Analytics</CardTitle>
-                    <CardDescription>Patient and appointment analytics</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[400px] flex items-center justify-center border rounded">
-                      <p className="text-muted-foreground">Analytics dashboard coming soon</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-            <TabsContent value="reports" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-7">
-                  <CardHeader>
-                    <CardTitle>Reports</CardTitle>
-                    <CardDescription>View and generate reports</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[400px] flex items-center justify-center border rounded">
-                      <p className="text-muted-foreground">Reports dashboard coming soon</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalPatients}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Care Plans</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.activeCarePlans}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming Appointments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.upcomingAppointments}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.pendingTasks}</div>
+          </CardContent>
+        </Card>
       </div>
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <Card className="col-span-4">
+              <CardHeader>
+                <CardTitle>Patient Activity</CardTitle>
+              </CardHeader>
+              <CardContent className="pl-2">
+                <LineChart
+                  data={[
+                    { name: "Jan", value: 45 },
+                    { name: "Feb", value: 52 },
+                    { name: "Mar", value: 49 },
+                    { name: "Apr", value: 62 },
+                    { name: "May", value: 58 },
+                    { name: "Jun", value: 71 },
+                  ]}
+                />
+              </CardContent>
+            </Card>
+            <Card className="col-span-3">
+              <CardHeader>
+                <CardTitle>Care Plan Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarChart
+                  data={[
+                    { name: "Complex", value: 35 },
+                    { name: "Standard", value: 27 },
+                    { name: "Basic", value: 18 },
+                    { name: "Palliative", value: 7 },
+                  ]}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        <TabsContent value="analytics" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Analytics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>Analytics content will be displayed here.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="reports" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reports</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>Reports content will be displayed here.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
