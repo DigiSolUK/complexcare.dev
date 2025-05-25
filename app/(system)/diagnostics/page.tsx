@@ -1,305 +1,402 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  RefreshCw,
-  Wrench,
-  Database,
-  Server,
-  Shield,
-  Cloud,
-  Brain,
-  Settings,
-} from "lucide-react"
-
-interface HealthCheckResult {
-  service: string
-  status: "healthy" | "unhealthy" | "degraded"
-  message: string
-  details?: any
-  error?: string
-}
-
-interface SystemHealth {
-  status: string
-  timestamp: string
-  services: HealthCheckResult[]
-  summary: {
-    total: number
-    healthy: number
-    degraded: number
-    unhealthy: number
-  }
-}
+import { CheckCircle, XCircle, AlertTriangle, RefreshCw, Database, Server, FileText, Cog } from "lucide-react"
 
 export default function DiagnosticsPage() {
-  const [health, setHealth] = useState<SystemHealth | null>(null)
+  const [healthData, setHealthData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [fixing, setFixing] = useState(false)
-  const [fixResults, setFixResults] = useState<any[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [fixResults, setFixResults] = useState<any>(null)
+  const [fixLoading, setFixLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState("services")
 
-  const fetchHealth = async () => {
+  useEffect(() => {
+    fetchHealthData()
+  }, [])
+
+  const fetchHealthData = async () => {
     setLoading(true)
+    setError(null)
+
     try {
       const response = await fetch("/api/diagnostics/system-health")
       const data = await response.json()
-      setHealth(data)
-    } catch (error) {
-      console.error("Failed to fetch system health:", error)
+
+      setHealthData(data)
+    } catch (err) {
+      setError("Failed to fetch system health data")
+      console.error(err)
     } finally {
       setLoading(false)
     }
   }
 
   const runFixes = async () => {
-    setFixing(true)
+    setFixLoading(true)
+    setFixResults(null)
+
     try {
-      const response = await fetch("/api/diagnostics/fix-issues", {
+      // Fix database issues
+      const dbResponse = await fetch("/api/diagnostics/fix-database", {
         method: "POST",
       })
-      const data = await response.json()
-      setFixResults(data.fixes || [])
-      // Refresh health check after fixes
-      await fetchHealth()
-    } catch (error) {
-      console.error("Failed to run fixes:", error)
+      const dbData = await dbResponse.json()
+
+      // Get import fix instructions
+      const importResponse = await fetch("/api/diagnostics/fix-imports", {
+        method: "POST",
+      })
+      const importData = await importResponse.json()
+
+      setFixResults({
+        database: dbData,
+        imports: importData,
+      })
+
+      // Refresh health data after fixes
+      fetchHealthData()
+    } catch (err) {
+      setError("Failed to run fixes")
+      console.error(err)
     } finally {
-      setFixing(false)
+      setFixLoading(false)
+      setActiveTab("fixes")
     }
   }
 
-  useEffect(() => {
-    fetchHealth()
-  }, [])
-
-  const getServiceIcon = (service: string) => {
-    switch (service) {
-      case "Database":
-        return <Database className="h-5 w-5" />
-      case "Redis":
-        return <Server className="h-5 w-5" />
-      case "Authentication":
-        return <Shield className="h-5 w-5" />
-      case "Blob Storage":
-        return <Cloud className="h-5 w-5" />
-      case "Groq AI":
-        return <Brain className="h-5 w-5" />
-      case "Environment Variables":
-        return <Settings className="h-5 w-5" />
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "healthy":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "degraded":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200"
+      case "unhealthy":
+        return "bg-red-100 text-red-800 border-red-200"
       default:
-        return <Server className="h-5 w-5" />
+        return "bg-gray-100 text-gray-800 border-gray-200"
     }
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "healthy":
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />
+        return <CheckCircle className="h-5 w-5 text-green-600" />
       case "degraded":
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />
+        return <AlertTriangle className="h-5 w-5 text-yellow-600" />
       case "unhealthy":
-        return <XCircle className="h-5 w-5 text-red-500" />
+        return <XCircle className="h-5 w-5 text-red-600" />
       default:
-        return <AlertCircle className="h-5 w-5 text-gray-500" />
+        return <AlertTriangle className="h-5 w-5 text-gray-600" />
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "healthy":
-        return <Badge className="bg-green-500">Healthy</Badge>
-      case "degraded":
-        return <Badge className="bg-yellow-500">Degraded</Badge>
-      case "unhealthy":
-        return <Badge className="bg-red-500">Unhealthy</Badge>
+  const getServiceIcon = (service: string) => {
+    switch (service) {
+      case "database":
+        return <Database className="h-5 w-5" />
+      case "redis":
+        return <Server className="h-5 w-5" />
+      case "blob":
+        return <FileText className="h-5 w-5" />
+      case "groq":
+        return <Cog className="h-5 w-5" />
       default:
-        return <Badge>Unknown</Badge>
+        return <Server className="h-5 w-5" />
     }
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">System Diagnostics</h1>
-        <p className="text-muted-foreground">Monitor and troubleshoot system health</p>
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">System Diagnostics</h1>
+          <p className="text-muted-foreground">Check and fix system health issues</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={fetchHealthData} variant="outline" disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button onClick={runFixes} disabled={fixLoading}>
+            {fixLoading ? "Running Fixes..." : "Run Fixes"}
+          </Button>
+        </div>
       </div>
 
-      {/* Overall Status */}
-      {health && (
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle>System Status</CardTitle>
-                {getStatusBadge(health.status)}
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={fetchHealth} disabled={loading} size="sm">
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
-                <Button onClick={runFixes} disabled={fixing} variant="outline" size="sm">
-                  <Wrench className={`h-4 w-4 mr-2 ${fixing ? "animate-spin" : ""}`} />
-                  Run Fixes
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold">{health.summary.total}</div>
-                <div className="text-sm text-muted-foreground">Total Services</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{health.summary.healthy}</div>
-                <div className="text-sm text-muted-foreground">Healthy</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-500">{health.summary.degraded}</div>
-                <div className="text-sm text-muted-foreground">Degraded</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-500">{health.summary.unhealthy}</div>
-                <div className="text-sm text-muted-foreground">Unhealthy</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      <Tabs defaultValue="services" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="services">Services</TabsTrigger>
-          <TabsTrigger value="fixes">Fix Results</TabsTrigger>
-          <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="services" className="space-y-4">
-          {loading ? (
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center">
-                  <RefreshCw className="h-6 w-6 animate-spin" />
-                  <span className="ml-2">Loading system health...</span>
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="flex flex-col items-center gap-2">
+            <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+            <p>Loading system health data...</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {healthData && (
+            <Card className="mb-6">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>System Status</CardTitle>
+                  <Badge className={getStatusColor(healthData.status)}>{healthData.status.toUpperCase()}</Badge>
+                </div>
+                <CardDescription>Overall health status of your ComplexCare CRM system</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {healthData.services &&
+                    Object.entries(healthData.services).map(([service, data]: [string, any]) => (
+                      <Card key={service} className={`border ${data.status === "unhealthy" ? "border-red-300" : ""}`}>
+                        <CardHeader className="pb-2">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              {getServiceIcon(service)}
+                              <CardTitle className="text-base capitalize">{service}</CardTitle>
+                            </div>
+                            {getStatusIcon(data.status)}
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm">{data.message}</p>
+                          {data.details &&
+                            Object.entries(data.details).map(([key, value]: [string, any]) => (
+                              <div key={key} className="mt-2 text-xs text-muted-foreground">
+                                <span className="font-medium capitalize">
+                                  {key.replace(/([A-Z])/g, " $1").trim()}:{" "}
+                                </span>
+                                <span>{String(value)}</span>
+                              </div>
+                            ))}
+                        </CardContent>
+                      </Card>
+                    ))}
                 </div>
               </CardContent>
             </Card>
-          ) : health ? (
-            health.services.map((service) => (
-              <Card key={service.service}>
+          )}
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="services">Services</TabsTrigger>
+              <TabsTrigger value="fixes">Fix Results</TabsTrigger>
+              <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="services">
+              <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getServiceIcon(service.service)}
-                      <CardTitle className="text-lg">{service.service}</CardTitle>
-                    </div>
-                    {getStatusIcon(service.status)}
-                  </div>
+                  <CardTitle>Service Details</CardTitle>
+                  <CardDescription>Detailed information about each service in your system</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm mb-2">{service.message}</p>
-                  {service.error && (
-                    <Alert variant="destructive" className="mb-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Error</AlertTitle>
-                      <AlertDescription>{service.error}</AlertDescription>
-                    </Alert>
-                  )}
-                  {service.details && (
-                    <div className="bg-muted p-3 rounded-md">
-                      <pre className="text-xs overflow-auto">{JSON.stringify(service.details, null, 2)}</pre>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>No Data</AlertTitle>
-              <AlertDescription>Unable to fetch system health data</AlertDescription>
-            </Alert>
-          )}
-        </TabsContent>
+                  {healthData && healthData.services ? (
+                    <div className="space-y-6">
+                      {Object.entries(healthData.services).map(([service, data]: [string, any]) => (
+                        <div key={service} className="border-b pb-4 last:border-0">
+                          <h3 className="text-lg font-medium capitalize mb-2 flex items-center gap-2">
+                            {getServiceIcon(service)}
+                            {service}
+                            <Badge className={getStatusColor(data.status)}>{data.status}</Badge>
+                          </h3>
+                          <p className="mb-2">{data.message}</p>
 
-        <TabsContent value="fixes" className="space-y-4">
-          {fixResults.length > 0 ? (
-            fixResults.map((fix, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{fix.issue}</CardTitle>
-                    <Badge
-                      variant={
-                        fix.status === "fixed" ? "default" : fix.status === "failed" ? "destructive" : "secondary"
-                      }
-                    >
-                      {fix.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm">{fix.message}</p>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>No Fixes Run</AlertTitle>
-              <AlertDescription>Click "Run Fixes" to attempt automatic issue resolution</AlertDescription>
-            </Alert>
-          )}
-        </TabsContent>
-
-        <TabsContent value="recommendations" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recommended Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {health?.services
-                .filter((s) => s.status !== "healthy")
-                .map((service) => (
-                  <Alert key={service.service}>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>{service.service}</AlertTitle>
-                    <AlertDescription>
-                      {service.service === "Environment Variables" && service.details?.missing?.length > 0 && (
-                        <div>
-                          <p>Missing environment variables:</p>
-                          <ul className="list-disc list-inside mt-2">
-                            {service.details.missing.map((varName: string) => (
-                              <li key={varName}>{varName}</li>
-                            ))}
-                          </ul>
+                          {data.details && (
+                            <div className="bg-muted p-3 rounded-md mt-2">
+                              <h4 className="text-sm font-medium mb-1">Details</h4>
+                              <div className="space-y-1">
+                                {Object.entries(data.details).map(([key, value]: [string, any]) => (
+                                  <div key={key} className="text-sm">
+                                    <span className="font-medium capitalize">
+                                      {key.replace(/([A-Z])/g, " $1").trim()}:{" "}
+                                    </span>
+                                    <span className="text-muted-foreground">{String(value)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {service.service === "Database" && (
-                        <p>Ensure DATABASE_URL is properly configured with your Neon connection string</p>
-                      )}
-                      {service.service === "Redis" && (
-                        <p>Verify KV_URL and KV_REST_API_TOKEN are set from your Upstash integration</p>
-                      )}
-                      {service.service === "Authentication" && (
-                        <p>Check NEXTAUTH_URL and NEXTAUTH_SECRET configuration</p>
-                      )}
-                    </AlertDescription>
-                  </Alert>
-                ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No service details available</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="fixes">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Fix Results</CardTitle>
+                  <CardDescription>Results of automatic fixes applied to your system</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {fixResults ? (
+                    <div className="space-y-6">
+                      <div className="border-b pb-4">
+                        <h3 className="text-lg font-medium mb-2">Database Fixes</h3>
+                        {fixResults.database.success ? (
+                          <div className="bg-green-50 p-3 rounded-md border border-green-200 mb-4">
+                            <div className="flex items-center gap-2 text-green-700 mb-2">
+                              <CheckCircle className="h-5 w-5" />
+                              <span className="font-medium">Database fixes applied successfully</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-red-50 p-3 rounded-md border border-red-200 mb-4">
+                            <div className="flex items-center gap-2 text-red-700 mb-2">
+                              <XCircle className="h-5 w-5" />
+                              <span className="font-medium">Database fixes failed</span>
+                            </div>
+                            <p className="text-red-700">{fixResults.database.error}</p>
+                          </div>
+                        )}
+
+                        {fixResults.database.results && (
+                          <div className="bg-muted p-3 rounded-md mt-2">
+                            <h4 className="text-sm font-medium mb-1">Details</h4>
+                            <div className="space-y-1">
+                              {Object.entries(fixResults.database.results).map(([key, value]: [string, any]) => (
+                                <div key={key} className="text-sm">
+                                  <span className="font-medium capitalize">
+                                    {key.replace(/([A-Z])/g, " $1").trim()}:{" "}
+                                  </span>
+                                  <span className="text-muted-foreground">{String(value)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <h3 className="text-lg font-medium mb-2">Import Fixes</h3>
+                        {fixResults.imports.success ? (
+                          <div className="bg-blue-50 p-3 rounded-md border border-blue-200 mb-4">
+                            <div className="flex items-center gap-2 text-blue-700 mb-2">
+                              <AlertTriangle className="h-5 w-5" />
+                              <span className="font-medium">Manual changes required</span>
+                            </div>
+                            <p className="text-blue-700 mb-2">
+                              The following changes need to be made manually to fix import issues:
+                            </p>
+                            <ul className="list-disc pl-5 space-y-1 text-sm text-blue-800">
+                              {fixResults.imports.instructions.map((instruction: string, index: number) => (
+                                <li key={index}>{instruction}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <div className="bg-red-50 p-3 rounded-md border border-red-200">
+                            <div className="flex items-center gap-2 text-red-700 mb-2">
+                              <XCircle className="h-5 w-5" />
+                              <span className="font-medium">Import fixes failed</span>
+                            </div>
+                            <p className="text-red-700">{fixResults.imports.error}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p>No fix results available. Click "Run Fixes" to attempt automatic repairs.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="recommendations">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recommendations</CardTitle>
+                  <CardDescription>Suggested actions to resolve system issues</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <Alert className="border-blue-200 bg-blue-50">
+                      <AlertTitle className="text-blue-800">Environment Variables</AlertTitle>
+                      <AlertDescription className="text-blue-700">
+                        <p className="mb-2">
+                          Ensure all required environment variables are set in your Vercel project:
+                        </p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li>DATABASE_URL or production_DATABASE_URL</li>
+                          <li>KV_URL and KV_REST_API_TOKEN (for Redis)</li>
+                          <li>BLOB_READ_WRITE_TOKEN (for Blob storage)</li>
+                          <li>GROQ_API_KEY (for Groq AI)</li>
+                          <li>NEXTAUTH_URL and NEXTAUTH_SECRET</li>
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+
+                    <Alert className="border-amber-200 bg-amber-50">
+                      <AlertTitle className="text-amber-800">Client-Side Environment Access</AlertTitle>
+                      <AlertDescription className="text-amber-700">
+                        <p className="mb-2">Fix client-side environment variable access:</p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li>
+                            Use the new <code>env-safe.ts</code> utility for accessing environment variables
+                          </li>
+                          <li>Move environment variable access to Server Components or API routes</li>
+                          <li>For client-side access, prefix variables with NEXT_PUBLIC_</li>
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+
+                    <Alert className="border-purple-200 bg-purple-50">
+                      <AlertTitle className="text-purple-800">Module Import Paths</AlertTitle>
+                      <AlertDescription className="text-purple-700">
+                        <p className="mb-2">Update import paths in your code:</p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li>
+                            Change <code>@v0/lib/data</code> to <code>@/lib/db</code>
+                          </li>
+                          <li>
+                            Change <code>@v0/components</code> to <code>@/components</code>
+                          </li>
+                          <li>
+                            Change <code>@v0/utils</code> to <code>@/lib/utils</code>
+                          </li>
+                          <li>See the "Fix Results" tab for a complete list</li>
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+
+                    <Alert className="border-green-200 bg-green-50">
+                      <AlertTitle className="text-green-800">Database Schema</AlertTitle>
+                      <AlertDescription className="text-green-700">
+                        <p className="mb-2">Ensure database schema is up to date:</p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li>Run the "Fix Database" function to add missing columns and indexes</li>
+                          <li>Check for any broken foreign key relationships</li>
+                          <li>Verify that all required tables exist</li>
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button onClick={runFixes} disabled={fixLoading}>
+                    {fixLoading ? "Running Fixes..." : "Run Automatic Fixes"}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   )
 }

@@ -1,215 +1,169 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { redis } from "@/lib/redis/client"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
-import { put } from "@vercel/blob"
-
-interface HealthCheckResult {
-  service: string
-  status: "healthy" | "unhealthy" | "degraded"
-  message: string
-  details?: any
-  error?: string
-}
+import { sql } from "@/lib/db"
+import { testRedisConnection } from "@/lib/redis/client"
+import { getBlobToken, getGroqApiKey, getDatabaseUrl, getRedisUrl } from "@/lib/env-safe"
 
 export async function GET() {
-  const results: HealthCheckResult[] = []
-
-  // 1. Check Database Connection
   try {
-    const databaseUrl = process.env.production_DATABASE_URL || process.env.DATABASE_URL
-    if (!databaseUrl) {
-      results.push({
-        service: "Database",
-        status: "unhealthy",
-        message: "No database URL configured",
-        error: "Missing DATABASE_URL environment variable",
-      })
-    } else {
-      const sql = neon(databaseUrl)
-      const startTime = Date.now()
-      const result = await sql`SELECT NOW() as time, current_database() as database`
-      const responseTime = Date.now() - startTime
+    const healthStatus = await checkSystemHealth()
 
-      results.push({
-        service: "Database",
-        status: "healthy",
-        message: "Database connection successful",
-        details: {
-          responseTime: `${responseTime}ms`,
-          database: result[0].database,
-          serverTime: result[0].time,
-        },
-      })
-    }
+    return NextResponse.json(healthStatus)
   } catch (error) {
-    results.push({
-      service: "Database",
-      status: "unhealthy",
-      message: "Database connection failed",
-      error: error instanceof Error ? error.message : String(error),
-    })
+    console.error("Error checking system health:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: (error as Error).message,
+        status: "unhealthy",
+        services: {
+          database: { status: "unknown" },
+          redis: { status: "unknown" },
+          blob: { status: "unknown" },
+          groq: { status: "unknown" },
+        },
+      },
+      { status: 500 },
+    )
+  }
+}
+
+async function checkSystemHealth() {
+  const results: Record<string, any> = {
+    success: true,
+    status: "healthy",
+    services: {},
   }
 
-  // 2. Check Redis Connection
+  // Check database
   try {
-    const startTime = Date.now()
-    await redis.set("health-check", new Date().toISOString(), { ex: 60 })
-    const value = await redis.get("health-check")
-    const responseTime = Date.now() - startTime
+    const dbResult = await sql.query("SELECT 1 as test")
+    results.services.database = {
+      status: "healthy",
+      message: "Database connection successful",
+      details: {
+        url: maskConnectionString(getDatabaseUrl()),
+      },
+    }
+  } catch (error) {
+    results.success = false
+    results.status = "degraded"
+    results.services.database = {
+      status: "unhealthy",
+      message: (error as Error).message,
+      details: {
+        url: maskConnectionString(getDatabaseUrl()),
+      },
+    }
+  }
 
-    if (value) {
-      results.push({
-        service: "Redis",
+  // Check Redis
+  try {
+    const redisConnected = await testRedisConnection()
+    if (redisConnected) {
+      results.services.redis = {
         status: "healthy",
         message: "Redis connection successful",
         details: {
-          responseTime: `${responseTime}ms`,
-          testValue: value,
+          url: maskConnectionString(getRedisUrl()),
         },
-      })
+      }
     } else {
-      results.push({
-        service: "Redis",
-        status: "degraded",
-        message: "Redis connected but test failed",
-        details: {
-          responseTime: `${responseTime}ms`,
-        },
-      })
-    }
-  } catch (error) {
-    results.push({
-      service: "Redis",
-      status: "unhealthy",
-      message: "Redis connection failed",
-      error: error instanceof Error ? error.message : String(error),
-    })
-  }
-
-  // 3. Check Authentication
-  try {
-    const session = await getServerSession(authOptions)
-    if (authOptions) {
-      results.push({
-        service: "Authentication",
-        status: session ? "healthy" : "degraded",
-        message: session ? "Authentication system operational" : "No active session",
-        details: {
-          hasSession: !!session,
-          authConfigured: true,
-        },
-      })
-    } else {
-      results.push({
-        service: "Authentication",
+      results.success = false
+      results.status = "degraded"
+      results.services.redis = {
         status: "unhealthy",
-        message: "Authentication not configured",
-        error: "authOptions is undefined",
-      })
+        message: "Redis connection failed",
+        details: {
+          url: maskConnectionString(getRedisUrl()),
+        },
+      }
     }
   } catch (error) {
-    results.push({
-      service: "Authentication",
+    results.success = false
+    results.status = "degraded"
+    results.services.redis = {
       status: "unhealthy",
-      message: "Authentication check failed",
-      error: error instanceof Error ? error.message : String(error),
-    })
-  }
-
-  // 4. Check Blob Storage
-  try {
-    const testBlob = new Blob(["health-check"], { type: "text/plain" })
-    const { url } = await put("health-check.txt", testBlob, {
-      access: "public",
-      addRandomSuffix: true,
-    })
-
-    results.push({
-      service: "Blob Storage",
-      status: "healthy",
-      message: "Blob storage operational",
+      message: (error as Error).message,
       details: {
-        testUrl: url,
+        url: maskConnectionString(getRedisUrl()),
       },
-    })
-  } catch (error) {
-    results.push({
-      service: "Blob Storage",
-      status: "unhealthy",
-      message: "Blob storage check failed",
-      error: error instanceof Error ? error.message : String(error),
-    })
+    }
   }
 
-  // 5. Check Environment Variables
-  const requiredEnvVars = [
-    "DATABASE_URL",
-    "NEXTAUTH_URL",
-    "NEXTAUTH_SECRET",
-    "KV_URL",
-    "KV_REST_API_TOKEN",
-    "BLOB_READ_WRITE_TOKEN",
-    "GROQ_API_KEY",
-  ]
-
-  const missingEnvVars = requiredEnvVars.filter((varName) => !process.env[varName])
-
-  results.push({
-    service: "Environment Variables",
-    status: missingEnvVars.length === 0 ? "healthy" : "unhealthy",
-    message:
-      missingEnvVars.length === 0 ? "All required environment variables present" : "Missing environment variables",
-    details: {
-      missing: missingEnvVars,
-      total: requiredEnvVars.length,
-      configured: requiredEnvVars.length - missingEnvVars.length,
-    },
-  })
-
-  // 6. Check Groq AI
+  // Check Blob
   try {
-    if (process.env.GROQ_API_KEY) {
-      results.push({
-        service: "Groq AI",
-        status: "healthy",
-        message: "Groq API key configured",
-        details: {
-          keyPresent: true,
-        },
-      })
-    } else {
-      results.push({
-        service: "Groq AI",
-        status: "unhealthy",
-        message: "Groq API key not configured",
-        error: "Missing GROQ_API_KEY",
-      })
+    const blobToken = getBlobToken()
+    results.services.blob = {
+      status: blobToken ? "healthy" : "unhealthy",
+      message: blobToken ? "Blob token found" : "Blob token missing",
+      details: {
+        tokenAvailable: !!blobToken,
+      },
+    }
+
+    if (!blobToken) {
+      results.success = false
+      results.status = "degraded"
     }
   } catch (error) {
-    results.push({
-      service: "Groq AI",
+    results.success = false
+    results.status = "degraded"
+    results.services.blob = {
       status: "unhealthy",
-      message: "Groq AI check failed",
-      error: error instanceof Error ? error.message : String(error),
-    })
+      message: (error as Error).message,
+    }
   }
 
-  // Calculate overall health
-  const unhealthyCount = results.filter((r) => r.status === "unhealthy").length
-  const degradedCount = results.filter((r) => r.status === "degraded").length
-  const overallStatus = unhealthyCount > 0 ? "unhealthy" : degradedCount > 0 ? "degraded" : "healthy"
+  // Check Groq
+  try {
+    const groqApiKey = getGroqApiKey()
+    results.services.groq = {
+      status: groqApiKey ? "healthy" : "unhealthy",
+      message: groqApiKey ? "Groq API key found" : "Groq API key missing",
+      details: {
+        keyAvailable: !!groqApiKey,
+      },
+    }
 
-  return NextResponse.json({
-    status: overallStatus,
-    timestamp: new Date().toISOString(),
-    services: results,
-    summary: {
-      total: results.length,
-      healthy: results.filter((r) => r.status === "healthy").length,
-      degraded: degradedCount,
-      unhealthy: unhealthyCount,
-    },
-  })
+    if (!groqApiKey) {
+      results.success = false
+      results.status = "degraded"
+    }
+  } catch (error) {
+    results.success = false
+    results.status = "degraded"
+    results.services.groq = {
+      status: "unhealthy",
+      message: (error as Error).message,
+    }
+  }
+
+  // Overall status
+  if (!results.success) {
+    results.status = Object.values(results.services).every((service: any) => service.status === "unhealthy")
+      ? "unhealthy"
+      : "degraded"
+  }
+
+  return results
+}
+
+// Helper to mask sensitive connection strings
+function maskConnectionString(connectionString: string): string {
+  if (!connectionString) return "Not configured"
+
+  try {
+    const url = new URL(connectionString)
+
+    // Mask password if present
+    if (url.password) {
+      url.password = "****"
+    }
+
+    // Return masked URL
+    return url.toString()
+  } catch {
+    // If not a valid URL, just mask most of it
+    return connectionString.substring(0, 8) + "..." + connectionString.substring(connectionString.length - 8)
+  }
 }

@@ -1,26 +1,22 @@
 import { Redis } from "@upstash/redis"
+import { getRedisUrl, getRedisToken } from "../env-safe"
 
 // Initialize Redis client
 const getRedisClient = () => {
   try {
+    // Get Redis URL and token from environment variables using the safe accessor
+    const redisUrl = getRedisUrl()
+    const redisToken = getRedisToken()
+
     // For Upstash Redis on Vercel, use KV_URL and KV_REST_API_TOKEN
-    if (process.env.KV_URL && process.env.KV_REST_API_TOKEN) {
+    if (redisUrl && redisToken) {
       return new Redis({
-        url: process.env.KV_URL,
-        token: process.env.KV_REST_API_TOKEN,
+        url: redisUrl,
+        token: redisToken,
       })
     }
 
-    // For Upstash Redis with REST API (not Redis protocol)
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-      return new Redis({
-        url: process.env.KV_REST_API_URL,
-        token: process.env.KV_REST_API_TOKEN,
-      })
-    }
-
-    // For Redis URL in the format rediss://, convert to proper Upstash format
-    // or use in-memory fallback
+    // If no valid Redis credentials, use in-memory fallback
     console.warn("Using in-memory Redis mock (no valid Upstash REST API credentials found)")
     return createMockRedisClient()
   } catch (error) {

@@ -1,8 +1,9 @@
 import { neon, type NeonDatabase } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
+import { getDatabaseUrl } from "../env-safe"
 
-// Use production_DATABASE_URL if available, otherwise fallback to DATABASE_URL
-const databaseUrl = process.env.production_DATABASE_URL || process.env.DATABASE_URL
+// Get database URL from environment variables using the safe accessor
+const databaseUrl = getDatabaseUrl()
 
 if (!databaseUrl) {
   throw new Error("DATABASE_URL environment variable not set")
