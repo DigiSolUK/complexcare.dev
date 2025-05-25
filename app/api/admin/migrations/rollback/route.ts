@@ -18,19 +18,19 @@ export async function POST(req: NextRequest) {
     }
 
     const runner = new MigrationRunner(databaseUrl)
-    await runner.runPendingMigrations(dryRun)
+    await runner.rollbackLastMigration(dryRun)
 
     const status = await runner.getStatus()
 
     return NextResponse.json({
       success: true,
-      message: dryRun ? "Dry run completed" : "Migrations completed successfully",
+      message: dryRun ? "Dry run completed" : "Rollback completed successfully",
       status,
     })
   } catch (error) {
-    console.error("Failed to run migrations:", error)
+    console.error("Failed to rollback migration:", error)
     return NextResponse.json(
-      { error: "Failed to run migrations", message: error instanceof Error ? error.message : String(error) },
+      { error: "Failed to rollback migration", message: error instanceof Error ? error.message : String(error) },
       { status: 500 },
     )
   }

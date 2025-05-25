@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { MigrationRunner } from "@/lib/db/migration-framework"
 import { requirePermission } from "@/lib/auth/require-permission"
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     // Check if user has admin permissions
     const permissionCheck = await requirePermission(req, "admin.database.manage")
@@ -10,27 +10,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized: Insufficient permissions" }, { status: 403 })
     }
 
-    const { dryRun = false } = await req.json()
-
     const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
     if (!databaseUrl) {
       return NextResponse.json({ error: "Database URL not configured" }, { status: 500 })
     }
 
     const runner = new MigrationRunner(databaseUrl)
-    await runner.runPendingMigrations(dryRun)
-
     const status = await runner.getStatus()
 
-    return NextResponse.json({
-      success: true,
-      message: dryRun ? "Dry run completed" : "Migrations completed successfully",
-      status,
-    })
+    return NextResponse.json(status)
   } catch (error) {
-    console.error("Failed to run migrations:", error)
+    console.error("Failed to get migration status:", error)
     return NextResponse.json(
-      { error: "Failed to run migrations", message: error instanceof Error ? error.message : String(error) },
+      { error: "Failed to get migration status", message: error instanceof Error ? error.message : String(error) },
       { status: 500 },
     )
   }
