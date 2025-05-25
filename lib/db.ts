@@ -1,8 +1,12 @@
+import { neon } from "@neondatabase/serverless"
 import { DEFAULT_TENANT_ID } from "./constants"
-import { mockDb, shouldUseMockDb, getDbClient } from "./mock-db-provider"
 
-// Use the mock DB provider when needed
-export const sql = shouldUseMockDb() ? mockDb : getDbClient()
+// Use the production database URL
+const DATABASE_URL =
+  process.env.DATABASE_URL || process.env.production_DATABASE_URL || process.env.production_POSTGRES_URL
+
+// Create a SQL client using the Neon serverless driver
+export const sql = neon(DATABASE_URL!)
 
 // Legacy alias for compatibility
 export const db = sql
@@ -14,11 +18,6 @@ export async function executeQuery(
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<any[]> {
   try {
-    if (shouldUseMockDb()) {
-      console.log("Mock executeQuery:", query, params, tenantId)
-      return []
-    }
-
     const result = await sql.query(query, params)
     return result.rows || []
   } catch (error) {
@@ -32,11 +31,6 @@ export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
   return {
     query: async (text: string, params: any[] = []) => {
       try {
-        if (shouldUseMockDb()) {
-          console.log("Mock withTenant query:", text, params, tenantId)
-          return { rows: [] }
-        }
-
         const result = await sql.query(text, params)
         return result
       } catch (error) {
@@ -49,11 +43,6 @@ export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
 
 // Helper function to execute a transaction
 export async function transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
-  if (shouldUseMockDb()) {
-    console.log("Mock transaction")
-    return callback(mockDb) as Promise<T>
-  }
-
   try {
     await sql.query("BEGIN")
     const result = await callback(sql)
@@ -68,17 +57,14 @@ export async function transaction<T>(callback: (client: any) => Promise<T>): Pro
 
 // Generic CRUD operations
 export async function getById(table: string, id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<any | null> {
-  if (shouldUseMockDb()) {
-    console.log("Mock getById:", table, id, tenantId)
-    return null
-  }
-
   try {
-    const result = await sql.query(`SELECT * FROM ${table} WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`, [
-      id,
-      tenantId,
-    ])
-    return result.rows[0] || null
+    const result = await sql`
+      SELECT * FROM ${sql(table)}
+      WHERE id = ${id}
+      AND tenant_id = ${tenantId}
+      AND deleted_at IS NULL
+    `
+    return result[0] || null
   } catch (error) {
     console.error(`Error getting ${table} by ID:`, error)
     return null
@@ -90,11 +76,6 @@ export async function insert(
   data: Record<string, any>,
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<any | null> {
-  if (shouldUseMockDb()) {
-    console.log("Mock insert:", table, data, tenantId)
-    return { id: "mock-id", ...data, tenant_id: tenantId }
-  }
-
   try {
     const dataWithTenant = { ...data, tenant_id: tenantId }
     const columns = Object.keys(dataWithTenant)
@@ -120,11 +101,6 @@ export async function update(
   data: Record<string, any>,
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<any | null> {
-  if (shouldUseMockDb()) {
-    console.log("Mock update:", table, id, data, tenantId)
-    return { id, ...data, tenant_id: tenantId }
-  }
-
   try {
     const updateFields = Object.keys(data)
       .map((key, i) => `${key} = $${i + 3}`)
@@ -152,19 +128,18 @@ export async function remove(
   tenantId: string = DEFAULT_TENANT_ID,
   softDelete = true,
 ): Promise<boolean> {
-  if (shouldUseMockDb()) {
-    console.log("Mock remove:", table, id, tenantId, softDelete)
-    return true
-  }
-
   try {
     if (softDelete) {
-      await sql.query(`UPDATE ${table} SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND tenant_id = $2`, [
-        id,
-        tenantId,
-      ])
+      await sql`
+        UPDATE ${sql(table)}
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE id = ${id} AND tenant_id = ${tenantId}
+      `
     } else {
-      await sql.query(`DELETE FROM ${table} WHERE id = $1 AND tenant_id = $2`, [id, tenantId])
+      await sql`
+        DELETE FROM ${sql(table)}
+        WHERE id = ${id} AND tenant_id = ${tenantId}
+      `
     }
     return true
   } catch (error) {
