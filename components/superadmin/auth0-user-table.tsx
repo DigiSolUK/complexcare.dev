@@ -14,14 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { MoreHorizontal, Search, UserPlus, RefreshCw } from "lucide-react"
 import { deleteAuth0User, updateAuth0User, assignRolesToUser } from "@/lib/actions/auth0-actions"
+import { EditAuth0UserForm } from "./edit-auth0-user-form"
 
 interface Auth0User {
   user_id: string
@@ -51,6 +45,8 @@ interface Auth0User {
   app_metadata?: any
   user_metadata?: any
   identities?: any[]
+  given_name?: string
+  family_name?: string
 }
 
 interface Auth0Role {
@@ -147,6 +143,11 @@ export function Auth0UserTable({ initialUsers, totalUsers, roles, userRoles, pag
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleEditSuccess = () => {
+    setIsEditDialogOpen(false)
+    router.refresh()
   }
 
   const formatDate = (dateString: string) => {
@@ -269,21 +270,18 @@ export function Auth0UserTable({ initialUsers, totalUsers, roles, userRoles, pag
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user information</DialogDescription>
+            <DialogDescription>Update information for {selectedUser?.email}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {/* Edit form would go here */}
-            <p>Edit functionality would be implemented here</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">Save Changes</Button>
-          </DialogFooter>
+          {selectedUser && (
+            <EditAuth0UserForm
+              user={selectedUser}
+              onSuccess={handleEditSuccess}
+              onCancel={() => setIsEditDialogOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -338,14 +336,14 @@ export function Auth0UserTable({ initialUsers, totalUsers, roles, userRoles, pag
               </div>
             ))}
           </div>
-          <DialogFooter>
+          <div className="flex justify-end space-x-4">
             <Button variant="outline" onClick={() => setIsRolesDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSaveRoles} disabled={isSubmitting}>
               {isSubmitting ? "Saving..." : "Save Roles"}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

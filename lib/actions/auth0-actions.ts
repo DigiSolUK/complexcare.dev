@@ -47,19 +47,42 @@ export async function getAuth0User(userId: string) {
   }
 }
 
-// Update an Auth0 user
-export async function updateAuth0User(userId: string, userData: any) {
+// Update an Auth0 user with comprehensive data
+export async function updateAuth0User(
+  userId: string,
+  userData: {
+    email?: string
+    name?: string
+    given_name?: string
+    family_name?: string
+    nickname?: string
+    picture?: string
+    user_metadata?: any
+    app_metadata?: any
+    email_verified?: boolean
+    verify_email?: boolean
+    phone_number?: string
+    phone_verified?: boolean
+    blocked?: boolean
+    connection?: string
+    password?: string
+  },
+) {
   try {
     await requirePermission(PERMISSIONS.SUPERADMIN, "system")
 
     const management = getManagementClient()
-    const user = await management.updateUser({ id: userId }, userData)
+
+    // Remove undefined values to avoid overwriting with null
+    const cleanedUserData = Object.fromEntries(Object.entries(userData).filter(([_, v]) => v !== undefined))
+
+    const user = await management.updateUser({ id: userId }, cleanedUserData)
 
     revalidatePath("/superadmin/auth0")
     return user
   } catch (error) {
     console.error(`Error updating Auth0 user ${userId}:`, error)
-    throw new Error("Failed to update Auth0 user")
+    throw new Error(`Failed to update Auth0 user: ${(error as Error).message}`)
   }
 }
 
@@ -173,5 +196,35 @@ export async function getAuth0Connections() {
   } catch (error) {
     console.error("Error fetching Auth0 connections:", error)
     throw new Error("Failed to fetch Auth0 connections")
+  }
+}
+
+// Get user roles
+export async function getUserRoles(userId: string) {
+  try {
+    await requirePermission(PERMISSIONS.SUPERADMIN, "system")
+
+    const management = getManagementClient()
+    const roles = await management.getUserRoles({ id: userId })
+    return roles
+  } catch (error) {
+    console.error(`Error fetching roles for user ${userId}:`, error)
+    throw new Error("Failed to fetch user roles")
+  }
+}
+
+// Remove roles from a user
+export async function removeRolesFromUser(userId: string, roleIds: string[]) {
+  try {
+    await requirePermission(PERMISSIONS.SUPERADMIN, "system")
+
+    const management = getManagementClient()
+    await management.removeRolesFromUser({ id: userId }, { roles: roleIds })
+
+    revalidatePath("/superadmin/auth0")
+    return { success: true }
+  } catch (error) {
+    console.error(`Error removing roles from user ${userId}:`, error)
+    throw new Error("Failed to remove roles from user")
   }
 }
