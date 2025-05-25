@@ -127,3 +127,51 @@ export async function getAuth0Logs(page = 0, perPage = 10) {
     throw new Error("Failed to fetch Auth0 logs")
   }
 }
+
+// Create a new Auth0 user
+export async function createAuth0User(userData: {
+  email: string
+  password?: string
+  connection: string
+  name?: string
+  given_name?: string
+  family_name?: string
+  nickname?: string
+  picture?: string
+  user_metadata?: any
+  app_metadata?: any
+  email_verified?: boolean
+  verify_email?: boolean
+  phone_number?: string
+  phone_verified?: boolean
+  blocked?: boolean
+}) {
+  try {
+    await requirePermission(PERMISSIONS.SUPERADMIN, "system")
+
+    const management = getManagementClient()
+    const user = await management.createUser(userData)
+
+    revalidatePath("/superadmin/auth0")
+    return user
+  } catch (error) {
+    console.error("Error creating Auth0 user:", error)
+    throw new Error(`Failed to create Auth0 user: ${(error as Error).message}`)
+  }
+}
+
+// Get Auth0 connections
+export async function getAuth0Connections() {
+  try {
+    await requirePermission(PERMISSIONS.SUPERADMIN, "system")
+
+    const management = getManagementClient()
+    const connections = await management.getConnections()
+
+    // Filter to only include database connections
+    return connections.filter((conn) => conn.strategy === "auth0" || conn.strategy === "username-password")
+  } catch (error) {
+    console.error("Error fetching Auth0 connections:", error)
+    throw new Error("Failed to fetch Auth0 connections")
+  }
+}
