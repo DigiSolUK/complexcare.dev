@@ -361,7 +361,7 @@ export function AppointmentCalendar({ patients, providers, initialView = "week" 
               onSelectSlot={handleSelectSlot}
               selectable
               components={{
-                event: EventComponent,
+                event: EventComponent as any,
               }}
               eventPropGetter={(event) => {
                 return {

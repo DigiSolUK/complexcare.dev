@@ -1,254 +1,216 @@
 "use client"
-
-import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import {
-  Home,
+  LayoutDashboard,
   Users,
-  Calendar,
+  UserCheck,
   FileText,
-  CheckSquare,
-  Lightbulb,
-  Activity,
-  Settings,
+  Calendar,
+  Pill,
+  ClipboardList,
   Clock,
-  File,
   CreditCard,
+  FileSpreadsheet,
   Shield,
-  Briefcase,
-  Menu,
-  X,
-  ChevronDown,
+  BarChart3,
+  Brain,
+  Settings,
+  ChevronLeft,
   ChevronRight,
+  Building2,
+  UserCog,
 } from "lucide-react"
 
 interface SidebarProps {
   className?: string
+  isCollapsed?: boolean
+  onToggle?: () => void
+  userRole?: string
 }
 
-export default function Sidebar({ className }: SidebarProps) {
+const navigationItems = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Patients",
+    href: "/patients",
+    icon: Users,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Care Professionals",
+    href: "/care-professionals",
+    icon: UserCheck,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Clinical Notes",
+    href: "/clinical-notes",
+    icon: FileText,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Appointments",
+    href: "/appointments",
+    icon: Calendar,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Care Plans",
+    href: "/care-plans",
+    icon: ClipboardList,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Medications",
+    href: "/medications",
+    icon: Pill,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Timesheets",
+    href: "/timesheets",
+    icon: Clock,
+    roles: ["admin", "user", "super_admin"],
+  },
+  {
+    title: "Invoicing",
+    href: "/invoicing",
+    icon: CreditCard,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    title: "Payroll",
+    href: "/payroll",
+    icon: FileSpreadsheet,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    title: "Compliance",
+    href: "/compliance",
+    icon: Shield,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    title: "Analytics",
+    href: "/analytics",
+    icon: BarChart3,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    title: "AI Tools",
+    href: "/ai-tools",
+    icon: Brain,
+    roles: ["admin", "user", "super_admin"],
+  },
+]
+
+const superAdminItems = [
+  {
+    title: "Tenant Management",
+    href: "/superadmin/tenants",
+    icon: Building2,
+    roles: ["super_admin"],
+  },
+  {
+    title: "System Admin",
+    href: "/superadmin",
+    icon: UserCog,
+    roles: ["super_admin"],
+  },
+]
+
+export function Sidebar({ className, isCollapsed = false, onToggle, userRole = "user" }: SidebarProps) {
   const pathname = usePathname()
-  const [isCollapsed, setIsCollapsed] = useState(false)
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
-    administration: false,
-    system: false,
-  })
 
-  const toggleMenu = (menu: string) => {
-    setOpenMenus((prev) => ({
-      ...prev,
-      [menu]: !prev[menu],
-    }))
-  }
+  const filteredNavItems = navigationItems.filter((item) => item.roles.includes(userRole))
 
-  const isActive = (path: string) => {
-    return pathname === path || pathname?.startsWith(`${path}/`)
-  }
-
-  const mainItems = [
-    {
-      name: "Dashboard",
-      href: "/dashboard",
-      icon: Home,
-    },
-    {
-      name: "Patients",
-      href: "/patients",
-      icon: Users,
-    },
-    {
-      name: "Care Professionals",
-      href: "/care-professionals",
-      icon: Users,
-    },
-    {
-      name: "Appointments",
-      href: "/appointments",
-      icon: Calendar,
-    },
-    {
-      name: "Care Plans",
-      href: "/care-plans",
-      icon: FileText,
-    },
-    {
-      name: "Tasks",
-      href: "/tasks",
-      icon: CheckSquare,
-    },
-    {
-      name: "AI Tools",
-      href: "/ai-tools",
-      icon: Lightbulb,
-    },
-    {
-      name: "Clinical Decision Support",
-      href: "/clinical-decision-support",
-      icon: Activity,
-    },
-  ]
-
-  const adminItems = [
-    {
-      name: "Timesheets",
-      href: "/timesheets",
-      icon: Clock,
-    },
-    {
-      name: "Documents",
-      href: "/documents",
-      icon: File,
-    },
-    {
-      name: "Invoicing",
-      href: "/invoicing",
-      icon: CreditCard,
-    },
-    {
-      name: "Compliance",
-      href: "/compliance",
-      icon: Shield,
-    },
-    {
-      name: "Recruitment",
-      href: "/recruitment",
-      icon: Briefcase,
-    },
-  ]
-
-  const systemItems = [
-    {
-      name: "Content",
-      href: "/content",
-      icon: FileText,
-    },
-    {
-      name: "Analytics",
-      href: "/analytics",
-      icon: Activity,
-    },
-    {
-      name: "Settings",
-      href: "/settings",
-      icon: Settings,
-    },
-  ]
+  const filteredSuperAdminItems = superAdminItems.filter((item) => item.roles.includes(userRole))
 
   return (
-    <div
-      className={cn(
-        "flex flex-col h-screen bg-white border-r transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64",
-        className,
-      )}
-    >
-      <div className="flex items-center justify-between p-4 border-b">
-        {!isCollapsed && <h1 className="text-xl font-bold">ComplexCare</h1>}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1 rounded-md hover:bg-gray-100"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? <Menu size={20} /> : <X size={20} />}
-        </button>
+    <div className={cn("flex h-full flex-col border-r bg-background", className)}>
+      <div className="flex h-14 items-center justify-between px-4">
+        {!isCollapsed && <h2 className="text-lg font-semibold">ComplexCare CRM</h2>}
+        {onToggle && (
+          <Button variant="ghost" size="sm" onClick={onToggle} className="h-8 w-8 p-0">
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto py-2">
-        <div className="px-3 py-2">
-          {!isCollapsed && <h2 className="mb-2 px-4 text-xs font-semibold text-gray-500">Main</h2>}
-          <nav className="space-y-1">
-            {mainItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center px-4 py-2 text-sm rounded-md",
-                  isActive(item.href) ? "bg-primary text-primary-foreground" : "text-gray-700 hover:bg-gray-100",
-                  isCollapsed && "justify-center",
-                )}
-              >
-                <item.icon size={20} className={cn(isCollapsed ? "mx-0" : "mr-3")} />
-                {!isCollapsed && <span>{item.name}</span>}
+      <Separator />
+
+      <ScrollArea className="flex-1 px-3">
+        <div className="space-y-2 py-4">
+          {filteredNavItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+
+            return (
+              <Link key={item.href} href={item.href}>
+                <Button
+                  variant={isActive ? "secondary" : "ghost"}
+                  className={cn("w-full justify-start", isCollapsed && "px-2", isActive && "bg-secondary")}
+                >
+                  <Icon className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+                  {!isCollapsed && item.title}
+                </Button>
               </Link>
-            ))}
-          </nav>
+            )
+          })}
         </div>
 
-        <div className="px-3 py-2">
-          {!isCollapsed && (
-            <button
-              onClick={() => toggleMenu("administration")}
-              className="flex items-center justify-between w-full px-4 py-2 text-xs font-semibold text-gray-500"
-            >
-              <span>Administration</span>
-              {openMenus.administration ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </button>
-          )}
-          {(isCollapsed || openMenus.administration) && (
-            <nav className="space-y-1 mt-1">
-              {adminItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center px-4 py-2 text-sm rounded-md",
-                    isActive(item.href) ? "bg-primary text-primary-foreground" : "text-gray-700 hover:bg-gray-100",
-                    isCollapsed && "justify-center",
-                  )}
-                >
-                  <item.icon size={20} className={cn(isCollapsed ? "mx-0" : "mr-3")} />
-                  {!isCollapsed && <span>{item.name}</span>}
-                </Link>
-              ))}
-            </nav>
-          )}
-        </div>
+        {filteredSuperAdminItems.length > 0 && (
+          <>
+            <Separator className="my-4" />
+            <div className="space-y-2 py-4">
+              {!isCollapsed && (
+                <h3 className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Super Admin
+                </h3>
+              )}
+              {filteredSuperAdminItems.map((item) => {
+                const Icon = item.icon
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
 
-        <div className="px-3 py-2">
-          {!isCollapsed && (
-            <button
-              onClick={() => toggleMenu("system")}
-              className="flex items-center justify-between w-full px-4 py-2 text-xs font-semibold text-gray-500"
-            >
-              <span>System</span>
-              {openMenus.system ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </button>
-          )}
-          {(isCollapsed || openMenus.system) && (
-            <nav className="space-y-1 mt-1">
-              {systemItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center px-4 py-2 text-sm rounded-md",
-                    isActive(item.href) ? "bg-primary text-primary-foreground" : "text-gray-700 hover:bg-gray-100",
-                    isCollapsed && "justify-center",
-                  )}
-                >
-                  <item.icon size={20} className={cn(isCollapsed ? "mx-0" : "mr-3")} />
-                  {!isCollapsed && <span>{item.name}</span>}
-                </Link>
-              ))}
-            </nav>
-          )}
-        </div>
-      </div>
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <Button
+                      variant={isActive ? "secondary" : "ghost"}
+                      className={cn("w-full justify-start", isCollapsed && "px-2", isActive && "bg-secondary")}
+                    >
+                      <Icon className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+                      {!isCollapsed && item.title}
+                    </Button>
+                  </Link>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </ScrollArea>
 
-      <div className="p-4 border-t">
-        <Link
-          href="/diagnostics"
-          className={cn(
-            "flex items-center px-4 py-2 text-sm rounded-md text-gray-700 hover:bg-gray-100",
-            isCollapsed && "justify-center",
-          )}
-        >
-          <Activity size={20} className={cn(isCollapsed ? "mx-0" : "mr-3")} />
-          {!isCollapsed && <span>Diagnostics</span>}
+      <Separator />
+
+      <div className="p-4">
+        <Link href="/settings">
+          <Button variant="ghost" className={cn("w-full justify-start", isCollapsed && "px-2")}>
+            <Settings className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+            {!isCollapsed && "Settings"}
+          </Button>
         </Link>
       </div>
     </div>
   )
 }
+
+export default Sidebar

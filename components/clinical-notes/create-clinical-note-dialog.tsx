@@ -3,100 +3,122 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { useToast } from "@/components/ui/use-toast"
+import { Switch } from "@/components/ui/switch"
+import { CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import {
-  createClinicalNote,
   type ClinicalNoteCategory,
-  type ClinicalNoteTemplate,
+  getClinicalNoteCategories,
+  createClinicalNote,
 } from "@/lib/services/clinical-notes-service"
 
 interface CreateClinicalNoteDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onNoteCreated: (note: any) => void
-  categories: ClinicalNoteCategory[]
-  templates: ClinicalNoteTemplate[]
-  patientId?: string | null
+  patientId?: string
+  onSuccess?: () => void
 }
 
-export default function CreateClinicalNoteDialog({
-  open,
-  onOpenChange,
-  onNoteCreated,
-  categories,
-  templates,
-  patientId,
-}: CreateClinicalNoteDialogProps) {
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    patient_id: patientId || "",
-    category_id: "",
-    title: "",
-    content: "",
-    is_private: false,
-    is_important: false,
-  })
-  const [selectedTemplate, setSelectedTemplate] = useState("")
+export function CreateClinicalNoteDialog({ open, onOpenChange, patientId, onSuccess }: CreateClinicalNoteDialogProps) {
+  const [title, setTitle] = useState("")
+  const [content, setContent] = useState("")
+  const [categoryId, setCategoryId] = useState("")
+  const [isPrivate, setIsPrivate] = useState(false)
+  const [isImportant, setIsImportant] = useState(false)
+  const [followUpDate, setFollowUpDate] = useState<Date | undefined>(undefined)
+  const [followUpNotes, setFollowUpNotes] = useState("")
+  const [categories, setCategories] = useState<ClinicalNoteCategory[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (selectedTemplate) {
-      const template = templates.find((t) => t.id === selectedTemplate)
-      if (template) {
-        setFormData((prev) => ({
-          ...prev,
-          content: template.content,
-          category_id: template.category_id || prev.category_id,
-        }))
+    const fetchCategories = async () => {
+      try {
+        const categoriesData = await getClinicalNoteCategories()
+        setCategories(categoriesData)
+        if (categoriesData.length > 0) {
+          setCategoryId(categoriesData[0].id)
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error)
       }
     }
-  }, [selectedTemplate, templates])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleCheckboxChange = (name: string, checked: boolean) => {
-    setFormData((prev) => ({ ...prev, [name]: checked }))
-  }
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+    if (open) {
+      fetchCategories()
+    }
+  }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setError(null)
+    setIsSubmitting(true)
 
     try {
-      if (!formData.patient_id) {
+      if (!title.trim()) {
+        throw new Error("Note title is required")
+      }
+
+      if (!content.trim()) {
+        throw new Error("Note content is required")
+      }
+
+      if (!patientId) {
         throw new Error("Patient ID is required")
       }
 
-      const newNote = await createClinicalNote(formData)
-      toast({
-        title: "Note created",
-        description: "The clinical note has been created successfully.",
+      await createClinicalNote({
+        tenant_id: "",
+        patient_id: patientId,
+        title,
+        content,
+        category_id: categoryId,
+        created_by: "current-user-id", // This should be replaced with the actual user ID
+        is_private: isPrivate,
+        is_important: isImportant,
+        tags: [],
+        follow_up_date: followUpDate ? format(followUpDate, "yyyy-MM-dd") : null,
+        follow_up_notes: followUpNotes || null,
       })
-      onNoteCreated(newNote)
-    } catch (error: any) {
+
+      resetForm()
+      onOpenChange(false)
+
+      if (onSuccess) {
+        onSuccess()
+      }
+    } catch (error) {
       console.error("Error creating note:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create the clinical note. Please try again.",
-        variant: "destructive",
-      })
+      setError(error instanceof Error ? error.message : "Failed to create note")
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
+  }
+
+  const resetForm = () => {
+    setTitle("")
+    setContent("")
+    setCategoryId(categories.length > 0 ? categories[0].id : "")
+    setIsPrivate(false)
+    setIsImportant(false)
+    setFollowUpDate(undefined)
+    setFollowUpNotes("")
   }
 
   return (
@@ -104,19 +126,26 @@ export default function CreateClinicalNoteDialog({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create New Clinical Note</DialogTitle>
+          <DialogDescription>Add a new clinical note to the patient's record.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input id="title" name="title" value={formData.title} onChange={handleChange} required />
-          </div>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Note title"
+                required
+              />
+            </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="category_id">Category</Label>
-              <Select value={formData.category_id} onValueChange={(value) => handleSelectChange("category_id", value)}>
+            <div className="grid gap-2">
+              <Label htmlFor="category">Category</Label>
+              <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((category) => (
@@ -128,60 +157,72 @@ export default function CreateClinicalNoteDialog({
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="template">Template</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
-            <Textarea
-              id="content"
-              name="content"
-              value={formData.content}
-              onChange={handleChange}
-              className="min-h-[200px]"
-              required
-            />
-          </div>
-
-          <div className="flex space-x-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is_private"
-                checked={formData.is_private}
-                onCheckedChange={(checked) => handleCheckboxChange("is_private", !!checked)}
+            <div className="grid gap-2">
+              <Label htmlFor="content">Content</Label>
+              <Textarea
+                id="content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Clinical note content"
+                rows={6}
+                required
               />
-              <Label htmlFor="is_private">Private</Label>
             </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is_important"
-                checked={formData.is_important}
-                onCheckedChange={(checked) => handleCheckboxChange("is_important", !!checked)}
-              />
-              <Label htmlFor="is_important">Important</Label>
-            </div>
-          </div>
 
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Switch id="private" checked={isPrivate} onCheckedChange={setIsPrivate} />
+                <Label htmlFor="private">Private Note</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch id="important" checked={isImportant} onCheckedChange={setIsImportant} />
+                <Label htmlFor="important">Mark as Important</Label>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="followup">Follow-up Date (optional)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !followUpDate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {followUpDate ? format(followUpDate, "PPP") : "Select a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={followUpDate} onSelect={setFollowUpDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {followUpDate && (
+              <div className="grid gap-2">
+                <Label htmlFor="followupNotes">Follow-up Notes</Label>
+                <Textarea
+                  id="followupNotes"
+                  value={followUpNotes}
+                  onChange={(e) => setFollowUpNotes(e.target.value)}
+                  placeholder="Notes for follow-up"
+                  rows={2}
+                />
+              </div>
+            )}
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create Note"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create Note"}
             </Button>
           </DialogFooter>
         </form>

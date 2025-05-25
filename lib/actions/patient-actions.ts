@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache"
 import { sql } from "@/lib/db"
 import { DEFAULT_TENANT_ID } from "@/lib/constants"
+import { logActivity } from "@/lib/services/activity-log-service"
 
-export async function createPatient(data: any) {
+export async function createPatient(data: any, userId?: string) {
   try {
     // Format date of birth to ISO string
     const dob = data.date_of_birth instanceof Date ? data.date_of_birth.toISOString().split("T")[0] : data.date_of_birth
@@ -46,12 +47,29 @@ export async function createPatient(data: any) {
       ) RETURNING *
     `
 
+    const newPatient = result[0]
+
+    // Log patient creation activity
+    await logActivity({
+      tenantId: DEFAULT_TENANT_ID,
+      activityType: "patient_created",
+      description: `New patient created: ${data.first_name} ${data.last_name}`,
+      patientId: newPatient.id,
+      userId,
+      metadata: {
+        patientName: `${data.first_name} ${data.last_name}`,
+        dateOfBirth: dob,
+        gender: data.gender,
+        nhsNumber: data.nhs_number,
+      },
+    })
+
     // Revalidate the patients page to show the new patient
     revalidatePath("/patients")
 
     return {
       success: true,
-      data: result[0],
+      data: newPatient,
     }
   } catch (error: any) {
     console.error("Error creating patient:", error)
@@ -62,8 +80,16 @@ export async function createPatient(data: any) {
   }
 }
 
-export async function updatePatient(id: string, data: any) {
+export async function updatePatient(id: string, data: any, userId?: string) {
   try {
+    // Get original patient data for comparison
+    const originalPatientResult = await sql`
+      SELECT * FROM patients
+      WHERE id = ${id} AND tenant_id = ${DEFAULT_TENANT_ID}
+    `
+
+    const originalPatient = originalPatientResult[0]
+
     // Format date of birth to ISO string
     const dob = data.date_of_birth instanceof Date ? data.date_of_birth.toISOString().split("T")[0] : data.date_of_birth
 
@@ -92,13 +118,81 @@ export async function updatePatient(id: string, data: any) {
       throw new Error("Patient not found or you don't have permission to update this patient")
     }
 
+    const updatedPatient = result[0]
+
+    // Determine which fields were updated
+    const updatedFields = []
+    if (originalPatient.first_name !== data.first_name || originalPatient.last_name !== data.last_name)
+      updatedFields.push("name")
+    if (originalPatient.date_of_birth !== dob) updatedFields.push("date_of_birth")
+    if (originalPatient.gender !== data.gender) updatedFields.push("gender")
+    if (originalPatient.nhs_number !== data.nhs_number) updatedFields.push("nhs_number")
+    if (originalPatient.contact_number !== data.contact_number) updatedFields.push("contact_number")
+    if (originalPatient.email !== data.email) updatedFields.push("email")
+    if (originalPatient.address !== data.address) updatedFields.push("address")
+    if (originalPatient.primary_condition !== data.primary_condition) updatedFields.push("primary_condition")
+    if (originalPatient.primary_care_provider !== data.primary_care_provider)
+      updatedFields.push("primary_care_provider")
+    if (originalPatient.status !== data.status) updatedFields.push("status")
+    if (originalPatient.notes !== data.notes) updatedFields.push("notes")
+
+    // Log patient update activity
+    await logActivity({
+      tenantId: DEFAULT_TENANT_ID,
+      activityType: "patient_updated",
+      description: `Patient information updated: ${updatedFields.join(", ")}`,
+      patientId: id,
+      userId,
+      metadata: {
+        updatedFields,
+        patientName: `${data.first_name} ${data.last_name}`,
+      },
+    })
+
+    // If status changed, log a specific activity
+    if (originalPatient.status !== data.status) {
+      let statusChangeType = ""
+      let statusChangeDescription = ""
+
+      switch (data.status) {
+        case "active":
+          statusChangeType = "patient_activated"
+          statusChangeDescription = `Patient status changed to active: ${data.first_name} ${data.last_name}`
+          break
+        case "inactive":
+          statusChangeType = "patient_deactivated"
+          statusChangeDescription = `Patient status changed to inactive: ${data.first_name} ${data.last_name}`
+          break
+        case "discharged":
+          statusChangeType = "patient_discharged"
+          statusChangeDescription = `Patient discharged: ${data.first_name} ${data.last_name}`
+          break
+        default:
+          statusChangeType = "patient_status_changed"
+          statusChangeDescription = `Patient status changed to ${data.status}: ${data.first_name} ${data.last_name}`
+      }
+
+      await logActivity({
+        tenantId: DEFAULT_TENANT_ID,
+        activityType: statusChangeType,
+        description: statusChangeDescription,
+        patientId: id,
+        userId,
+        metadata: {
+          previousStatus: originalPatient.status,
+          newStatus: data.status,
+          patientName: `${data.first_name} ${data.last_name}`,
+        },
+      })
+    }
+
     // Revalidate the patient pages
     revalidatePath("/patients")
     revalidatePath(`/patients/${id}`)
 
     return {
       success: true,
-      data: result[0],
+      data: updatedPatient,
     }
   } catch (error: any) {
     console.error("Error updating patient:", error)
@@ -109,8 +203,16 @@ export async function updatePatient(id: string, data: any) {
   }
 }
 
-export async function deletePatient(id: string) {
+export async function deletePatient(id: string, userId?: string) {
   try {
+    // Get patient details before deletion
+    const patientResult = await sql`
+      SELECT * FROM patients
+      WHERE id = ${id} AND tenant_id = ${DEFAULT_TENANT_ID}
+    `
+
+    const patient = patientResult[0]
+
     // Soft delete the patient by setting deleted_at
     const result = await sql`
       UPDATE patients
@@ -124,6 +226,18 @@ export async function deletePatient(id: string) {
     if (result.length === 0) {
       throw new Error("Patient not found or you don't have permission to delete this patient")
     }
+
+    // Log patient deletion activity
+    await logActivity({
+      tenantId: DEFAULT_TENANT_ID,
+      activityType: "patient_deleted",
+      description: `Patient deleted: ${patient.first_name} ${patient.last_name}`,
+      userId,
+      metadata: {
+        patientName: `${patient.first_name} ${patient.last_name}`,
+        patientId: id,
+      },
+    })
 
     // Revalidate the patients page
     revalidatePath("/patients")
@@ -141,7 +255,7 @@ export async function deletePatient(id: string) {
   }
 }
 
-export async function getPatient(id: string) {
+export async function getPatient(id: string, userId?: string) {
   try {
     const result = await sql`
       SELECT * FROM patients
@@ -156,6 +270,15 @@ export async function getPatient(id: string) {
         error: "Patient not found",
       }
     }
+
+    // Log patient viewed activity
+    await logActivity({
+      tenantId: DEFAULT_TENANT_ID,
+      activityType: "patient_viewed",
+      description: `Patient profile viewed: ${result[0].first_name} ${result[0].last_name}`,
+      patientId: id,
+      userId,
+    })
 
     return {
       success: true,

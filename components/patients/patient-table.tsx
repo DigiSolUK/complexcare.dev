@@ -2,12 +2,14 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PatientViewDialog } from "./patient-view-dialog"
 import { PatientCarePlanDialog } from "./patient-care-plan-dialog"
+import { PatientEmptyState } from "./patient-empty-state"
 import { Input } from "@/components/ui/input"
 import { Search, Filter, FileText, Calendar, MoreHorizontal, UserPlus, AlertTriangle } from "lucide-react"
 import {
@@ -99,6 +101,10 @@ export function PatientTable({ patients, isLoading = false }: PatientTableProps)
     router.push(`/patients/${patient.id}`)
   }
 
+  const handleAddPatient = () => {
+    router.push("/patients/new")
+  }
+
   // Filter patients based on search query and filters
   const filteredPatients = patients.filter((patient) => {
     // Search filter
@@ -188,7 +194,7 @@ export function PatientTable({ patients, isLoading = false }: PatientTableProps)
                 </SelectContent>
               </Select>
             </div>
-            <Button className="h-10">
+            <Button className="h-10" onClick={handleAddPatient}>
               <UserPlus className="mr-2 h-4 w-4" />
               Add Patient
             </Button>
@@ -196,25 +202,7 @@ export function PatientTable({ patients, isLoading = false }: PatientTableProps)
         </div>
 
         {filteredPatients.length === 0 ? (
-          <div className="border rounded-md p-8 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-              <Search className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="mt-4 text-lg font-semibold">No patients found</h3>
-            <p className="mb-4 mt-2 text-sm text-muted-foreground">
-              No patients match your search criteria. Try adjusting your filters.
-            </p>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchQuery("")
-                setStatusFilter("all")
-                setRiskFilter("all")
-              }}
-            >
-              Reset Filters
-            </Button>
-          </div>
+          <PatientEmptyState onAddPatient={handleAddPatient} />
         ) : (
           <div className="border rounded-md">
             <Table>
@@ -239,8 +227,18 @@ export function PatientTable({ patients, isLoading = false }: PatientTableProps)
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-3">
                         <Avatar>
-                          <AvatarImage src={patient.avatar || "/placeholder.svg"} alt={patient.name} />
-                          <AvatarFallback>{getInitials(patient.name)}</AvatarFallback>
+                          {patient.avatar ? (
+                            <div className="relative h-10 w-10">
+                              <Image
+                                src={patient.avatar || "/placeholder.svg"}
+                                alt={patient.name}
+                                fill
+                                className="object-cover rounded-full"
+                              />
+                            </div>
+                          ) : (
+                            <AvatarFallback>{getInitials(patient.name)}</AvatarFallback>
+                          )}
                         </Avatar>
                         <div>
                           <div className="font-medium">{patient.name}</div>

@@ -176,6 +176,9 @@ importers:
       bun-types:
         specifier: latest
         version: 1.2.14
+      child_process:
+        specifier: latest
+        version: 1.0.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -193,7 +196,7 @@ importers:
         version: 16.5.0
       drizzle-orm:
         specifier: latest
-        version: 0.43.1(30216a9825ace6b9169b8eb2acabb9ea)
+        version: 0.43.1(3f8d3ff18985c3fa4117f495d344fede)
       embla-carousel-react:
         specifier: 8.5.1
         version: 8.5.1(react@19.0.0)
@@ -217,7 +220,7 @@ importers:
         version: 1.4.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       knex:
         specifier: latest
-        version: 3.1.0(better-sqlite3@11.10.0)(mysql2@3.14.1)(pg-native@3.5.0)(pg@8.16.0(pg-native@3.5.0))(sqlite3@5.1.7)
+        version: 3.1.0(better-sqlite3@11.10.0)(mysql2@3.14.1)(pg@8.16.0)(sqlite3@5.1.7)
       kysely:
         specifier: latest
         version: 0.28.2
@@ -242,12 +245,12 @@ importers:
       nodemailer:
         specifier: latest
         version: 7.0.3
+      path:
+        specifier: latest
+        version: 0.12.7
       pg:
         specifier: latest
-        version: 8.16.0(pg-native@3.5.0)
-      pg-native:
-        specifier: latest
-        version: 3.5.0
+        version: 8.16.0
       postgres:
         specifier: latest
         version: 3.4.7
@@ -263,9 +266,6 @@ importers:
       react-dom:
         specifier: ^19
         version: 19.0.0(react@19.0.0)
-      react-error-boundary:
-        specifier: latest
-        version: 6.0.0(react@19.0.0)
       react-hook-form:
         specifier: latest
         version: 7.56.4(react@19.0.0)
@@ -2925,6 +2925,9 @@ packages:
     resolution: {integrity: sha512-zgVZuo2WcZgfUEmsn6eO3kINexW8RAE4maiQ8QNs8CtpPCSyMiYsULR3HQYkm3w8FIA3SberyMJMSldGsW+U3w==}
     engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
 
+  child_process@1.0.2:
+    resolution: {integrity: sha512-Wmza/JzL0SiWz7kl6MhIKT5ceIlnFPJX+lwUGj7Clhy5MMldsSoJR0+uvRzOS5Kv45Mq7t1PoE8TsOA9bzvb6g==}
+
   chokidar@3.6.0:
     resolution: {integrity: sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==}
     engines: {node: '>= 8.10.0'}
@@ -3789,6 +3792,9 @@ packages:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
     deprecated: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
 
+  inherits@2.0.3:
+    resolution: {integrity: sha512-x00IRNXNy63jwGkJmzPigoySHbaqpNuzKbBOmzK+g2OdZpQ9w+sxCN+VSB3ja7IAge2OP2qpfxTjeNcyjmW1uw==}
+
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
 
@@ -4038,9 +4044,6 @@ packages:
   leven@3.1.0:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
     engines: {node: '>=6'}
-
-  libpq@1.8.15:
-    resolution: {integrity: sha512-4lSWmly2Nsj3LaTxxtFmJWuP3Kx+0hYHEd+aNrcXEWT0nKWaPd9/QZPiMkkC680zeALFGHQdQWjBvnilL+vgWA==}
 
   libsql@0.5.11:
     resolution: {integrity: sha512-P2xY1nL2Jl7oM75LcguAEYqouVcevWhLWT8RU/p9ldaqQx5s/chF9t5ZFXPWP0x9myQQ4SguRqPO+FqdnCzKQg==}
@@ -4387,9 +4390,6 @@ packages:
     resolution: {integrity: sha512-eLoBxg6wE/rZkJPhU/xRX1WTpkFEwDJEN96oxFrTsqBdbT5ec295Q+CoHrL9IT0DipqKhmGcaZmwOt8OON5x1w==}
     engines: {node: '>=12.0.0'}
 
-  nan@2.22.2:
-    resolution: {integrity: sha512-DANghxFkS1plDdRsX0X9pm0Z6SJNN6gBdtXfanwoZ8hooC5gosGFSBGRYHUVPz1asKA/kMRqDRdHrluZ61SpBQ==}
-
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -4635,6 +4635,9 @@ packages:
     resolution: {integrity: sha512-Xa4Nw17FS9ApQFJ9umLiJS4orGjm7ZzwUrwamcGQuHSzDyth9boKDaycYdDcZDuqYATXw4HFXgaqWTctW/v1HA==}
     engines: {node: '>=16 || 14 >=14.18'}
 
+  path@0.12.7:
+    resolution: {integrity: sha512-aXXC6s+1w7otVF9UletFkFcDsJeO7lSZBPUQhtb5O0xJe8LtYhj/GxldoL09bBj9+ZmE2hNoHqQSFMN5fikh4Q==}
+
   pg-cloudflare@1.2.5:
     resolution: {integrity: sha512-OOX22Vt0vOSRrdoUPKJ8Wi2OpE/o/h9T8X1s4qSkCedbNah9ei2W2765be8iMVxQUsvgT7zIAT2eIa9fs5+vtg==}
 
@@ -4647,9 +4650,6 @@ packages:
   pg-int8@1.0.1:
     resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
     engines: {node: '>=4.0.0'}
-
-  pg-native@3.5.0:
-    resolution: {integrity: sha512-rj4LYouevTdKxvRLnvtOLEPOerkiPAqUdZE1K48IfQluEH/x7GrldEDdSaEOmJ6z7s6LQwDTpAPhm2s00iG8xw==}
 
   pg-numeric@1.0.2:
     resolution: {integrity: sha512-BM/Thnrw5jm2kKLE5uJkXqqExRUY/toLHda65XgFTBTFYZyopbKjBe29Ii3RbkvlsMoFwD+tHeGaCjjv0gHlyw==}
@@ -4838,6 +4838,10 @@ packages:
     resolution: {integrity: sha512-g8+OnU/L2v+wyiVK+D5fA34J7EH8jZ8DDlvwhRCMxmMj7UCBvxiO1mGeN+36JXIKF4zevU4kRBd8lVgG9vLelA==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
 
+  process@0.11.10:
+    resolution: {integrity: sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A==}
+    engines: {node: '>= 0.6.0'}
+
   progress@2.0.3:
     resolution: {integrity: sha512-7PiHtLll5LdnKIMw100I+8xJXR5gW2QwWYkT6iJva0bXitZKa/XMrSbdmg3r2Xnaidz9Qumd0VPaMrZlF9V9sA==}
     engines: {node: '>=0.4.0'}
@@ -4911,11 +4915,6 @@ packages:
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
       react: ^19.0.0
-
-  react-error-boundary@6.0.0:
-    resolution: {integrity: sha512-gdlJjD7NWr0IfkPlaREN2d9uUZUlksrfOx7SX62VRerwXbMY6ftGCIZua1VG1aXFNOimhISsTq+Owp725b9SiA==}
-    peerDependencies:
-      react: '>=16.13.1'
 
   react-hook-form@7.56.4:
     resolution: {integrity: sha512-Rob7Ftz2vyZ/ZGsQZPaRdIefkgOSrQSPXfqBdvOPwJfoGnjwRJUs7EM7Kc1mcoDv3NOtqBzPGbcMB8CGn9CKgw==}
@@ -5560,6 +5559,9 @@ packages:
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
+
+  util@0.10.4:
+    resolution: {integrity: sha512-0Pm9hTQ3se5ll1XihRic3FDIku70C+iHUdT/W926rSgHV5QgXsYbKZN8MSC3tJtSkhuROzvsQjAaFENRXr+19A==}
 
   utils-merge@1.0.1:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
@@ -9097,6 +9099,8 @@ snapshots:
 
   chalk@5.4.1: {}
 
+  child_process@1.0.2: {}
+
   chokidar@3.6.0:
     dependencies:
       anymatch: 3.1.3
@@ -9396,7 +9400,7 @@ snapshots:
 
   dotenv@16.5.0: {}
 
-  drizzle-orm@0.43.1(30216a9825ace6b9169b8eb2acabb9ea):
+  drizzle-orm@0.43.1(3f8d3ff18985c3fa4117f495d344fede):
     optionalDependencies:
       '@aws-sdk/client-rds-data': 3.817.0
       '@cloudflare/workers-types': 4.20250525.0
@@ -9418,10 +9422,10 @@ snapshots:
       bun-types: 1.2.14
       expo-sqlite: 15.2.10(expo@53.0.9(@babel/core@7.27.1)(bufferutil@4.0.9)(react-native@0.79.2(@babel/core@7.27.1)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0))(react-native@0.79.2(@babel/core@7.27.1)(@types/react@19.0.0)(bufferutil@4.0.9)(react@19.0.0))(react@19.0.0)
       gel: 2.1.0
-      knex: 3.1.0(better-sqlite3@11.10.0)(mysql2@3.14.1)(pg-native@3.5.0)(pg@8.16.0(pg-native@3.5.0))(sqlite3@5.1.7)
+      knex: 3.1.0(better-sqlite3@11.10.0)(mysql2@3.14.1)(pg@8.16.0)(sqlite3@5.1.7)
       kysely: 0.28.2
       mysql2: 3.14.1
-      pg: 8.16.0(pg-native@3.5.0)
+      pg: 8.16.0
       postgres: 3.4.7
       sql.js: 1.13.0
       sqlite3: 5.1.7
@@ -9861,6 +9865,8 @@ snapshots:
       once: 1.4.0
       wrappy: 1.0.2
 
+  inherits@2.0.3: {}
+
   inherits@2.0.4: {}
 
   ini@1.3.8: {}
@@ -10070,7 +10076,7 @@ snapshots:
 
   kleur@3.0.3: {}
 
-  knex@3.1.0(better-sqlite3@11.10.0)(mysql2@3.14.1)(pg-native@3.5.0)(pg@8.16.0(pg-native@3.5.0))(sqlite3@5.1.7):
+  knex@3.1.0(better-sqlite3@11.10.0)(mysql2@3.14.1)(pg@8.16.0)(sqlite3@5.1.7):
     dependencies:
       colorette: 2.0.19
       commander: 10.0.1
@@ -10089,8 +10095,7 @@ snapshots:
     optionalDependencies:
       better-sqlite3: 11.10.0
       mysql2: 3.14.1
-      pg: 8.16.0(pg-native@3.5.0)
-      pg-native: 3.5.0
+      pg: 8.16.0
       sqlite3: 5.1.7
     transitivePeerDependencies:
       - supports-color
@@ -10100,11 +10105,6 @@ snapshots:
   lan-network@0.1.7: {}
 
   leven@3.1.0: {}
-
-  libpq@1.8.15:
-    dependencies:
-      bindings: 1.5.0
-      nan: 2.22.2
 
   libsql@0.5.11:
     dependencies:
@@ -10561,8 +10561,6 @@ snapshots:
     dependencies:
       lru-cache: 7.18.3
 
-  nan@2.22.2: {}
-
   nanoid@3.3.11: {}
 
   napi-build-utils@2.0.0: {}
@@ -10801,6 +10799,11 @@ snapshots:
       lru-cache: 10.4.3
       minipass: 7.1.2
 
+  path@0.12.7:
+    dependencies:
+      process: 0.11.10
+      util: 0.10.4
+
   pg-cloudflare@1.2.5:
     optional: true
 
@@ -10810,16 +10813,11 @@ snapshots:
 
   pg-int8@1.0.1: {}
 
-  pg-native@3.5.0:
-    dependencies:
-      libpq: 1.8.15
-      pg-types: 2.2.0
-
   pg-numeric@1.0.2: {}
 
-  pg-pool@3.10.0(pg@8.16.0(pg-native@3.5.0)):
+  pg-pool@3.10.0(pg@8.16.0):
     dependencies:
-      pg: 8.16.0(pg-native@3.5.0)
+      pg: 8.16.0
 
   pg-protocol@1.10.0: {}
 
@@ -10841,16 +10839,15 @@ snapshots:
       postgres-interval: 3.0.0
       postgres-range: 1.1.4
 
-  pg@8.16.0(pg-native@3.5.0):
+  pg@8.16.0:
     dependencies:
       pg-connection-string: 2.9.0
-      pg-pool: 3.10.0(pg@8.16.0(pg-native@3.5.0))
+      pg-pool: 3.10.0(pg@8.16.0)
       pg-protocol: 1.10.0
       pg-types: 2.2.0
       pgpass: 1.0.5
     optionalDependencies:
       pg-cloudflare: 1.2.5
-      pg-native: 3.5.0
 
   pgpass@1.0.5:
     dependencies:
@@ -10994,6 +10991,8 @@ snapshots:
 
   proc-log@4.2.0: {}
 
+  process@0.11.10: {}
+
   progress@2.0.3: {}
 
   promise-inflight@1.0.1:
@@ -11086,11 +11085,6 @@ snapshots:
     dependencies:
       react: 19.0.0
       scheduler: 0.25.0
-
-  react-error-boundary@6.0.0(react@19.0.0):
-    dependencies:
-      '@babel/runtime': 7.27.1
-      react: 19.0.0
 
   react-hook-form@7.56.4(react@19.0.0):
     dependencies:
@@ -11814,6 +11808,10 @@ snapshots:
       react: 19.0.0
 
   util-deprecate@1.0.2: {}
+
+  util@0.10.4:
+    dependencies:
+      inherits: 2.0.3
 
   utils-merge@1.0.1: {}
 

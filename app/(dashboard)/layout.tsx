@@ -1,6 +1,6 @@
 import type React from "react"
-import { Sidebar } from "@/components/sidebar"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { PageErrorBoundary } from "@/components/error-boundaries/page-error-boundary"
+import { DashboardLayoutClient } from "./dashboard-layout-client"
 
 export default function DashboardLayout({
   children,
@@ -8,11 +8,10 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen">
-      <Sidebar className="hidden w-64 md:block" />
-      <main className="flex-1 overflow-y-auto">
-        <ErrorBoundary level="section">{children}</ErrorBoundary>
-      </main>
-    </div>
+    <PageErrorBoundary>
+      <div className="flex min-h-screen flex-col">
+        <DashboardLayoutClient>{children}</DashboardLayoutClient>
+      </div>
+    </PageErrorBoundary>
   )
 }

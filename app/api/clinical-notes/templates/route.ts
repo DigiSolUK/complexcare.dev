@@ -1,22 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clinicalNotesService from "@/lib/services/clinical-notes-service"
-import { getCurrentTenant } from "@/lib/tenant-utils"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
+import { neon } from "@neondatabase/serverless"
+import { DEFAULT_TENANT_ID } from "@/lib/constants"
+import { getClinicalNoteTemplates } from "@/lib/services/clinical-notes-service"
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const searchParams = request.nextUrl.searchParams
+    const tenantId = searchParams.get("tenantId") || DEFAULT_TENANT_ID
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
-    }
-
-    const templates = await clinicalNotesService.getTemplates(tenant.id)
+    const templates = await getClinicalNoteTemplates(tenantId)
 
     return NextResponse.json(templates)
   } catch (error) {
@@ -27,22 +19,29 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
-    }
-
     const data = await request.json()
-    const userId = session.user.id
+    const tenantId = data.tenantId || DEFAULT_TENANT_ID
 
-    const template = await clinicalNotesService.createTemplate(tenant.id, userId, data)
+    const sql = neon(process.env.DATABASE_URL!)
 
-    return NextResponse.json(template, { status: 201 })
+    const result = await sql`
+      INSERT INTO clinical_note_templates (
+        tenant_id,
+        name,
+        content,
+        category_id,
+        created_by
+      ) VALUES (
+        ${tenantId},
+        ${data.name},
+        ${data.content},
+        ${data.categoryId || null},
+        ${data.createdBy}
+      )
+      RETURNING *
+    `
+
+    return NextResponse.json(result[0], { status: 201 })
   } catch (error) {
     console.error("Error creating clinical note template:", error)
     return NextResponse.json({ error: "Failed to create clinical note template" }, { status: 500 })

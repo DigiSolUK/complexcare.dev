@@ -1,158 +1,175 @@
 "use client"
 
-import { useState } from "react"
-import { format } from "date-fns"
-import { MoreHorizontal, Search, Edit, Trash2, Eye } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useToast } from "@/components/ui/use-toast"
-import { deleteClinicalNote, type ClinicalNote, type ClinicalNoteCategory } from "@/lib/services/clinical-notes-service"
-import ViewClinicalNoteDialog from "./view-clinical-note-dialog"
-import EditClinicalNoteDialog from "./edit-clinical-note-dialog"
+import { FileText, Edit, Trash2, AlertTriangle, Calendar, Tag } from "lucide-react"
+import { format, parseISO } from "date-fns"
+import type { ClinicalNote } from "@/lib/services/clinical-notes-service"
+import { ViewClinicalNoteDialog } from "@/components/clinical-notes/view-clinical-note-dialog"
+import { EditClinicalNoteDialog } from "@/components/clinical-notes/edit-clinical-note-dialog"
 
 interface ClinicalNotesListProps {
-  notes: ClinicalNote[]
-  categories: ClinicalNoteCategory[]
-  loading: boolean
-  onNoteDeleted: (id: string) => void
+  patientId: string
 }
 
-export default function ClinicalNotesList({ notes, categories, loading, onNoteDeleted }: ClinicalNotesListProps) {
-  const { toast } = useToast()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [viewingNote, setViewingNote] = useState<ClinicalNote | null>(null)
-  const [editingNote, setEditingNote] = useState<ClinicalNote | null>(null)
+export function ClinicalNotesList({ patientId }: ClinicalNotesListProps) {
+  const router = useRouter()
+  const [notes, setNotes] = useState<ClinicalNote[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [selectedNote, setSelectedNote] = useState<ClinicalNote | null>(null)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
-  const filteredNotes = notes.filter(
-    (note) =>
-      note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.content.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  useEffect(() => {
+    const fetchNotes = async () => {
+      if (!patientId) return
 
-  const handleDeleteNote = async (id: string) => {
+      setIsLoading(true)
+      try {
+        const response = await fetch(`/api/patients/${patientId}/clinical-notes`)
+        if (response.ok) {
+          const data = await response.json()
+          setNotes(data)
+        } else {
+          console.error("Failed to fetch clinical notes:", await response.json())
+        }
+      } catch (error) {
+        console.error("Error fetching clinical notes:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchNotes()
+  }, [patientId])
+
+  const handleViewNote = (note: ClinicalNote) => {
+    setSelectedNote(note)
+    setIsViewDialogOpen(true)
+  }
+
+  const handleEditNote = (note: ClinicalNote) => {
+    setSelectedNote(note)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!confirm("Are you sure you want to delete this note?")) {
+      return
+    }
+
     try {
-      await deleteClinicalNote(id)
-      onNoteDeleted(id)
-      toast({
-        title: "Note deleted",
-        description: "The clinical note has been deleted successfully.",
+      const response = await fetch(`/api/clinical-notes/${noteId}`, {
+        method: "DELETE",
       })
+
+      if (response.ok) {
+        setNotes(notes.filter((note) => note.id !== noteId))
+      } else {
+        console.error("Failed to delete clinical note:", await response.json())
+      }
     } catch (error) {
-      console.error("Error deleting note:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete the clinical note. Please try again.",
-        variant: "destructive",
-      })
+      console.error("Error deleting clinical note:", error)
     }
   }
 
-  const handleNoteUpdated = (updatedNote: ClinicalNote) => {
-    // Replace the old note with the updated one
-    const updatedNotes = notes.map((note) => (note.id === updatedNote.id ? updatedNote : note))
-    // This assumes the parent component is passing a state setter function
-    // If not, you'll need to modify this to fit your state management approach
-    onNoteDeleted(updatedNote.id) // Using this as a trigger to refresh
-    setEditingNote(null)
-  }
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-[200px]" />
-          <Skeleton className="h-[200px]" />
-          <Skeleton className="h-[200px]" />
-        </div>
+        {[...Array(3)].map((_, i) => (
+          <Skeleton key={i} className="h-32 w-full" />
+        ))}
+      </div>
+    )
+  }
+
+  if (notes.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium">No Clinical Notes</h3>
+        <p className="text-muted-foreground mb-4">There are no clinical notes for this patient yet.</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search notes..."
-          className="pl-8"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-
-      {filteredNotes.length === 0 ? (
-        <div className="text-center py-10">
-          <p className="text-muted-foreground">No clinical notes found</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredNotes.map((note) => (
-            <Card key={note.id} className={note.is_important ? "border-orange-500" : undefined}>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{note.title}</CardTitle>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setViewingNote(note)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setEditingNote(note)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteNote(note.id)}>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                {note.category_id && (
-                  <Badge variant="outline" style={{ color: note.category_color || undefined }} className="mt-1">
-                    {note.category_name}
+      {notes.map((note) => (
+        <Card key={note.id} className={note.is_important ? "border-red-300" : undefined}>
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">{note.title}</CardTitle>
+                {note.is_important && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                {note.is_private && (
+                  <Badge variant="outline" className="text-xs">
+                    Private
                   </Badge>
                 )}
-                <CardDescription className="mt-2">
-                  {note.created_at && format(new Date(note.created_at), "PPP")}
-                  {note.created_by_name && ` • ${note.created_by_name}`}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="line-clamp-3 text-sm">{note.content}</p>
-              </CardContent>
-              <CardFooter className="pt-0 flex justify-between">
-                {note.is_private && <Badge variant="secondary">Private</Badge>}
-                {note.is_important && <Badge variant="destructive">Important</Badge>}
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
+              </div>
+              {note.category_name && (
+                <Badge style={{ backgroundColor: note.category_color || undefined }}>{note.category_name}</Badge>
+              )}
+            </div>
+            <CardDescription>
+              {format(parseISO(note.created_at), "PPP")} by {note.created_by_name || "Unknown"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="text-sm line-clamp-2">
+              {note.content.substring(0, 200)}
+              {note.content.length > 200 && "..."}
+            </div>
+            {note.follow_up_date && (
+              <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                <Calendar className="h-3 w-3" />
+                <span>Follow-up: {format(parseISO(note.follow_up_date), "PPP")}</span>
+              </div>
+            )}
+            {note.tags && note.tags.length > 0 && (
+              <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                <Tag className="h-3 w-3" />
+                <span>{note.tags.join(", ")}</span>
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="pt-2 flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => handleViewNote(note)}>
+              View
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleEditNote(note)}>
+              <Edit className="h-4 w-4 mr-1" />
+              Edit
+            </Button>
+            <Button variant="outline" size="sm" className="text-destructive" onClick={() => handleDeleteNote(note.id)}>
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
+          </CardFooter>
+        </Card>
+      ))}
 
-      {viewingNote && (
-        <ViewClinicalNoteDialog note={viewingNote} open={!!viewingNote} onOpenChange={() => setViewingNote(null)} />
-      )}
-
-      {editingNote && (
-        <EditClinicalNoteDialog
-          note={editingNote}
-          categories={categories}
-          open={!!editingNote}
-          onOpenChange={() => setEditingNote(null)}
-          onNoteUpdated={handleNoteUpdated}
-        />
+      {selectedNote && (
+        <>
+          <ViewClinicalNoteDialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen} note={selectedNote} />
+          <EditClinicalNoteDialog
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            note={selectedNote}
+            onSuccess={() => {
+              // Refresh notes
+              fetch(`/api/patients/${patientId}/clinical-notes`)
+                .then((res) => res.json())
+                .then(setNotes)
+                .catch(console.error)
+            }}
+          />
+        </>
       )}
     </div>
   )

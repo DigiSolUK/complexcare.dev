@@ -1,68 +1,99 @@
-import { executeQuery, insert, update, getById } from "@/lib/db"
+// Error logging service for ComplexCare CRM
+import { neon } from "@neondatabase/serverless"
 import { DEFAULT_TENANT_ID } from "@/lib/constants"
 
-interface ErrorLogData {
-  message: string
-  stack?: string
-  context?: Record<string, any>
-  source?: string
-  severity?: "low" | "medium" | "high" | "critical"
-  user_id?: string
+export enum ErrorSeverity {
+  LOW = "low",
+  MEDIUM = "medium",
+  HIGH = "high",
+  CRITICAL = "critical",
 }
 
-export async function logError(data: ErrorLogData, tenantId = DEFAULT_TENANT_ID) {
+export enum ErrorCategory {
+  AUTHENTICATION = "authentication",
+  DATABASE = "database",
+  API = "api",
+  UI = "ui",
+  INTEGRATION = "integration",
+  VALIDATION = "validation",
+  SYSTEM = "system",
+}
+
+export interface ErrorLog {
+  id: string
+  tenant_id: string
+  error_message: string
+  error_stack?: string
+  severity: ErrorSeverity
+  category: ErrorCategory
+  user_id?: string
+  session_id?: string
+  url?: string
+  user_agent?: string
+  metadata?: Record<string, any>
+  resolved: boolean
+  resolved_by?: string
+  resolved_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export async function logError(
+  error: Error | string,
+  severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+  category: ErrorCategory = ErrorCategory.SYSTEM,
+  metadata: Record<string, any> = {},
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<string | null> {
   try {
-    // Ensure error_logs table exists
-    await executeQuery(`
-      CREATE TABLE IF NOT EXISTS error_logs (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        tenant_id UUID NOT NULL,
-        message TEXT NOT NULL,
-        stack TEXT,
-        context JSONB,
-        source VARCHAR(255),
-        severity VARCHAR(50) DEFAULT 'medium',
-        is_resolved BOOLEAN DEFAULT FALSE,
-        resolved_at TIMESTAMP WITH TIME ZONE,
-        resolved_by UUID,
-        resolution_notes TEXT,
-        user_id UUID,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const errorMessage = typeof error === "string" ? error : error.message
+    const errorStack = typeof error === "string" ? undefined : error.stack
+
+    const result = await sql`
+      INSERT INTO error_logs (
+        tenant_id,
+        error_message,
+        error_stack,
+        severity,
+        category,
+        metadata,
+        resolved
+      ) VALUES (
+        ${tenantId},
+        ${errorMessage},
+        ${errorStack || null},
+        ${severity},
+        ${category},
+        ${JSON.stringify(metadata)},
+        false
       )
-    `)
+      RETURNING id
+    `
 
-    // Insert the error log
-    const errorLog = await insert("error_logs", {
-      tenant_id: tenantId,
-      message: data.message,
-      stack: data.stack || null,
-      context: data.context ? JSON.stringify(data.context) : null,
-      source: data.source || "application",
-      severity: data.severity || "medium",
-      user_id: data.user_id || null,
-    })
-
-    return errorLog
-  } catch (error) {
-    console.error("Failed to log error:", error)
-    // Fallback to console logging if database logging fails
-    console.error("Original error:", data.message, data.stack)
+    return result[0]?.id || null
+  } catch (err) {
+    console.error("Failed to log error:", err)
     return null
   }
 }
 
 export async function getErrors(
+  tenantId: string = DEFAULT_TENANT_ID,
   filters: {
-    is_resolved?: boolean
-    severity?: string
-    source?: string
-    from_date?: Date
-    to_date?: Date
+    severity?: ErrorSeverity
+    category?: ErrorCategory
+    resolved?: boolean
+    limit?: number
+    offset?: number
   } = {},
-  tenantId = DEFAULT_TENANT_ID,
-) {
+): Promise<ErrorLog[]> {
   try {
+    const sql = neon(process.env.DATABASE_URL!)
+
+    const { severity, category, resolved, limit = 50, offset = 0 } = filters
+
     let query = `
       SELECT * FROM error_logs
       WHERE tenant_id = $1
@@ -70,40 +101,26 @@ export async function getErrors(
     const params: any[] = [tenantId]
     let paramIndex = 2
 
-    if (filters.is_resolved !== undefined) {
-      query += ` AND is_resolved = $${paramIndex}`
-      params.push(filters.is_resolved)
-      paramIndex++
+    if (severity) {
+      query += ` AND severity = $${paramIndex++}`
+      params.push(severity)
     }
 
-    if (filters.severity) {
-      query += ` AND severity = $${paramIndex}`
-      params.push(filters.severity)
-      paramIndex++
+    if (category) {
+      query += ` AND category = $${paramIndex++}`
+      params.push(category)
     }
 
-    if (filters.source) {
-      query += ` AND source = $${paramIndex}`
-      params.push(filters.source)
-      paramIndex++
+    if (resolved !== undefined) {
+      query += ` AND resolved = $${paramIndex++}`
+      params.push(resolved)
     }
 
-    if (filters.from_date) {
-      query += ` AND created_at >= $${paramIndex}`
-      params.push(filters.from_date)
-      paramIndex++
-    }
+    query += ` ORDER BY created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`
+    params.push(limit, offset)
 
-    if (filters.to_date) {
-      query += ` AND created_at <= $${paramIndex}`
-      params.push(filters.to_date)
-      paramIndex++
-    }
-
-    query += ` ORDER BY created_at DESC`
-
-    const errors = await executeQuery(query, params)
-    return errors
+    const result = await sql.query(query, params)
+    return result.rows as ErrorLog[]
   } catch (error) {
     console.error("Failed to get errors:", error)
     return []
@@ -112,81 +129,46 @@ export async function getErrors(
 
 export async function markErrorAsResolved(
   errorId: string,
-  resolutionData: {
-    resolved_by: string
-    resolution_notes?: string
-  },
-  tenantId = DEFAULT_TENANT_ID,
-) {
+  resolvedBy: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<boolean> {
   try {
-    const error = await getById("error_logs", errorId, tenantId)
+    const sql = neon(process.env.DATABASE_URL!)
 
-    if (!error) {
-      throw new Error(`Error log with ID ${errorId} not found`)
-    }
+    await sql`
+      UPDATE error_logs
+      SET 
+        resolved = true,
+        resolved_by = ${resolvedBy},
+        resolved_at = NOW(),
+        updated_at = NOW()
+      WHERE id = ${errorId}
+      AND tenant_id = ${tenantId}
+    `
 
-    const updatedError = await update(
-      "error_logs",
-      errorId,
-      {
-        is_resolved: true,
-        resolved_at: new Date(),
-        resolved_by: resolutionData.resolved_by,
-        resolution_notes: resolutionData.resolution_notes || null,
-      },
-      tenantId,
-    )
-
-    return updatedError
+    return true
   } catch (error) {
     console.error("Failed to mark error as resolved:", error)
-    return null
+    return false
   }
 }
 
-// This is a simple error logging service that can be expanded later
-// to integrate with services like Sentry, LogRocket, etc.
-
-interface ErrorContext {
-  [key: string]: any
-}
-
-export function captureException(error: unknown, context: ErrorContext = {}): void {
+export function captureException(error: unknown, context: Record<string, any> = {}): void {
   console.error("Error captured:", error)
   console.error("Context:", context)
 
-  // Log to database if possible
-  try {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const errorStack = error instanceof Error ? error.stack : undefined
-
-    logError({
-      message: errorMessage,
-      stack: errorStack,
-      context,
-      source: context.source || "application",
-      severity: context.severity || "medium",
-      user_id: context.userId,
-    }).catch((err) => console.error("Failed to log error to database:", err))
-  } catch (loggingError) {
-    console.error("Error during error logging:", loggingError)
+  // Log to our error logging service
+  if (error instanceof Error) {
+    logError(error, ErrorSeverity.HIGH, ErrorCategory.SYSTEM, context)
+  } else {
+    logError(String(error), ErrorSeverity.HIGH, ErrorCategory.SYSTEM, context)
   }
 }
 
-export function captureMessage(message: string, context: ErrorContext = {}): void {
+export function captureMessage(message: string, context: Record<string, any> = {}): void {
   console.warn("Message captured:", message)
   console.warn("Context:", context)
 
-  // Log to database if possible
-  try {
-    logError({
-      message,
-      context,
-      source: context.source || "application",
-      severity: context.severity || "low",
-      user_id: context.userId,
-    }).catch((err) => console.error("Failed to log message to database:", err))
-  } catch (loggingError) {
-    console.error("Error during message logging:", loggingError)
-  }
+  // Log to our error logging service
+  logError(message, ErrorSeverity.LOW, ErrorCategory.SYSTEM, context)
 }

@@ -1,222 +1,148 @@
 "use client"
 
-import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  BarChart3,
+  LayoutDashboard,
+  Users,
   Calendar,
   ClipboardList,
   FileText,
-  Home,
   Settings,
-  Users,
-  Wallet,
-  Clock,
-  FileCheck,
   Shield,
-  Briefcase,
-  FileEdit,
-  PieChart,
-  LightbulbIcon,
+  BarChart,
   Brain,
+  Stethoscope,
+  UserCheck,
+  DollarSign,
+  Clock,
+  FileSpreadsheet,
 } from "lucide-react"
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+const sidebarNavItems = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Patients",
+    href: "/patients",
+    icon: Users,
+  },
+  {
+    title: "Care Professionals",
+    href: "/care-professionals",
+    icon: UserCheck,
+  },
+  {
+    title: "Appointments",
+    href: "/appointments",
+    icon: Calendar,
+  },
+  {
+    title: "Clinical Notes",
+    href: "/clinical-notes",
+    icon: Stethoscope,
+  },
+  {
+    title: "Care Plans",
+    href: "/care-plans",
+    icon: ClipboardList,
+  },
+  {
+    title: "Tasks",
+    href: "/tasks",
+    icon: ClipboardList,
+  },
+  {
+    title: "Medications",
+    href: "/medications",
+    icon: FileText,
+  },
+  {
+    title: "Documents",
+    href: "/documents",
+    icon: FileText,
+  },
+  {
+    title: "Timesheets",
+    href: "/timesheets",
+    icon: Clock,
+  },
+  {
+    title: "Invoicing",
+    href: "/invoicing",
+    icon: DollarSign,
+  },
+  {
+    title: "Payroll",
+    href: "/payroll",
+    icon: FileSpreadsheet,
+  },
+  {
+    title: "Compliance",
+    href: "/compliance",
+    icon: Shield,
+  },
+  {
+    title: "Analytics",
+    href: "/analytics",
+    icon: BarChart,
+  },
+  {
+    title: "Reports",
+    href: "/reports",
+    icon: BarChart,
+  },
+  {
+    title: "AI Tools",
+    href: "/ai-tools",
+    icon: Brain,
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: Settings,
+  },
+]
+
+interface SidebarProps {
+  className?: string
+}
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <div className={cn("pb-12 border-r w-64", className)}>
+    <div className={cn("hidden h-full border-r bg-background md:flex md:w-64 md:flex-col", className)}>
       <div className="space-y-4 py-4">
-        <div className="px-4 py-2">
-          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">Main</h2>
+        <div className="px-3 py-2">
           <div className="space-y-1">
-            <Link
-              href="/dashboard"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname === "/dashboard" ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Home className="mr-2 h-4 w-4" />
-              <span>Dashboard</span>
-            </Link>
-            <Link
-              href="/patients"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/patients") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Users className="mr-2 h-4 w-4" />
-              <span>Patients</span>
-            </Link>
-            <Link
-              href="/care-professionals"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/care-professionals") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Users className="mr-2 h-4 w-4" />
-              <span>Care Professionals</span>
-            </Link>
-            <Link
-              href="/appointments"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/appointments") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              <span>Appointments</span>
-            </Link>
-            <Link
-              href="/care-plans"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/care-plans") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <ClipboardList className="mr-2 h-4 w-4" />
-              <span>Care Plans</span>
-            </Link>
-            <Link
-              href="/tasks"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/tasks") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <FileCheck className="mr-2 h-4 w-4" />
-              <span>Tasks</span>
-            </Link>
-            <Link
-              href="/ai-tools"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/ai-tools") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <LightbulbIcon className="mr-2 h-4 w-4" />
-              <span>AI Tools</span>
-            </Link>
-            <Link
-              href="/clinical-decision-support"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/clinical-decision-support") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Brain className="mr-2 h-4 w-4" />
-              <span>Clinical Decision Support</span>
-            </Link>
-          </div>
-        </div>
-        <div className="px-4 py-2">
-          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">Administration</h2>
-          <div className="space-y-1">
-            <Link
-              href="/timesheets"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/timesheets") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Clock className="mr-2 h-4 w-4" />
-              <span>Timesheets</span>
-            </Link>
-            <Link
-              href="/documents"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/documents") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              <span>Documents</span>
-            </Link>
-            <Link
-              href="/invoicing"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/invoicing") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Wallet className="mr-2 h-4 w-4" />
-              <span>Invoicing</span>
-            </Link>
-            <Link
-              href="/compliance"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/compliance") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Shield className="mr-2 h-4 w-4" />
-              <span>Compliance</span>
-            </Link>
-            <Link
-              href="/recruitment"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/recruitment") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Briefcase className="mr-2 h-4 w-4" />
-              <span>Recruitment</span>
-            </Link>
-          </div>
-        </div>
-        <div className="px-4 py-2">
-          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">System</h2>
-          <div className="space-y-1">
-            <Link
-              href="/content"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/content") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <FileEdit className="mr-2 h-4 w-4" />
-              <span>Content</span>
-            </Link>
-            <Link
-              href="/analytics"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/analytics") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <BarChart3 className="mr-2 h-4 w-4" />
-              <span>Analytics</span>
-            </Link>
-            <Link
-              href="/reports"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/reports") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <PieChart className="mr-2 h-4 w-4" />
-              <span>Reports</span>
-            </Link>
-            <Link
-              href="/settings"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                pathname.startsWith("/settings") ? "bg-accent text-accent-foreground" : "transparent",
-              )}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </Link>
+            <h2 className="mb-2 px-4 text-xl font-semibold tracking-tight">ComplexCare CRM</h2>
+            <nav className="flex flex-col space-y-1">
+              {sidebarNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                    pathname === item.href || (pathname?.startsWith(item.href) && item.href !== "/dashboard")
+                      ? "bg-accent text-accent-foreground"
+                      : "transparent",
+                  )}
+                >
+                  <item.icon className="mr-2 h-4 w-4" />
+                  <span>{item.title}</span>
+                </Link>
+              ))}
+            </nav>
           </div>
         </div>
       </div>
     </div>
   )
 }
+
+export default Sidebar

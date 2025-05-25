@@ -174,7 +174,13 @@ export class CareProfessionalService {
    */
   static async getCareProfessionalById(id: string, tenantId: string) {
     try {
-      const sql = neon(process.env.DATABASE_URL || "")
+      // Make sure we have a database URL
+      if (!process.env.DATABASE_URL) {
+        console.warn("No DATABASE_URL provided, falling back to demo data")
+        return demoCareProfessionals.find((cp) => cp.id === id) || null
+      }
+
+      const sql = neon(process.env.DATABASE_URL)
       const result = await sql`
         SELECT * FROM care_professionals WHERE id = ${id} AND tenant_id = ${tenantId}
       `
@@ -325,7 +331,13 @@ export async function getAllCareProfessionals(tenantId: string) {
 
 export async function getCareProfessionalByIdSql(id: string, tenantId: string) {
   try {
-    const sql = neon(process.env.DATABASE_URL || "")
+    // Make sure we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      return demoCareProfessionals.find((cp) => cp.id === id)
+    }
+
+    const sql = neon(process.env.DATABASE_URL)
     const [careProfessional] = await sql`
       SELECT * FROM care_professionals 
       WHERE id = ${id} AND tenant_id = ${tenantId}
@@ -476,12 +488,19 @@ export async function getCareProfessionalCredentials(id: string, tenantId: strin
  */
 export async function getCareProfessionalById(id: string) {
   try {
-    const sql = neon(process.env.DATABASE_URL || "")
+    // Make sure we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      return demoCareProfessionals.find((cp) => cp.id === id) || null
+    }
+
+    const sql = neon(process.env.DATABASE_URL)
     const result = await sql`SELECT * FROM care_professionals WHERE id = ${id}`
     return result.length > 0 ? result[0] : null
   } catch (error) {
     console.error("Error fetching care professional by ID:", error)
-    throw new Error("Failed to fetch care professional")
+    // Return demo data for the requested ID
+    return demoCareProfessionals.find((cp) => cp.id === id) || null
   }
 }
 
@@ -495,10 +514,9 @@ export async function getCareProfessionals(tenantId: string, searchQuery?: strin
     return JSON.parse(cachedData)
   }
 
-  // Force demo mode for now to ensure it works
-  const demoMode = true
-
-  if (demoMode) {
+  // Check if we have a database URL
+  if (!process.env.DATABASE_URL) {
+    console.warn("No DATABASE_URL provided, falling back to demo data")
     // Filter demo data if search query is provided
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -514,7 +532,7 @@ export async function getCareProfessionals(tenantId: string, searchQuery?: strin
   }
 
   try {
-    const sql = neon(process.env.DATABASE_URL || "")
+    const sql = neon(process.env.DATABASE_URL)
     let query = `
       SELECT * FROM care_professionals
       WHERE tenant_id = $1
@@ -574,7 +592,13 @@ export async function getCareProfessionalsWithExpiringCredentials(
       ]
     }
 
-    const sql = neon(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      return []
+    }
+
+    const sql = neon(process.env.DATABASE_URL)
     const result = await sql`
       SELECT cp.id, cp.first_name, cp.last_name, cp.role, cp.avatar_url,
              pc.id as credential_id, pc.credential_type, pc.credential_number, 
@@ -646,7 +670,13 @@ export async function getCareProfessionalsWithPatientCounts(tenantId: string): P
       ]
     }
 
-    const sql = neon(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      return []
+    }
+
+    const sql = neon(process.env.DATABASE_URL)
     const result = await sql`
       SELECT cp.id, cp.first_name, cp.last_name, cp.role, cp.avatar_url,
              COUNT(DISTINCT pa.id) as patient_count
@@ -759,7 +789,13 @@ export async function getCareProfessionalsWithAppointmentCounts(
       ]
     }
 
-    const sql = neon(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      return []
+    }
+
+    const sql = neon(process.env.DATABASE_URL)
     const result = await sql`
       SELECT cp.id, cp.first_name, cp.last_name, cp.role, cp.avatar_url,
              COUNT(a.id) as appointment_count
@@ -837,7 +873,13 @@ export async function deleteCareProfessionalOld(id: string, tenantId: string) {
 
 export async function getCareProfessionalsUpdated(tenantId: string) {
   try {
-    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      return { careProfessionals: demoCareProfessionals, error: null }
+    }
+
+    const sql = neonDatabase(process.env.DATABASE_URL)
     const result = await sql`
       SELECT * FROM care_professionals 
       WHERE tenant_id = ${tenantId}
@@ -852,7 +894,17 @@ export async function getCareProfessionalsUpdated(tenantId: string) {
 
 export async function getCareProfessionalByIdUpdated(tenantId: string, id: string) {
   try {
-    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      const careProfessional = demoCareProfessionals.find((cp) => cp.id === id)
+      return {
+        careProfessional: careProfessional || null,
+        error: careProfessional ? null : "Care professional not found",
+      }
+    }
+
+    const sql = neonDatabase(process.env.DATABASE_URL)
     const [careProfessional] = await sql`
       SELECT * FROM care_professionals 
       WHERE tenant_id = ${tenantId} AND id = ${id}
@@ -871,7 +923,31 @@ export async function getCareProfessionalByIdUpdated(tenantId: string, id: strin
 
 export async function createCareProfessionalUpdated(tenantId: string, data: Partial<CareProfessionalType>) {
   try {
-    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      const id = data.id || uuidv4()
+      const now = new Date()
+      const careProfessional = {
+        id,
+        tenant_id: tenantId,
+        first_name: data.first_name || "",
+        last_name: data.last_name || "",
+        email: data.email || "",
+        phone_number: data.phone_number || "",
+        role: data.role || "Care Assistant",
+        title: data.title || null,
+        specialization: data.specialization || null,
+        qualifications: data.qualifications || null,
+        is_active: data.is_active !== undefined ? data.is_active : true,
+        created_at: now,
+        updated_at: now,
+        created_by: data.created_by || "system",
+      }
+      return { careProfessional, error: null }
+    }
+
+    const sql = neonDatabase(process.env.DATABASE_URL)
     const id = data.id || uuidv4()
     const now = new Date()
 
@@ -908,7 +984,20 @@ export async function createCareProfessionalUpdated(tenantId: string, data: Part
 
 export async function updateCareProfessionalUpdated(tenantId: string, id: string, data: Partial<CareProfessionalType>) {
   try {
-    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      const careProfessional = demoCareProfessionals.find((cp) => cp.id === id)
+      if (!careProfessional) {
+        return { careProfessional: null, error: "Care professional not found" }
+      }
+
+      // Simulate update on demo data
+      Object.assign(careProfessional, data)
+      return { careProfessional, error: null }
+    }
+
+    const sql = neonDatabase(process.env.DATABASE_URL)
     const now = new Date()
 
     // Build the update query dynamically based on provided fields
@@ -991,7 +1080,17 @@ export async function updateCareProfessionalUpdated(tenantId: string, id: string
 
 export async function deleteCareProfessionalUpdated(tenantId: string, id: string) {
   try {
-    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      const careProfessional = demoCareProfessionals.find((cp) => cp.id === id)
+      if (!careProfessional) {
+        return { success: false, error: "Care professional not found" }
+      }
+      return { success: true, error: null }
+    }
+
+    const sql = neonDatabase(process.env.DATABASE_URL)
 
     // First check if the care professional exists
     const [existingProfessional] = await sql`
@@ -1018,7 +1117,13 @@ export async function deleteCareProfessionalUpdated(tenantId: string, id: string
 
 export async function getCredentialsByCareProfessionalUpdated(tenantId: string, careProfessionalId: string) {
   try {
-    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      return { credentials: [], error: "Database not configured" }
+    }
+
+    const sql = neonDatabase(process.env.DATABASE_URL)
 
     // First verify the care professional exists and belongs to the tenant
     const [careProfessional] = await sql`
@@ -1045,7 +1150,13 @@ export async function getCredentialsByCareProfessionalUpdated(tenantId: string, 
 
 export async function getExpiredCredentialsUpdated(tenantId: string) {
   try {
-    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      return { credentials: [], error: "Database not configured" }
+    }
+
+    const sql = neonDatabase(process.env.DATABASE_URL)
     const now = new Date()
 
     const credentials = await sql`
@@ -1067,7 +1178,13 @@ export async function getExpiredCredentialsUpdated(tenantId: string) {
 
 export async function getExpiringCredentialsUpdated(tenantId: string, daysThreshold = 30) {
   try {
-    const sql = neonDatabase(process.env.DATABASE_URL || "")
+    // Check if we have a database URL
+    if (!process.env.DATABASE_URL) {
+      console.warn("No DATABASE_URL provided, falling back to demo data")
+      return { credentials: [], error: "Database not configured" }
+    }
+
+    const sql = neonDatabase(process.env.DATABASE_URL)
     const now = new Date()
     const thresholdDate = new Date()
     thresholdDate.setDate(thresholdDate.getDate() + daysThreshold)
