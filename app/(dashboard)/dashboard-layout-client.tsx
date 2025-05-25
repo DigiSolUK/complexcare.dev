@@ -1,28 +1,34 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
+
+import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
+import { DashboardSidebar } from "@/components/dashboard-sidebar"
+import { DashboardHeader } from "@/components/dashboard-header"
+import { DatabaseConnectionError } from "@/components/database-connection-error"
 
 export function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const pathname = usePathname()
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen)
-  }
+  // Close sidebar on mobile when navigating
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false)
+    }
+  }, [pathname])
 
   return (
-    <>
-      <Header toggleSidebar={toggleSidebar} />
+    <div className="flex min-h-screen flex-col">
+      <DashboardHeader onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />
       <div className="flex flex-1">
-        <div className={`${sidebarOpen ? "w-64" : "w-0 -ml-64"} transition-all duration-300 md:ml-0 md:w-64`}>
-          <Sidebar />
-        </div>
-        <main className="flex-1 overflow-y-auto bg-muted/20">
-          <div className="container mx-auto p-6">{children}</div>
+        <DashboardSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        <main className="flex-1 p-4 md:p-6">
+          <DatabaseConnectionError />
+          {children}
         </main>
       </div>
-    </>
+    </div>
   )
 }

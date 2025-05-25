@@ -1,19 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db-connection"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
+import { sql } from "@/lib/db-manager"
+import { DEFAULT_TENANT_ID } from "@/lib/constants"
 
 // This API route acts as a proxy for database operations
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     // Get the operation details from the request
-    const { operation, table, id, data, tenantId, query, params } = await request.json()
+    const { operation, table, id, data, tenantId = DEFAULT_TENANT_ID, query, params } = await request.json()
 
     // Execute the appropriate database operation
     let result
