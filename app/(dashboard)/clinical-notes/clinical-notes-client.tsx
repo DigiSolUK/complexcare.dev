@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Search } from "lucide-react"
+import { Plus, Search, AlertTriangle } from "lucide-react"
 import { type ClinicalNoteCategory, getClinicalNoteCategories } from "@/lib/services/clinical-notes-service"
 import { CreateClinicalNoteDialog } from "@/components/clinical-notes/create-clinical-note-dialog"
 import { ClinicalNoteCategoriesList } from "@/components/clinical-notes/clinical-note-categories-list"
 import { ClinicalNoteTemplatesList } from "@/components/clinical-notes/clinical-note-templates-list"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function ClinicalNotesClient() {
   const router = useRouter()
@@ -20,14 +21,18 @@ export default function ClinicalNotesClient() {
   const [categories, setCategories] = useState<ClinicalNoteCategory[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
+        setIsLoading(true)
+        setError(null)
         const categoriesData = await getClinicalNoteCategories()
         setCategories(categoriesData)
       } catch (error) {
         console.error("Error fetching categories:", error)
+        setError("Failed to load clinical note categories. Please try again later.")
       } finally {
         setIsLoading(false)
       }
@@ -46,6 +51,14 @@ export default function ClinicalNotesClient() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="relative w-full sm:w-96">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

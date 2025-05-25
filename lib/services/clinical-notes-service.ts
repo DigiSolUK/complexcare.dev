@@ -1,6 +1,6 @@
-import { neon } from "@neondatabase/serverless"
 import { DEFAULT_TENANT_ID } from "@/lib/constants"
 import { logActivity } from "./activity-log-service"
+import { sql } from "@/lib/db" // Import the existing database connection
 
 export interface ClinicalNote {
   id: string
@@ -71,8 +71,6 @@ export async function getClinicalNotesByPatientId(
       patientId,
     })
 
-    const sql = neon(process.env.DATABASE_URL!)
-
     const result = await sql`
       SELECT 
         cn.*,
@@ -100,8 +98,6 @@ export async function getClinicalNoteById(
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNote | null> {
   try {
-    const sql = neon(process.env.DATABASE_URL!)
-
     const result = await sql`
       SELECT 
         cn.*,
@@ -146,8 +142,6 @@ export async function createClinicalNote(
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNote | null> {
   try {
-    const sql = neon(process.env.DATABASE_URL!)
-
     const result = await sql`
       INSERT INTO clinical_notes (
         tenant_id,
@@ -251,8 +245,6 @@ export async function updateClinicalNote(
     const originalNote = await getClinicalNoteById(id, tenantId)
     if (!originalNote) return null
 
-    const sql = neon(process.env.DATABASE_URL!)
-
     // Build the update query dynamically
     const updateFields = []
     const params = [id, tenantId]
@@ -319,7 +311,7 @@ export async function updateClinicalNote(
 
     const result = await sql.query(query, params)
 
-    if (result.rows.length > 0) {
+    if (result.rows && result.rows.length > 0) {
       const updatedNote = result.rows[0] as ClinicalNote
 
       // Determine which fields were updated
@@ -380,8 +372,6 @@ export async function deleteClinicalNote(
     const note = await getClinicalNoteById(id, tenantId)
     if (!note) return false
 
-    const sql = neon(process.env.DATABASE_URL!)
-
     await sql`
       DELETE FROM clinical_notes
       WHERE id = ${id}
@@ -409,11 +399,8 @@ export async function deleteClinicalNote(
   }
 }
 
-// Add the missing function that's causing the error
 export async function getClinicalNoteCategories(tenantId: string = DEFAULT_TENANT_ID): Promise<ClinicalNoteCategory[]> {
   try {
-    const sql = neon(process.env.DATABASE_URL!)
-
     const result = await sql`
       SELECT * FROM clinical_note_categories
       WHERE tenant_id = ${tenantId}
@@ -429,8 +416,6 @@ export async function getClinicalNoteCategories(tenantId: string = DEFAULT_TENAN
 
 export async function getClinicalNoteTemplates(tenantId: string = DEFAULT_TENANT_ID): Promise<ClinicalNoteTemplate[]> {
   try {
-    const sql = neon(process.env.DATABASE_URL!)
-
     const result = await sql`
       SELECT 
         cnt.*,
@@ -453,8 +438,6 @@ export async function createClinicalNoteCategory(
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNoteCategory | null> {
   try {
-    const sql = neon(process.env.DATABASE_URL!)
-
     const result = await sql`
       INSERT INTO clinical_note_categories (
         tenant_id,
