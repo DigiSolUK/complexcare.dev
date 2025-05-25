@@ -185,6 +185,3 @@ export function buildWhereClause(
     params,
   }
 }
-
-// Export additional database utilities
-export * from "./db/index"

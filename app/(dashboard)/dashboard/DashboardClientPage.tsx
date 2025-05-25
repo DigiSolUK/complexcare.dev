@@ -52,17 +52,9 @@ function DashboardContent() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 md:items-center">
-        <Tabs
-          defaultValue="enhanced"
-          value={dashboardView}
-          onValueChange={(value) => setDashboardView(value as "simple" | "enhanced")}
-          className="w-full md:w-auto"
-        >
-          <TabsList className="grid w-full md:w-auto grid-cols-2">
-            <TabsTrigger value="simple">Simple</TabsTrigger>
-            <TabsTrigger value="enhanced">Enhanced</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="w-full md:w-auto">
+          <h2 className="text-lg font-semibold mb-2">Dashboard View</h2>
+        </div>
 
         <Button variant="outline" size="sm" onClick={() => refreshData()} disabled={isLoading} className="ml-auto">
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
@@ -80,26 +72,37 @@ function DashboardContent() {
         </CardContent>
       </Card>
 
-      {isLoading ? (
-        <div className="space-y-4">
-          <Skeleton className="h-[400px] w-full" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-[120px]" />
-            ))}
-          </div>
-        </div>
-      ) : (
-        <TabsContent value={dashboardView} forceMount={true} hidden={dashboardView !== "simple"}>
-          <SimpleDashboard />
-        </TabsContent>
-      )}
+      <Tabs
+        defaultValue="enhanced"
+        value={dashboardView}
+        onValueChange={(value) => setDashboardView(value as "simple" | "enhanced")}
+        className="w-full"
+      >
+        <TabsList className="grid w-full md:w-[400px] grid-cols-2">
+          <TabsTrigger value="simple">Simple View</TabsTrigger>
+          <TabsTrigger value="enhanced">Enhanced View</TabsTrigger>
+        </TabsList>
 
-      {!isLoading && (
-        <TabsContent value={dashboardView} forceMount={true} hidden={dashboardView !== "enhanced"}>
-          <EnhancedDashboard />
-        </TabsContent>
-      )}
+        {isLoading ? (
+          <div className="space-y-4 mt-6">
+            <Skeleton className="h-[400px] w-full" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-[120px]" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            <TabsContent value="simple" className="mt-6">
+              <SimpleDashboard />
+            </TabsContent>
+            <TabsContent value="enhanced" className="mt-6">
+              <EnhancedDashboard />
+            </TabsContent>
+          </>
+        )}
+      </Tabs>
     </div>
   )
 }
