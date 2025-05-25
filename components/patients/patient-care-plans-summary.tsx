@@ -23,7 +23,7 @@ interface PatientCarePlansSummaryProps {
   patientId: string
 }
 
-function PatientCarePlansSummary({ patientId }: PatientCarePlansSummaryProps) {
+export function PatientCarePlansSummary({ patientId }: PatientCarePlansSummaryProps) {
   const [carePlans, setCarePlans] = useState<CarePlan[]>([])
   const [isLoading, setIsLoading] = useState(true)
 

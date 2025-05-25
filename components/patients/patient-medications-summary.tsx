@@ -21,7 +21,7 @@ interface PatientMedicationsSummaryProps {
   patientId: string
 }
 
-function PatientMedicationsSummary({ patientId }: PatientMedicationsSummaryProps) {
+export function PatientMedicationsSummary({ patientId }: PatientMedicationsSummaryProps) {
   const [medications, setMedications] = useState<Medication[]>([])
   const [isLoading, setIsLoading] = useState(true)
 

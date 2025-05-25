@@ -1,13 +1,13 @@
 "use client"
 
 import {
-  LineChart as RechartsLineChart,
   Line,
+  LineChart as RechartsLineChart,
+  ResponsiveContainer,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
+  CartesianGrid,
   Legend,
 } from "recharts"
 
@@ -16,63 +16,48 @@ interface LineChartProps {
   categories?: string[]
   index?: string
   colors?: string[]
-  valueFormatter?: (value: number) => string
+  valueFormatter?: (value: any) => string
   yAxisWidth?: number
+  className?: string
 }
 
 export function LineChart({
   data,
-  categories,
+  categories = [],
   index = "name",
-  colors = ["#3b82f6"],
-  valueFormatter = (value: number) => `${value}`,
+  colors = ["#2563eb", "#8b5cf6", "#10b981"],
+  valueFormatter,
   yAxisWidth = 40,
+  className,
 }: LineChartProps) {
-  // Handle data in format {x: number, y: number}
-  const formattedData = data.map((item) => {
-    if ("x" in item && "y" in item) {
-      return { name: item.x.toString(), value: item.y }
-    }
-    return item
-  })
-
-  if (!formattedData?.length) {
-    return (
-      <div className="flex h-[350px] w-full items-center justify-center text-muted-foreground">No data available</div>
-    )
-  }
-
-  const categoryKeys =
-    categories ||
-    (formattedData[0].value !== undefined ? ["value"] : Object.keys(formattedData[0]).filter((key) => key !== index))
+  // If no categories provided, try to infer from data
+  const dataKeys =
+    categories.length > 0 ? categories : data.length > 0 ? Object.keys(data[0]).filter((key) => key !== index) : []
 
   return (
-    <ResponsiveContainer width="100%" height={350}>
-      <RechartsLineChart data={formattedData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+    <ResponsiveContainer width="100%" height="100%" className={className}>
+      <RechartsLineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
         <XAxis dataKey={index} stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-        <YAxis
-          width={yAxisWidth}
-          stroke="#888888"
-          fontSize={12}
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={valueFormatter}
-        />
+        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} width={yAxisWidth} />
         <Tooltip
-          formatter={(value: number) => [valueFormatter(value), ""]}
-          contentStyle={{ backgroundColor: "white", borderRadius: "6px", border: "1px solid #e2e8f0" }}
+          formatter={valueFormatter}
+          contentStyle={{
+            backgroundColor: "var(--background)",
+            border: "1px solid var(--border)",
+            borderRadius: "6px",
+          }}
         />
-        {categoryKeys.length > 1 && <Legend />}
-        {categoryKeys.map((key, i) => (
+        {dataKeys.length > 1 && <Legend />}
+        {dataKeys.map((key, i) => (
           <Line
             key={key}
             type="monotone"
             dataKey={key}
             stroke={colors[i % colors.length]}
             strokeWidth={2}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
+            dot={false}
+            name={key}
           />
         ))}
       </RechartsLineChart>

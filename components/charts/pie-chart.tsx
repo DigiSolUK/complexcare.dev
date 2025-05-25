@@ -1,53 +1,47 @@
 "use client"
 
-import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { PieChart as RechartsPieChart, Pie, ResponsiveContainer, Cell, Tooltip, Legend } from "recharts"
+import { useTheme } from "next-themes"
 
 interface PieChartProps {
-  data:
-    | Array<{
-        name: string
-        value: number
-      }>
-    | Array<{
-        label: string
-        value: number
-      }>
+  data: {
+    name: string
+    value: number
+  }[]
   colors?: string[]
 }
 
-export function PieChart({ data, colors = ["#3b82f6", "#22c55e", "#ef4444", "#f59e0b"] }: PieChartProps) {
-  // Convert data if it uses label instead of name
-  const formattedData = data.map((item) => {
-    if ("label" in item) {
-      return { name: item.label, value: item.value }
-    }
-    return item
-  })
-
-  if (!formattedData?.length) {
-    return (
-      <div className="flex h-[350px] w-full items-center justify-center text-muted-foreground">No data available</div>
-    )
-  }
+export function PieChart({ data, colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"] }: PieChartProps) {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
 
   return (
-    <ResponsiveContainer width="100%" height={350}>
+    <ResponsiveContainer width="100%" height="100%">
       <RechartsPieChart>
         <Pie
-          data={formattedData}
+          data={data}
           cx="50%"
           cy="50%"
-          labelLine={false}
+          innerRadius={60}
           outerRadius={80}
-          fill="#8884d8"
+          paddingAngle={2}
           dataKey="value"
-          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+          labelLine={false}
         >
-          {formattedData.map((entry, index) => (
+          {data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
           ))}
         </Pie>
-        <Tooltip formatter={(value) => [`${value}`, "Value"]} />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: isDark ? "#1f2937" : "#ffffff",
+            border: "none",
+            borderRadius: "4px",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+          }}
+          formatter={(value: number) => [`${value}`, "Count"]}
+        />
         <Legend />
       </RechartsPieChart>
     </ResponsiveContainer>

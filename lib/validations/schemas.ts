@@ -140,3 +140,25 @@ export const apiResponseSchema = z.object({
     })
     .optional(),
 })
+
+// Export all validations as a single object
+export const validations = {
+  uuid: uuidSchema,
+  tenantId: tenantIdSchema,
+  id: idSchema,
+  status: statusSchema,
+  priority: prioritySchema,
+  date: dateSchema,
+  optionalDate: optionalDateSchema,
+  user: userSchema,
+  timesheet: timesheetSchema,
+  createTimesheet: createTimesheetSchema,
+  updateTimesheet: updateTimesheetSchema,
+  task: taskSchema,
+  patient: patientSchema,
+  careProfessional: careProfessionalSchema,
+  clinicalNote: clinicalNoteSchema,
+  pagination: paginationSchema,
+  search: searchSchema,
+  apiResponse: apiResponseSchema,
+}
