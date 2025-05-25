@@ -2,102 +2,46 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Pencil, Save, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { AlertCircle, Edit, Save, User } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useToast } from "@/components/ui/use-toast"
+import { Switch } from "@/components/ui/switch"
+import type { Patient } from "@/types/patient"
+import { format } from "date-fns"
+import { toast } from "@/components/ui/use-toast"
 
 interface PatientDemographicsProps {
-  patientId: string
-  initialData?: any
-  onUpdate?: () => void
+  patient: Patient
 }
 
-export function PatientDemographics({ patientId, initialData, onUpdate }: PatientDemographicsProps) {
-  const [patient, setPatient] = useState<any>(initialData || {})
-  const [loading, setLoading] = useState<boolean>(!initialData)
-  const [error, setError] = useState<string | null>(null)
-  const [editing, setEditing] = useState<boolean>(false)
-  const [formData, setFormData] = useState<any>({})
-  const [showContactDialog, setShowContactDialog] = useState<boolean>(false)
-  const [contactFormData, setContactFormData] = useState<any>({})
-  const [contacts, setContacts] = useState<any[]>([])
-  const [loadingContacts, setLoadingContacts] = useState<boolean>(true)
-  const { toast } = useToast()
+export function PatientDemographics({ patient }: PatientDemographicsProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState<Partial<Patient>>(patient)
+  const [isSaving, setIsSaving] = useState(false)
 
-  useEffect(() => {
-    if (!initialData) {
-      fetchPatientData()
-    } else {
-      setPatient(initialData)
-    }
-    fetchPatientContacts()
-  }, [initialData, patientId])
-
-  const fetchPatientData = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch(`/api/patients/${patientId}`)
-      if (!response.ok) {
-        throw new Error("Failed to fetch patient data")
-      }
-      const data = await response.json()
-      setPatient(data)
-      setFormData(data)
-    } catch (err: any) {
-      setError(err.message)
-      console.error("Error fetching patient data:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchPatientContacts = async () => {
-    try {
-      setLoadingContacts(true)
-      // This endpoint would need to be implemented
-      const response = await fetch(`/api/patients/${patientId}/contacts`)
-      if (!response.ok) {
-        // If the endpoint doesn't exist yet, we'll just use empty array
-        setContacts([])
-        return
-      }
-      const data = await response.json()
-      setContacts(data)
-    } catch (err) {
-      console.error("Error fetching patient contacts:", err)
-      setContacts([])
-    } finally {
-      setLoadingContacts(false)
-    }
-  }
-
-  const handleEditClick = () => {
-    setFormData(patient)
-    setEditing(true)
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData((prev: any) => ({ ...prev, [name]: value }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev: any) => ({ ...prev, [name]: value }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSaveClick = async () => {
+  const handleSwitchChange = (name: string, checked: boolean) => {
+    setFormData((prev) => ({ ...prev, [name]: checked }))
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
     try {
-      const response = await fetch(`/api/patients/${patientId}`, {
-        method: "PUT",
+      const response = await fetch(`/api/patients/${patient.id}`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
@@ -108,598 +52,380 @@ export function PatientDemographics({ patientId, initialData, onUpdate }: Patien
         throw new Error("Failed to update patient")
       }
 
-      setPatient(formData)
-      setEditing(false)
       toast({
         title: "Success",
-        description: "Patient information updated successfully",
+        description: "Patient demographics updated successfully",
       })
-      if (onUpdate) onUpdate()
-    } catch (err: any) {
+      setIsEditing(false)
+    } catch (error) {
+      console.error("Error updating patient:", error)
       toast({
         title: "Error",
-        description: err.message || "Failed to update patient",
+        description: "Failed to update patient demographics",
         variant: "destructive",
       })
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  const handleContactInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  ) => {
-    const { name, value } = e.target
-    setContactFormData((prev: any) => ({ ...prev, [name]: value }))
-  }
-
-  const handleContactSelectChange = (name: string, value: string) => {
-    setContactFormData((prev: any) => ({ ...prev, [name]: value }))
-  }
-
-  const handleAddContact = async () => {
-    try {
-      // This endpoint would need to be implemented
-      const response = await fetch(`/api/patients/${patientId}/contacts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(contactFormData),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to add contact")
-      }
-
-      fetchPatientContacts()
-      setShowContactDialog(false)
-      setContactFormData({})
-      toast({
-        title: "Success",
-        description: "Contact added successfully",
-      })
-    } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err.message || "Failed to add contact",
-        variant: "destructive",
-      })
-    }
-  }
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Patient Demographics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-40">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Patient Demographics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    )
+  const handleCancel = () => {
+    setFormData(patient)
+    setIsEditing(false)
   }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Patient Demographics</CardTitle>
-        {!editing ? (
-          <Button variant="outline" size="sm" onClick={handleEditClick}>
-            <Edit className="h-4 w-4 mr-2" />
+        <div>
+          <CardTitle>Patient Demographics</CardTitle>
+          <CardDescription>Personal and contact information</CardDescription>
+        </div>
+        {!isEditing ? (
+          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-4 w-4 mr-2" />
             Edit
           </Button>
         ) : (
-          <Button variant="default" size="sm" onClick={handleSaveClick}>
-            <Save className="h-4 w-4 mr-2" />
-            Save
-          </Button>
+          <div className="flex space-x-2">
+            <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <span>Saving...</span>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="basic">
-          <TabsList className="mb-4">
-            <TabsTrigger value="basic">Basic Info</TabsTrigger>
-            <TabsTrigger value="contact">Contact Info</TabsTrigger>
-            <TabsTrigger value="medical">Medical Info</TabsTrigger>
-            <TabsTrigger value="social">Social Info</TabsTrigger>
-          </TabsList>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="nhsNumber">NHS Number</Label>
+            {isEditing ? (
+              <Input id="nhsNumber" name="nhsNumber" value={formData.nhsNumber || ""} onChange={handleChange} />
+            ) : (
+              <div className="text-sm font-medium">{patient.nhsNumber || "Not provided"}</div>
+            )}
+          </div>
 
-          <TabsContent value="basic">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {editing ? (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="first_name">First Name</Label>
-                    <Input
-                      id="first_name"
-                      name="first_name"
-                      value={formData.first_name || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="last_name">Last Name</Label>
-                    <Input
-                      id="last_name"
-                      name="last_name"
-                      value={formData.last_name || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date_of_birth">Date of Birth</Label>
-                    <Input
-                      id="date_of_birth"
-                      name="date_of_birth"
-                      type="date"
-                      value={formData.date_of_birth || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="gender">Gender</Label>
-                    <Select
-                      value={formData.gender || ""}
-                      onValueChange={(value) => handleSelectChange("gender", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                        <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="nhs_number">NHS Number</Label>
-                    <Input
-                      id="nhs_number"
-                      name="nhs_number"
-                      value={formData.nhs_number || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="marital_status">Marital Status</Label>
-                    <Select
-                      value={formData.marital_status || ""}
-                      onValueChange={(value) => handleSelectChange("marital_status", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select marital status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="single">Single</SelectItem>
-                        <SelectItem value="married">Married</SelectItem>
-                        <SelectItem value="divorced">Divorced</SelectItem>
-                        <SelectItem value="widowed">Widowed</SelectItem>
-                        <SelectItem value="separated">Separated</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">First Name</p>
-                    <p>{patient.first_name || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Last Name</p>
-                    <p>{patient.last_name || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Date of Birth</p>
-                    <p>
-                      {patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString() : "Not provided"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Gender</p>
-                    <p>
-                      {patient.gender
-                        ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)
-                        : "Not provided"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">NHS Number</p>
-                    <p>{patient.nhs_number || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Marital Status</p>
-                    <p>
-                      {patient.marital_status
-                        ? patient.marital_status.charAt(0).toUpperCase() + patient.marital_status.slice(1)
-                        : "Not provided"}
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-          </TabsContent>
+          <div className="space-y-2">
+            <Label htmlFor="title">Title</Label>
+            {isEditing ? (
+              <Select value={formData.title || ""} onValueChange={(value) => handleSelectChange("title", value)}>
+                <SelectTrigger id="title">
+                  <SelectValue placeholder="Select title" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Mr">Mr</SelectItem>
+                  <SelectItem value="Mrs">Mrs</SelectItem>
+                  <SelectItem value="Miss">Miss</SelectItem>
+                  <SelectItem value="Ms">Ms</SelectItem>
+                  <SelectItem value="Dr">Dr</SelectItem>
+                  <SelectItem value="Prof">Prof</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm font-medium">{patient.title || "Not provided"}</div>
+            )}
+          </div>
 
-          <TabsContent value="contact">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {editing ? (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input id="phone" name="phone" value={formData.phone || ""} onChange={handleInputChange} />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Textarea
-                      id="address"
-                      name="address"
-                      value={formData.address || ""}
-                      onChange={handleInputChange}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
-                    <Input id="city" name="city" value={formData.city || ""} onChange={handleInputChange} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="postcode">Postcode</Label>
-                    <Input id="postcode" name="postcode" value={formData.postcode || ""} onChange={handleInputChange} />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Email</p>
-                    <p>{patient.email || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Phone</p>
-                    <p>{patient.phone || "Not provided"}</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <p className="text-sm font-medium text-gray-500">Address</p>
-                    <p>{patient.address || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">City</p>
-                    <p>{patient.city || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Postcode</p>
-                    <p>{patient.postcode || "Not provided"}</p>
-                  </div>
-                </>
-              )}
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="firstName">First Name</Label>
+            {isEditing ? (
+              <Input
+                id="firstName"
+                name="firstName"
+                value={formData.firstName || ""}
+                onChange={handleChange}
+                required
+              />
+            ) : (
+              <div className="text-sm font-medium">{patient.firstName}</div>
+            )}
+          </div>
 
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium">Emergency Contacts</h3>
-                <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Add Contact
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Emergency Contact</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="contact_name">Name</Label>
-                        <Input
-                          id="contact_name"
-                          name="name"
-                          value={contactFormData.name || ""}
-                          onChange={handleContactInputChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contact_type">Contact Type</Label>
-                        <Select
-                          value={contactFormData.contact_type || ""}
-                          onValueChange={(value) => handleContactSelectChange("contact_type", value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select contact type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="emergency">Emergency</SelectItem>
-                            <SelectItem value="next_of_kin">Next of Kin</SelectItem>
-                            <SelectItem value="gp">GP</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contact_relationship">Relationship</Label>
-                        <Input
-                          id="contact_relationship"
-                          name="relationship"
-                          value={contactFormData.relationship || ""}
-                          onChange={handleContactInputChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contact_phone">Phone</Label>
-                        <Input
-                          id="contact_phone"
-                          name="phone"
-                          value={contactFormData.phone || ""}
-                          onChange={handleContactInputChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contact_email">Email</Label>
-                        <Input
-                          id="contact_email"
-                          name="email"
-                          type="email"
-                          value={contactFormData.email || ""}
-                          onChange={handleContactInputChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contact_notes">Notes</Label>
-                        <Textarea
-                          id="contact_notes"
-                          name="notes"
-                          value={contactFormData.notes || ""}
-                          onChange={handleContactInputChange}
-                          rows={2}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button onClick={handleAddContact}>Add Contact</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+          <div className="space-y-2">
+            <Label htmlFor="lastName">Last Name</Label>
+            {isEditing ? (
+              <Input id="lastName" name="lastName" value={formData.lastName || ""} onChange={handleChange} required />
+            ) : (
+              <div className="text-sm font-medium">{patient.lastName}</div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="dateOfBirth">Date of Birth</Label>
+            {isEditing ? (
+              <Input
+                id="dateOfBirth"
+                name="dateOfBirth"
+                type="date"
+                value={formData.dateOfBirth ? format(new Date(formData.dateOfBirth), "yyyy-MM-dd") : ""}
+                onChange={handleChange}
+                required
+              />
+            ) : (
+              <div className="text-sm font-medium">
+                {patient.dateOfBirth ? format(new Date(patient.dateOfBirth), "dd MMM yyyy") : "Not provided"}
               </div>
+            )}
+          </div>
 
-              {loadingContacts ? (
-                <div className="flex items-center justify-center h-20">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-                </div>
-              ) : contacts.length > 0 ? (
-                <div className="space-y-4">
-                  {contacts.map((contact: any) => (
-                    <div key={contact.id} className="border rounded-md p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-medium">{contact.name}</h4>
-                          <p className="text-sm text-gray-500">
-                            {contact.relationship} • {contact.contact_type}
-                          </p>
-                        </div>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Phone</p>
-                          <p>{contact.phone || "Not provided"}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Email</p>
-                          <p>{contact.email || "Not provided"}</p>
-                        </div>
-                        {contact.notes && (
-                          <div className="md:col-span-2">
-                            <p className="text-sm font-medium text-gray-500">Notes</p>
-                            <p>{contact.notes}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          <div className="space-y-2">
+            <Label htmlFor="gender">Gender</Label>
+            {isEditing ? (
+              <Select value={formData.gender || ""} onValueChange={(value) => handleSelectChange("gender", value)}>
+                <SelectTrigger id="gender">
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MALE">Male</SelectItem>
+                  <SelectItem value="FEMALE">Female</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                  <SelectItem value="PREFER_NOT_TO_SAY">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm font-medium">
+                {patient.gender === "MALE"
+                  ? "Male"
+                  : patient.gender === "FEMALE"
+                    ? "Female"
+                    : patient.gender === "OTHER"
+                      ? "Other"
+                      : patient.gender === "PREFER_NOT_TO_SAY"
+                        ? "Prefer not to say"
+                        : "Not provided"}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ethnicity">Ethnicity</Label>
+            {isEditing ? (
+              <Input id="ethnicity" name="ethnicity" value={formData.ethnicity || ""} onChange={handleChange} />
+            ) : (
+              <div className="text-sm font-medium">{patient.ethnicity || "Not provided"}</div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="preferredLanguage">Preferred Language</Label>
+            {isEditing ? (
+              <Input
+                id="preferredLanguage"
+                name="preferredLanguage"
+                value={formData.preferredLanguage || ""}
+                onChange={handleChange}
+              />
+            ) : (
+              <div className="text-sm font-medium">{patient.preferredLanguage || "Not provided"}</div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="requiresInterpreter">Requires Interpreter</Label>
+            {isEditing ? (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="requiresInterpreter"
+                  checked={formData.requiresInterpreter || false}
+                  onCheckedChange={(checked) => handleSwitchChange("requiresInterpreter", checked)}
+                />
+                <span>{formData.requiresInterpreter ? "Yes" : "No"}</span>
+              </div>
+            ) : (
+              <div className="text-sm font-medium">{patient.requiresInterpreter ? "Yes" : "No"}</div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="maritalStatus">Marital Status</Label>
+            {isEditing ? (
+              <Select
+                value={formData.maritalStatus || ""}
+                onValueChange={(value) => handleSelectChange("maritalStatus", value)}
+              >
+                <SelectTrigger id="maritalStatus">
+                  <SelectValue placeholder="Select marital status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SINGLE">Single</SelectItem>
+                  <SelectItem value="MARRIED">Married</SelectItem>
+                  <SelectItem value="CIVIL_PARTNERSHIP">Civil Partnership</SelectItem>
+                  <SelectItem value="DIVORCED">Divorced</SelectItem>
+                  <SelectItem value="WIDOWED">Widowed</SelectItem>
+                  <SelectItem value="SEPARATED">Separated</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm font-medium">{patient.maritalStatus || "Not provided"}</div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="occupation">Occupation</Label>
+            {isEditing ? (
+              <Input id="occupation" name="occupation" value={formData.occupation || ""} onChange={handleChange} />
+            ) : (
+              <div className="text-sm font-medium">{patient.occupation || "Not provided"}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t pt-6">
+          <h3 className="text-lg font-medium mb-4">GP Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="gpName">GP Name</Label>
+              {isEditing ? (
+                <Input id="gpName" name="gpName" value={formData.gpName || ""} onChange={handleChange} />
               ) : (
-                <div className="border rounded-md p-6 flex flex-col items-center justify-center text-center">
-                  <User className="h-10 w-10 text-gray-400 mb-2" />
-                  <h3 className="text-lg font-medium">No contacts added</h3>
-                  <p className="text-sm text-gray-500 mt-1">Add emergency contacts for this patient</p>
+                <div className="text-sm font-medium">{patient.gpName || "Not provided"}</div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="gpSurgery">GP Surgery</Label>
+              {isEditing ? (
+                <Input id="gpSurgery" name="gpSurgery" value={formData.gpSurgery || ""} onChange={handleChange} />
+              ) : (
+                <div className="text-sm font-medium">{patient.gpSurgery || "Not provided"}</div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="gpPhone">GP Phone</Label>
+              {isEditing ? (
+                <Input id="gpPhone" name="gpPhone" value={formData.gpPhone || ""} onChange={handleChange} />
+              ) : (
+                <div className="text-sm font-medium">{patient.gpPhone || "Not provided"}</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t pt-6">
+          <h3 className="text-lg font-medium mb-4">Care Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="referralSource">Referral Source</Label>
+              {isEditing ? (
+                <Input
+                  id="referralSource"
+                  name="referralSource"
+                  value={formData.referralSource || ""}
+                  onChange={handleChange}
+                />
+              ) : (
+                <div className="text-sm font-medium">{patient.referralSource || "Not provided"}</div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="referralDate">Referral Date</Label>
+              {isEditing ? (
+                <Input
+                  id="referralDate"
+                  name="referralDate"
+                  type="date"
+                  value={formData.referralDate ? format(new Date(formData.referralDate), "yyyy-MM-dd") : ""}
+                  onChange={handleChange}
+                />
+              ) : (
+                <div className="text-sm font-medium">
+                  {patient.referralDate ? format(new Date(patient.referralDate), "dd MMM yyyy") : "Not provided"}
                 </div>
               )}
             </div>
-          </TabsContent>
 
-          <TabsContent value="medical">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {editing ? (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="blood_type">Blood Type</Label>
-                    <Select
-                      value={formData.blood_type || ""}
-                      onValueChange={(value) => handleSelectChange("blood_type", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select blood type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="A+">A+</SelectItem>
-                        <SelectItem value="A-">A-</SelectItem>
-                        <SelectItem value="B+">B+</SelectItem>
-                        <SelectItem value="B-">B-</SelectItem>
-                        <SelectItem value="AB+">AB+</SelectItem>
-                        <SelectItem value="AB-">AB-</SelectItem>
-                        <SelectItem value="O+">O+</SelectItem>
-                        <SelectItem value="O-">O-</SelectItem>
-                        <SelectItem value="unknown">Unknown</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="height">Height (cm)</Label>
-                    <Input
-                      id="height"
-                      name="height"
-                      type="number"
-                      value={formData.height || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="weight">Weight (kg)</Label>
-                    <Input
-                      id="weight"
-                      name="weight"
-                      type="number"
-                      value={formData.weight || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="primary_gp">Primary GP</Label>
-                    <Input
-                      id="primary_gp"
-                      name="primary_gp"
-                      value={formData.primary_gp || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="medical_notes">Medical Notes</Label>
-                    <Textarea
-                      id="medical_notes"
-                      name="medical_notes"
-                      value={formData.medical_notes || ""}
-                      onChange={handleInputChange}
-                      rows={3}
-                    />
-                  </div>
-                </>
+            <div className="space-y-2">
+              <Label htmlFor="careStartDate">Care Start Date</Label>
+              {isEditing ? (
+                <Input
+                  id="careStartDate"
+                  name="careStartDate"
+                  type="date"
+                  value={formData.careStartDate ? format(new Date(formData.careStartDate), "yyyy-MM-dd") : ""}
+                  onChange={handleChange}
+                />
               ) : (
-                <>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Blood Type</p>
-                    <p>{patient.blood_type || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Height</p>
-                    <p>{patient.height ? `${patient.height} cm` : "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Weight</p>
-                    <p>{patient.weight ? `${patient.weight} kg` : "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Primary GP</p>
-                    <p>{patient.primary_gp || "Not provided"}</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <p className="text-sm font-medium text-gray-500">Medical Notes</p>
-                    <p>{patient.medical_notes || "Not provided"}</p>
-                  </div>
-                </>
+                <div className="text-sm font-medium">
+                  {patient.careStartDate ? format(new Date(patient.careStartDate), "dd MMM yyyy") : "Not provided"}
+                </div>
               )}
             </div>
-          </TabsContent>
 
-          <TabsContent value="social">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {editing ? (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="occupation">Occupation</Label>
-                    <Input
-                      id="occupation"
-                      name="occupation"
-                      value={formData.occupation || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="language">Preferred Language</Label>
-                    <Input id="language" name="language" value={formData.language || ""} onChange={handleInputChange} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="religion">Religion</Label>
-                    <Input id="religion" name="religion" value={formData.religion || ""} onChange={handleInputChange} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ethnicity">Ethnicity</Label>
-                    <Input
-                      id="ethnicity"
-                      name="ethnicity"
-                      value={formData.ethnicity || ""}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="social_notes">Social Notes</Label>
-                    <Textarea
-                      id="social_notes"
-                      name="social_notes"
-                      value={formData.social_notes || ""}
-                      onChange={handleInputChange}
-                      rows={3}
-                    />
-                  </div>
-                </>
+            <div className="space-y-2">
+              <Label htmlFor="careEndDate">Care End Date</Label>
+              {isEditing ? (
+                <Input
+                  id="careEndDate"
+                  name="careEndDate"
+                  type="date"
+                  value={formData.careEndDate ? format(new Date(formData.careEndDate), "yyyy-MM-dd") : ""}
+                  onChange={handleChange}
+                />
               ) : (
-                <>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Occupation</p>
-                    <p>{patient.occupation || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Preferred Language</p>
-                    <p>{patient.language || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Religion</p>
-                    <p>{patient.religion || "Not provided"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Ethnicity</p>
-                    <p>{patient.ethnicity || "Not provided"}</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <p className="text-sm font-medium text-gray-500">Social Notes</p>
-                    <p>{patient.social_notes || "Not provided"}</p>
-                  </div>
-                </>
+                <div className="text-sm font-medium">
+                  {patient.careEndDate ? format(new Date(patient.careEndDate), "dd MMM yyyy") : "Not provided"}
+                </div>
               )}
             </div>
-          </TabsContent>
-        </Tabs>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              {isEditing ? (
+                <Select value={formData.status || ""} onValueChange={(value) => handleSelectChange("status", value)}>
+                  <SelectTrigger id="status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="INACTIVE">Inactive</SelectItem>
+                    <SelectItem value="DISCHARGED">Discharged</SelectItem>
+                    <SelectItem value="DECEASED">Deceased</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="text-sm font-medium">
+                  {patient.status === "ACTIVE"
+                    ? "Active"
+                    : patient.status === "INACTIVE"
+                      ? "Inactive"
+                      : patient.status === "DISCHARGED"
+                        ? "Discharged"
+                        : patient.status === "DECEASED"
+                          ? "Deceased"
+                          : "Not provided"}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t pt-6">
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes</Label>
+            {isEditing ? (
+              <Textarea id="notes" name="notes" value={formData.notes || ""} onChange={handleChange} rows={4} />
+            ) : (
+              <div className="text-sm font-medium whitespace-pre-wrap">{patient.notes || "No notes provided"}</div>
+            )}
+          </div>
+        </div>
       </CardContent>
+      <CardFooter className="text-sm text-muted-foreground">
+        Last updated: {format(new Date(patient.updatedAt), "dd MMM yyyy HH:mm")}
+      </CardFooter>
     </Card>
   )
 }
