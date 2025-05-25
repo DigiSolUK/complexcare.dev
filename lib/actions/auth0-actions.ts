@@ -228,3 +228,118 @@ export async function removeRolesFromUser(userId: string, roleIds: string[]) {
     throw new Error("Failed to remove roles from user")
   }
 }
+
+// Send password reset email to a user
+export async function sendPasswordResetEmail(userId: string) {
+  try {
+    await requirePermission(PERMISSIONS.SUPERADMIN, "system")
+
+    const management = getManagementClient()
+
+    // First, get the user to get their email and connection
+    const user = await management.getUser({ id: userId })
+
+    if (!user.email) {
+      throw new Error("User does not have an email address")
+    }
+
+    // Get the connection name from the user's identities
+    const connection = user.identities?.[0]?.connection
+
+    if (!connection) {
+      throw new Error("Could not determine user's connection")
+    }
+
+    // Create a password change ticket
+    const ticket = await management.createPasswordChangeTicket({
+      user_id: userId,
+      connection_id: connection,
+      email: user.email,
+      ttl_sec: 432000, // 5 days
+      mark_email_as_verified: false,
+      includeEmailInRedirect: false,
+    })
+
+    // Log the password reset action
+    console.log(`Password reset email sent to user ${userId} (${user.email})`)
+
+    return {
+      success: true,
+      ticket: ticket.ticket,
+      email: user.email,
+    }
+  } catch (error) {
+    console.error(`Error sending password reset email to user ${userId}:`, error)
+    throw new Error(`Failed to send password reset email: ${(error as Error).message}`)
+  }
+}
+
+// Force password reset on next login
+export async function forcePasswordReset(userId: string) {
+  try {
+    await requirePermission(PERMISSIONS.SUPERADMIN, "system")
+
+    const management = getManagementClient()
+
+    // Update user's app_metadata to require password reset
+    const user = await management.updateUser(
+      { id: userId },
+      {
+        app_metadata: {
+          force_password_reset: true,
+          password_reset_required_at: new Date().toISOString(),
+        },
+      },
+    )
+
+    revalidatePath("/superadmin/auth0")
+    return { success: true, user }
+  } catch (error) {
+    console.error(`Error forcing password reset for user ${userId}:`, error)
+    throw new Error(`Failed to force password reset: ${(error as Error).message}`)
+  }
+}
+
+// Generate a one-time password reset link
+export async function generatePasswordResetLink(userId: string) {
+  try {
+    await requirePermission(PERMISSIONS.SUPERADMIN, "system")
+
+    const management = getManagementClient()
+
+    // First, get the user to get their email
+    const user = await management.getUser({ id: userId })
+
+    if (!user.email) {
+      throw new Error("User does not have an email address")
+    }
+
+    // Get the connection name from the user's identities
+    const connection = user.identities?.[0]?.connection
+
+    if (!connection) {
+      throw new Error("Could not determine user's connection")
+    }
+
+    // Create a password change ticket without sending email
+    const ticket = await management.createPasswordChangeTicket({
+      user_id: userId,
+      connection_id: connection,
+      email: user.email,
+      ttl_sec: 86400, // 24 hours
+      mark_email_as_verified: false,
+      includeEmailInRedirect: false,
+      result_url: `${process.env.NEXTAUTH_URL}/auth/password-reset-success`,
+    })
+
+    return {
+      success: true,
+      resetLink: ticket.ticket,
+      email: user.email,
+      expiresIn: "24 hours",
+    }
+  } catch (error) {
+    console.error(`Error generating password reset link for user ${userId}:`, error)
+    throw new Error(`Failed to generate password reset link: ${(error as Error).message}`)
+  }
+}

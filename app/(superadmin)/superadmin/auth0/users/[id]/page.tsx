@@ -1,12 +1,16 @@
+"use client"
+
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Edit } from "lucide-react"
+import { ArrowLeft, Edit, Key } from "lucide-react"
 import { getAuth0User, getUserRoles } from "@/lib/actions/auth0-actions"
 import { EditAuth0UserForm } from "@/components/superadmin/edit-auth0-user-form"
+import { useState } from "react"
+import { PasswordResetDialog } from "@/components/superadmin/password-reset-dialog"
 
 interface UserDetailPageProps {
   params: {
@@ -15,6 +19,8 @@ interface UserDetailPageProps {
 }
 
 export default async function UserDetailPage({ params }: UserDetailPageProps) {
+  const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false)
+
   try {
     const user = await getAuth0User(params.id)
     const roles = await getUserRoles(params.id)
@@ -38,12 +44,18 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
               <p className="text-muted-foreground">View and manage user information</p>
             </div>
           </div>
-          <Button asChild>
-            <Link href={`/superadmin/auth0/users/${params.id}/edit`}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit User
-            </Link>
-          </Button>
+          <div className="space-x-2">
+            <Button asChild>
+              <Link href={`/superadmin/auth0/users/${params.id}/edit`}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit User
+              </Link>
+            </Button>
+            <Button variant="outline" onClick={() => setIsPasswordResetDialogOpen(true)}>
+              <Key className="mr-2 h-4 w-4" />
+              Reset Password
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -212,6 +224,9 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Password Reset Dialog */}
+        <PasswordResetDialog user={user} open={isPasswordResetDialogOpen} onOpenChange={setIsPasswordResetDialogOpen} />
       </div>
     )
   } catch (error) {

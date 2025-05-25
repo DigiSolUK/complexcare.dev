@@ -27,9 +27,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { MoreHorizontal, Search, UserPlus, RefreshCw } from "lucide-react"
+import { MoreHorizontal, Search, UserPlus, RefreshCw, Key } from "lucide-react"
 import { deleteAuth0User, updateAuth0User, assignRolesToUser } from "@/lib/actions/auth0-actions"
 import { EditAuth0UserForm } from "./edit-auth0-user-form"
+import { PasswordResetDialog } from "./password-reset-dialog"
 
 interface Auth0User {
   user_id: string
@@ -75,6 +76,7 @@ export function Auth0UserTable({ initialUsers, totalUsers, roles, userRoles, pag
   const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false)
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false)
 
   const totalPages = Math.ceil(totalUsers / perPage)
 
@@ -152,6 +154,11 @@ export function Auth0UserTable({ initialUsers, totalUsers, roles, userRoles, pag
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString()
+  }
+
+  const handlePasswordReset = (user: Auth0User) => {
+    setSelectedUser(user)
+    setIsPasswordResetDialogOpen(true)
   }
 
   return (
@@ -236,6 +243,10 @@ export function Auth0UserTable({ initialUsers, totalUsers, roles, userRoles, pag
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleEditUser(user)}>Edit User</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleManageRoles(user)}>Manage Roles</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handlePasswordReset(user)}>
+                        <Key className="mr-2 h-4 w-4" />
+                        Reset Password
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       {user.blocked ? (
                         <DropdownMenuItem onClick={() => handleBlockUser(user, false)}>Unblock User</DropdownMenuItem>
@@ -346,6 +357,15 @@ export function Auth0UserTable({ initialUsers, totalUsers, roles, userRoles, pag
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Password Reset Dialog */}
+      {selectedUser && (
+        <PasswordResetDialog
+          user={selectedUser}
+          open={isPasswordResetDialogOpen}
+          onOpenChange={setIsPasswordResetDialogOpen}
+        />
+      )}
     </div>
   )
 }
