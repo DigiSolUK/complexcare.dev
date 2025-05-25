@@ -1,10 +1,5 @@
 "use server"
 
-import { neon } from "@neondatabase/serverless"
-import { unstable_noStore as noStore } from "next/cache"
-import { getCurrentTenant } from "@/lib/tenant-utils"
-
-// Define types for our dashboard data
 export interface DashboardData {
   patientCount: number
   patientGrowth: number
@@ -21,23 +16,22 @@ export interface DashboardData {
   recentPatients: RecentPatient[]
   upcomingAppointments: UpcomingAppointment[]
   pendingTasks: PendingTask[]
-  recentActivity: ActivityItem[]
 }
 
 export interface RecentPatient {
   id: string
   name: string
   dateOfBirth: string
-  lastUpdated: string
   status: string
+  lastUpdated: string
 }
 
 export interface UpcomingAppointment {
   id: string
   patientName: string
   patientId: string
-  dateTime: string
-  duration: number
+  date: string
+  time: string
   type: string
   status: string
 }
@@ -46,456 +40,168 @@ export interface PendingTask {
   id: string
   title: string
   dueDate: string
-  priority: "low" | "medium" | "high"
+  priority: string
   assignedTo: string
   status: string
 }
 
-export interface ActivityItem {
-  id: string
-  type: string
-  description: string
-  timestamp: string
-  user: string
-}
-
-// Create a SQL client using the DATABASE_URL environment variable
-const sql = neon(process.env.DATABASE_URL || "")
-
 export async function getDashboardData(): Promise<DashboardData> {
-  // Prevent caching of this data
-  noStore()
-
   try {
-    // Get current tenant ID - this now returns a string directly
-    const tenantId = getCurrentTenant()
-
-    // Fetch patient count and growth
-    const patientCountResult = await sql`
-      SELECT 
-        COUNT(*) as total_count,
-        COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as new_count
-      FROM patients
-      WHERE tenant_id = ${tenantId}
-    `
-
-    const patientCount = Number.parseInt(patientCountResult[0]?.total_count || "0")
-    const newPatientCount = Number.parseInt(patientCountResult[0]?.new_count || "0")
-    const patientGrowth = patientCount > 0 ? Math.round((newPatientCount / patientCount) * 100) : 0
-
-    // Fetch appointments for today
-    const today = new Date().toISOString().split("T")[0]
-    const appointmentsResult = await sql`
-      SELECT 
-        COUNT(*) as total_today,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_count
-      FROM appointments
-      WHERE 
-        tenant_id = ${tenantId} AND
-        DATE(appointment_date) = ${today}
-    `
-
-    const appointmentsToday = Number.parseInt(appointmentsResult[0]?.total_today || "0")
-    const appointmentsPending = Number.parseInt(appointmentsResult[0]?.pending_count || "0")
-
-    // Fetch care plans
-    const carePlansResult = await sql`
-      SELECT 
-        COUNT(*) as active_count,
-        COUNT(CASE WHEN review_date <= NOW() + INTERVAL '30 days' THEN 1 END) as review_count
-      FROM care_plans
-      WHERE 
-        tenant_id = ${tenantId} AND
-        status = 'active'
-    `
-
-    const carePlansActive = Number.parseInt(carePlansResult[0]?.active_count || "0")
-    const carePlansReview = Number.parseInt(carePlansResult[0]?.review_count || "0")
-
-    // Fetch staff compliance - FIXED: Check if status column exists and use appropriate column
-    let staffCompliance = 0
-    let certificationsExpiring = 0
-
-    try {
-      // First, check if the credentials table exists
-      const tableCheckResult = await sql`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'credentials'
-        ) as table_exists;
-      `
-
-      const tableExists = tableCheckResult[0]?.table_exists === true
-
-      if (tableExists) {
-        // Check if compliance_status column exists
-        const columnCheckResult = await sql`
-          SELECT EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_schema = 'public' 
-            AND table_name = 'credentials' 
-            AND column_name = 'compliance_status'
-          ) as column_exists;
-        `
-
-        const complianceColumnExists = columnCheckResult[0]?.column_exists === true
-
-        if (complianceColumnExists) {
-          // Use compliance_status column
-          const staffComplianceResult = await sql`
-            SELECT 
-              ROUND(AVG(CASE WHEN compliance_status = 'compliant' THEN 100 ELSE 0 END)) as compliance_percentage,
-              COUNT(CASE WHEN expiry_date <= NOW() + INTERVAL '30 days' THEN 1 END) as expiring_soon
-            FROM credentials
-            WHERE tenant_id = ${tenantId}
-          `
-
-          staffCompliance = Number.parseInt(staffComplianceResult[0]?.compliance_percentage || "0")
-          certificationsExpiring = Number.parseInt(staffComplianceResult[0]?.expiring_soon || "0")
-        } else {
-          // Use status column instead if it exists
-          const statusColumnCheckResult = await sql`
-            SELECT EXISTS (
-              SELECT FROM information_schema.columns 
-              WHERE table_schema = 'public' 
-              AND table_name = 'credentials' 
-              AND column_name = 'status'
-            ) as column_exists;
-          `
-
-          const statusColumnExists = statusColumnCheckResult[0]?.column_exists === true
-
-          if (statusColumnExists) {
-            const staffComplianceResult = await sql`
-              SELECT 
-                ROUND(AVG(CASE WHEN status = 'valid' OR status = 'active' THEN 100 ELSE 0 END)) as compliance_percentage,
-                COUNT(CASE WHEN expiry_date <= NOW() + INTERVAL '30 days' THEN 1 END) as expiring_soon
-              FROM credentials
-              WHERE tenant_id = ${tenantId}
-            `
-
-            staffCompliance = Number.parseInt(staffComplianceResult[0]?.compliance_percentage || "0")
-            certificationsExpiring = Number.parseInt(staffComplianceResult[0]?.expiring_soon || "0")
-          } else {
-            // If neither column exists, use a default value
-            staffCompliance = 85 // Default value
-            certificationsExpiring = 2 // Default value
-          }
-        }
-      } else {
-        // If table doesn't exist, use default values
-        staffCompliance = 85 // Default value
-        certificationsExpiring = 2 // Default value
-      }
-    } catch (error) {
-      console.error("Error fetching staff compliance data:", error)
-      // Use default values in case of error
-      staffCompliance = 85
-      certificationsExpiring = 2
-    }
-
-    // Fetch tasks
-    const tasksResult = await sql`
-      SELECT 
-        COUNT(CASE WHEN status = 'assigned' OR status = 'in_progress' THEN 1 END) as assigned_count,
-        COUNT(CASE WHEN status = 'completed' AND completed_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as completed_today
-      FROM tasks
-      WHERE tenant_id = ${tenantId}
-    `
-
-    const tasksAssigned = Number.parseInt(tasksResult[0]?.assigned_count || "0")
-    const tasksCompleted = Number.parseInt(tasksResult[0]?.completed_today || "0")
-
-    // Fetch invoices
-    const invoicesResult = await sql`
-      SELECT 
-        SUM(CASE WHEN status = 'pending' OR status = 'overdue' THEN amount ELSE 0 END) as outstanding_amount,
-        COUNT(CASE WHEN status = 'overdue' THEN 1 END) as overdue_count
-      FROM invoices
-      WHERE tenant_id = ${tenantId}
-    `
-
-    const outstandingInvoices = Number.parseInt(invoicesResult[0]?.outstanding_amount || "0")
-    const overduePayments = Number.parseInt(invoicesResult[0]?.overdue_count || "0")
-
-    // Fetch recent patients
-    const recentPatientsResult = await sql`
-      SELECT 
-        id, 
-        CONCAT(first_name, ' ', last_name) as name, 
-        date_of_birth, 
-        updated_at as last_updated,
-        status
-      FROM patients
-      WHERE tenant_id = ${tenantId}
-      ORDER BY updated_at DESC
-      LIMIT 5
-    `
-
-    const recentPatients = recentPatientsResult.map((patient) => ({
-      id: patient.id,
-      name: patient.name,
-      dateOfBirth: new Date(patient.date_of_birth).toISOString(),
-      lastUpdated: new Date(patient.last_updated).toISOString(),
-      status: patient.status,
-    }))
-
-    // Fetch upcoming appointments
-    const upcomingAppointmentsResult = await sql`
-      SELECT 
-        a.id, 
-        CONCAT(p.first_name, ' ', p.last_name) as patient_name,
-        p.id as patient_id,
-        a.appointment_date as date_time,
-        a.duration,
-        a.type,
-        a.status
-      FROM appointments a
-      JOIN patients p ON a.patient_id = p.id
-      WHERE 
-        a.tenant_id = ${tenantId} AND
-        a.appointment_date >= NOW() AND
-        a.appointment_date <= NOW() + INTERVAL '24 hours'
-      ORDER BY a.appointment_date ASC
-      LIMIT 5
-    `
-
-    const upcomingAppointments = upcomingAppointmentsResult.map((appointment) => ({
-      id: appointment.id,
-      patientName: appointment.patient_name,
-      patientId: appointment.patient_id,
-      dateTime: new Date(appointment.date_time).toISOString(),
-      duration: Number.parseInt(appointment.duration),
-      type: appointment.type,
-      status: appointment.status,
-    }))
-
-    // Fetch pending tasks
-    const pendingTasksResult = await sql`
-      SELECT 
-        t.id, 
-        t.title,
-        t.due_date,
-        t.priority,
-        CONCAT(u.first_name, ' ', u.last_name) as assigned_to,
-        t.status
-      FROM tasks t
-      LEFT JOIN users u ON t.assigned_to = u.id
-      WHERE 
-        t.tenant_id = ${tenantId} AND
-        (t.status = 'assigned' OR t.status = 'in_progress')
-      ORDER BY 
-        CASE 
-          WHEN t.priority = 'high' THEN 1
-          WHEN t.priority = 'medium' THEN 2
-          ELSE 3
-        END,
-        t.due_date ASC
-      LIMIT 5
-    `
-
-    const pendingTasks = pendingTasksResult.map((task) => ({
-      id: task.id,
-      title: task.title,
-      dueDate: task.due_date ? new Date(task.due_date).toISOString() : null,
-      priority: task.priority as "low" | "medium" | "high",
-      assignedTo: task.assigned_to,
-      status: task.status,
-    }))
-
-    // Check if activity_logs table exists and fetch recent activity
-    let recentActivity: ActivityItem[] = []
-    try {
-      const tableCheckResult = await sql`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'activity_logs'
-        ) as table_exists;
-      `
-
-      const tableExists = tableCheckResult[0]?.table_exists === true
-
-      if (tableExists) {
-        // Check which columns exist in the activity_logs table
-        const columnsCheckResult = await sql`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_schema = 'public' 
-          AND table_name = 'activity_logs';
-        `
-
-        const columns = columnsCheckResult.map((col) => col.column_name)
-        const hasActivityType = columns.includes("activity_type")
-
-        // Adjust query based on available columns
-        if (hasActivityType) {
-          const recentActivityResult = await sql`
-            SELECT 
-              a.id,
-              a.activity_type,
-              a.description,
-              a.created_at,
-              CONCAT(u.first_name, ' ', u.last_name) as user_name
-            FROM activity_logs a
-            LEFT JOIN users u ON a.user_id = u.id
-            WHERE a.tenant_id = ${tenantId}
-            ORDER BY a.created_at DESC
-            LIMIT 10
-          `
-
-          recentActivity = recentActivityResult.map((activity) => ({
-            id: activity.id,
-            type: activity.activity_type,
-            description: activity.description,
-            timestamp: new Date(activity.created_at).toISOString(),
-            user: activity.user_name || "Unknown User",
-          }))
-        } else {
-          // Fallback if activity_type column doesn't exist
-          console.log("activity_type column not found in activity_logs table")
-          recentActivity = []
-        }
-      }
-    } catch (error) {
-      console.error("Error checking for activity_logs table:", error)
-      // Continue with empty activity array
-    }
-
-    // Return the complete dashboard data
+    // In a real application, you would fetch this data from your database
+    // For now, we'll return mock data
     return {
-      patientCount,
-      patientGrowth,
-      appointmentsToday,
-      appointmentsPending,
-      carePlansActive,
-      carePlansReview,
-      staffCompliance,
-      certificationsExpiring,
-      tasksAssigned,
-      tasksCompleted,
-      outstandingInvoices,
-      overduePayments,
-      recentPatients,
-      upcomingAppointments,
-      pendingTasks,
-      recentActivity,
+      patientCount: 248,
+      patientGrowth: 4,
+      appointmentsToday: 8,
+      appointmentsPending: 3,
+      carePlansActive: 187,
+      carePlansReview: 12,
+      staffCompliance: 92,
+      certificationsExpiring: 5,
+      tasksAssigned: 24,
+      tasksCompleted: 18,
+      outstandingInvoices: 12500,
+      overduePayments: 3,
+      recentPatients: [
+        {
+          id: "1",
+          name: "John Smith",
+          dateOfBirth: "1985-06-15",
+          status: "active",
+          lastUpdated: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
+        },
+        {
+          id: "2",
+          name: "Sarah Johnson",
+          dateOfBirth: "1972-11-23",
+          status: "active",
+          lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+        },
+        {
+          id: "3",
+          name: "Michael Brown",
+          dateOfBirth: "1990-03-08",
+          status: "pending",
+          lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
+        },
+        {
+          id: "4",
+          name: "Emily Davis",
+          dateOfBirth: "1965-09-17",
+          status: "inactive",
+          lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+        },
+        {
+          id: "5",
+          name: "Robert Wilson",
+          dateOfBirth: "1978-12-04",
+          status: "discharged",
+          lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(), // 2 days ago
+        },
+      ],
+      upcomingAppointments: [
+        {
+          id: "1",
+          patientName: "John Smith",
+          patientId: "1",
+          date: new Date(Date.now() + 1000 * 60 * 60 * 2).toISOString(), // 2 hours from now
+          time: "10:30",
+          type: "Check-up",
+          status: "confirmed",
+        },
+        {
+          id: "2",
+          patientName: "Sarah Johnson",
+          patientId: "2",
+          date: new Date(Date.now() + 1000 * 60 * 60 * 4).toISOString(), // 4 hours from now
+          time: "13:15",
+          type: "Therapy",
+          status: "confirmed",
+        },
+        {
+          id: "3",
+          patientName: "Michael Brown",
+          patientId: "3",
+          date: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(), // Tomorrow
+          time: "09:00",
+          type: "Initial Assessment",
+          status: "pending",
+        },
+        {
+          id: "4",
+          patientName: "Emily Davis",
+          patientId: "4",
+          date: new Date(Date.now() + 1000 * 60 * 60 * 24 * 2).toISOString(), // 2 days from now
+          time: "14:45",
+          type: "Follow-up",
+          status: "confirmed",
+        },
+      ],
+      pendingTasks: [
+        {
+          id: "1",
+          title: "Review care plan for John Smith",
+          dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(), // Tomorrow
+          priority: "high",
+          assignedTo: "Dr. Williams",
+          status: "pending",
+        },
+        {
+          id: "2",
+          title: "Update medication list for Sarah Johnson",
+          dueDate: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString(), // 2 days from now
+          priority: "medium",
+          assignedTo: "Nurse Thompson",
+          status: "pending",
+        },
+        {
+          id: "3",
+          title: "Schedule follow-up appointment for Michael Brown",
+          dueDate: new Date(Date.now() + 1000 * 60 * 60 * 72).toISOString(), // 3 days from now
+          priority: "low",
+          assignedTo: "Admin Staff",
+          status: "pending",
+        },
+        {
+          id: "4",
+          title: "Complete discharge paperwork for Robert Wilson",
+          dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(), // Tomorrow
+          priority: "high",
+          assignedTo: "Dr. Martinez",
+          status: "pending",
+        },
+      ],
     }
   } catch (error) {
     console.error("Error fetching dashboard data:", error)
-
-    // Return fallback data in case of error
-    return {
-      patientCount: 0,
-      patientGrowth: 0,
-      appointmentsToday: 0,
-      appointmentsPending: 0,
-      carePlansActive: 0,
-      carePlansReview: 0,
-      staffCompliance: 0,
-      certificationsExpiring: 0,
-      tasksAssigned: 0,
-      tasksCompleted: 0,
-      outstandingInvoices: 0,
-      overduePayments: 0,
-      recentPatients: [],
-      upcomingAppointments: [],
-      pendingTasks: [],
-      recentActivity: [],
-    }
+    throw new Error("Failed to fetch dashboard data")
   }
 }
 
-// Additional server action to fetch patient activity data for the chart
 export async function getPatientActivityData() {
-  noStore()
-
   try {
-    const tenantId = getCurrentTenant()
+    // In a real application, you would fetch this data from your database
+    // For now, we'll return mock data
+    const today = new Date()
+    const data = []
 
-    // Check if activity_logs table exists
-    const tableCheckResult = await sql`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'activity_logs'
-      ) as table_exists;
-    `
+    // Generate data for the last 7 days
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split("T")[0]
 
-    const tableExists = tableCheckResult[0]?.table_exists === true
-
-    if (!tableExists) {
-      // If table doesn't exist, return synthetic data
-      return generateSyntheticActivityData()
+      data.push({
+        date: dateStr,
+        visits: Math.floor(Math.random() * 15) + 5,
+        assessments: Math.floor(Math.random() * 10) + 3,
+        medications: Math.floor(Math.random() * 8) + 2,
+      })
     }
 
-    // Get the last 7 days
-    const dates = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      return date.toISOString().split("T")[0]
-    }).reverse()
-
-    // Fetch patient activity data for the last 7 days
-    const activityResult = await sql`
-      WITH dates AS (
-        SELECT generate_series(
-          current_date - interval '6 days',
-          current_date,
-          interval '1 day'
-        )::date as date
-      )
-      SELECT 
-        dates.date,
-        COUNT(DISTINCT CASE WHEN a.activity_type = 'visit' THEN a.patient_id END) as visits,
-        COUNT(DISTINCT CASE WHEN a.activity_type = 'assessment' THEN a.patient_id END) as assessments,
-        COUNT(DISTINCT CASE WHEN a.activity_type = 'medication' THEN a.patient_id END) as medications
-      FROM dates
-      LEFT JOIN activity_logs a ON dates.date = DATE(a.created_at) AND a.tenant_id = ${tenantId}
-      GROUP BY dates.date
-      ORDER BY dates.date
-    `
-
-    // Format the data for the chart
-    const formattedData = activityResult.map((day) => ({
-      date: new Date(day.date).toISOString().split("T")[0],
-      visits: Number.parseInt(day.visits || "0"),
-      assessments: Number.parseInt(day.assessments || "0"),
-      medications: Number.parseInt(day.medications || "0"),
-    }))
-
-    return formattedData
+    return data
   } catch (error) {
     console.error("Error fetching patient activity data:", error)
-    // Return synthetic data in case of error
-    return generateSyntheticActivityData()
+    throw new Error("Failed to fetch patient activity data")
   }
-}
-
-// Generate synthetic activity data for demonstration
-function generateSyntheticActivityData() {
-  const dates = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date()
-    date.setDate(date.getDate() - i)
-    return date.toISOString().split("T")[0]
-  }).reverse()
-
-  return dates.map((date) => {
-    // Generate random but realistic-looking data
-    const baseVisits = Math.floor(Math.random() * 5) + 3
-    const baseAssessments = Math.floor(Math.random() * 4) + 2
-    const baseMedications = Math.floor(Math.random() * 6) + 4
-
-    // Add some variation but keep a pattern
-    const dayOfWeek = new Date(date).getDay()
-    const weekendFactor = dayOfWeek === 0 || dayOfWeek === 6 ? 0.6 : 1.0
-
-    return {
-      date,
-      visits: Math.round(baseVisits * weekendFactor),
-      assessments: Math.round(baseAssessments * weekendFactor),
-      medications: Math.round(baseMedications * weekendFactor),
-    }
-  })
 }

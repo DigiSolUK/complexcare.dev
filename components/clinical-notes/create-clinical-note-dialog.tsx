@@ -22,11 +22,7 @@ import { format } from "date-fns"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import {
-  type ClinicalNoteCategory,
-  getClinicalNoteCategories,
-  createClinicalNote,
-} from "@/lib/services/clinical-notes-service"
+import type { ClinicalNoteCategory } from "@/lib/services/clinical-notes-service"
 
 interface CreateClinicalNoteDialogProps {
   open: boolean
@@ -50,10 +46,16 @@ export function CreateClinicalNoteDialog({ open, onOpenChange, patientId, onSucc
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const categoriesData = await getClinicalNoteCategories()
-        setCategories(categoriesData)
-        if (categoriesData.length > 0) {
-          setCategoryId(categoriesData[0].id)
+        if (open) {
+          const response = await fetch("/api/clinical-notes/categories")
+          if (!response.ok) {
+            throw new Error("Failed to fetch categories")
+          }
+          const categoriesData = await response.json()
+          setCategories(categoriesData)
+          if (categoriesData.length > 0) {
+            setCategoryId(categoriesData[0].id)
+          }
         }
       } catch (error) {
         console.error("Error fetching categories:", error)
@@ -83,19 +85,29 @@ export function CreateClinicalNoteDialog({ open, onOpenChange, patientId, onSucc
         throw new Error("Patient ID is required")
       }
 
-      await createClinicalNote({
-        tenant_id: "",
-        patient_id: patientId,
-        title,
-        content,
-        category_id: categoryId,
-        created_by: "current-user-id", // This should be replaced with the actual user ID
-        is_private: isPrivate,
-        is_important: isImportant,
-        tags: [],
-        follow_up_date: followUpDate ? format(followUpDate, "yyyy-MM-dd") : null,
-        follow_up_notes: followUpNotes || null,
+      const response = await fetch("/api/clinical-notes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId,
+          title,
+          content,
+          categoryId,
+          createdBy: "current-user-id", // This should be replaced with the actual user ID
+          isPrivate,
+          isImportant,
+          tags: [],
+          followUpDate: followUpDate ? format(followUpDate, "yyyy-MM-dd") : null,
+          followUpNotes: followUpNotes || null,
+        }),
       })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create note")
+      }
 
       resetForm()
       onOpenChange(false)

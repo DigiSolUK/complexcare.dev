@@ -1,15 +1,11 @@
 "use client"
 
-import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Progress } from "@/components/ui/progress"
-import { Calendar, CheckCircle2, Clock, FileText, Plus, User } from "lucide-react"
+import { Calendar, CheckCircle, Clock, FileText, PlusCircle } from "lucide-react"
 
 interface Patient {
   id: string
@@ -32,252 +28,175 @@ interface PatientCarePlanDialogProps {
 }
 
 export function PatientCarePlanDialog({ patient, open, onOpenChange }: PatientCarePlanDialogProps) {
-  const [activeTab, setActiveTab] = useState("current")
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase()
-      .substring(0, 2)
-  }
-
-  // Mock data for care plans
-  const carePlans = [
-    {
-      id: "cp-001",
-      title: "Diabetes Management Plan",
-      status: "active",
-      startDate: "2023-01-15",
-      endDate: "2023-07-15",
-      progress: 65,
-      assignedTo: "Dr. Elizabeth Johnson",
-      goals: [
-        { id: "g-001", title: "Maintain blood glucose levels", status: "in-progress" },
-        { id: "g-002", title: "Weekly exercise routine", status: "completed" },
-        { id: "g-003", title: "Dietary adjustments", status: "in-progress" },
-      ],
-    },
-  ]
-
-  const completedCarePlans = [
-    {
-      id: "cp-002",
-      title: "Post-Surgery Recovery Plan",
-      status: "completed",
-      startDate: "2022-08-10",
-      endDate: "2022-12-10",
-      progress: 100,
-      assignedTo: "Dr. Robert Williams",
-      goals: [
-        { id: "g-004", title: "Physical therapy sessions", status: "completed" },
-        { id: "g-005", title: "Pain management", status: "completed" },
-        { id: "g-006", title: "Gradual return to activities", status: "completed" },
-      ],
-    },
-  ]
-
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "active":
-        return <Badge className="bg-green-100 text-green-800">Active</Badge>
-      case "completed":
-        return <Badge className="bg-blue-100 text-blue-800">Completed</Badge>
-      case "draft":
-        return <Badge className="bg-gray-100 text-gray-800">Draft</Badge>
-      default:
-        return <Badge>{status}</Badge>
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "N/A"
+    try {
+      return new Date(dateString).toLocaleDateString()
+    } catch (e) {
+      return dateString
     }
   }
 
-  const getGoalStatusIcon = (status: string) => {
+  // Sample care plan data
+  const carePlanData = {
+    goals: [
+      { id: 1, title: "Reduce blood pressure", status: "in-progress", target: "Below 140/90", dueDate: "2023-08-15" },
+      { id: 2, title: "Improve mobility", status: "completed", target: "Walk 30 minutes daily", dueDate: "2023-06-01" },
+      { id: 3, title: "Weight management", status: "not-started", target: "Lose 5kg", dueDate: "2023-09-30" },
+    ],
+    medications: [
+      { id: 1, name: "Lisinopril", dosage: "10mg", frequency: "Once daily", startDate: "2023-01-15" },
+      { id: 2, name: "Metformin", dosage: "500mg", frequency: "Twice daily", startDate: "2022-11-10" },
+      { id: 3, name: "Atorvastatin", dosage: "20mg", frequency: "Once daily at bedtime", startDate: "2023-03-22" },
+    ],
+    appointments: [
+      {
+        id: 1,
+        type: "GP Checkup",
+        date: "2023-06-15",
+        time: "10:00 AM",
+        provider: "Dr. Sarah Johnson",
+        location: "Main Clinic",
+      },
+      {
+        id: 2,
+        type: "Blood Test",
+        date: "2023-06-22",
+        time: "9:30 AM",
+        provider: "Lab Services",
+        location: "Pathology Department",
+      },
+      {
+        id: 3,
+        type: "Specialist Consultation",
+        date: "2023-07-05",
+        time: "2:15 PM",
+        provider: "Dr. Michael Chen",
+        location: "Cardiology Unit",
+      },
+    ],
+  }
+
+  const getGoalStatusColor = (status: string) => {
     switch (status) {
       case "completed":
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />
+        return "bg-green-100 text-green-800"
       case "in-progress":
-        return <Clock className="h-5 w-5 text-amber-500" />
+        return "bg-blue-100 text-blue-800"
+      case "not-started":
+        return "bg-gray-100 text-gray-800"
       default:
-        return <Clock className="h-5 w-5 text-gray-400" />
+        return "bg-gray-100 text-gray-800"
     }
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    })
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Care Plans</DialogTitle>
+          <DialogTitle>Care Plan for {patient.name}</DialogTitle>
         </DialogHeader>
-
-        <div className="flex items-center gap-4 mb-4">
-          <Avatar>
-            <AvatarImage src={patient.avatar || "/placeholder.svg"} alt={patient.name} />
-            <AvatarFallback>{getInitials(patient.name)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <h2 className="text-xl font-bold">{patient.name}</h2>
-            <p className="text-sm text-muted-foreground">
-              {patient.nhsNumber ? `NHS: ${patient.nhsNumber}` : "No NHS number"}
-            </p>
-          </div>
-        </div>
-
-        <Tabs defaultValue="current" value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex justify-between items-center mb-4">
-            <TabsList>
-              <TabsTrigger value="current">Current Plans</TabsTrigger>
-              <TabsTrigger value="completed">Completed</TabsTrigger>
-            </TabsList>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              New Care Plan
-            </Button>
-          </div>
-
-          <TabsContent value="current" className="space-y-4">
-            {carePlans.length > 0 ? (
-              carePlans.map((plan) => (
-                <Card key={plan.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle>{plan.title}</CardTitle>
-                        <CardDescription>
-                          {formatDate(plan.startDate)} - {formatDate(plan.endDate)}
-                        </CardDescription>
-                      </div>
-                      {getStatusBadge(plan.status)}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex justify-between mb-1 text-sm">
-                          <span>Progress</span>
-                          <span>{plan.progress}%</span>
-                        </div>
-                        <Progress value={plan.progress} className="h-2" />
-                      </div>
-
-                      <div className="flex items-center text-sm">
-                        <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span>Assigned to: {plan.assignedTo}</span>
-                      </div>
-
-                      <Separator />
-
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">Goals</h4>
-                        <ul className="space-y-2">
-                          {plan.goals.map((goal) => (
-                            <li key={goal.id} className="flex items-center gap-2">
-                              {getGoalStatusIcon(goal.status)}
-                              <span className="text-sm">{goal.title}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="pt-2">
-                    <div className="flex gap-2 w-full">
-                      <Button variant="outline" className="flex-1">
-                        <FileText className="h-4 w-4 mr-2" />
-                        View Details
-                      </Button>
-                      <Button variant="outline" className="flex-1">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Schedule Review
-                      </Button>
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))
-            ) : (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <h3 className="text-lg font-medium">No active care plans</h3>
-                  <p className="text-muted-foreground mt-1">This patient has no active care plans.</p>
-                  <Button className="mt-4">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Care Plan
-                  </Button>
+        <Tabs defaultValue="goals">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="goals">Goals</TabsTrigger>
+            <TabsTrigger value="medications">Medications</TabsTrigger>
+            <TabsTrigger value="appointments">Appointments</TabsTrigger>
+          </TabsList>
+          <TabsContent value="goals" className="space-y-4 pt-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium">Treatment Goals</h3>
+              <Button size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Goal
+              </Button>
+            </div>
+            {carePlanData.goals.map((goal) => (
+              <Card key={goal.id}>
+                <CardHeader className="p-4 pb-2">
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-base">{goal.title}</CardTitle>
+                    <Badge className={getGoalStatusColor(goal.status)}>
+                      {goal.status === "completed" && <CheckCircle className="mr-1 h-3 w-3" />}
+                      {goal.status.replace("-", " ")}
+                    </Badge>
+                  </div>
+                  <CardDescription>Target: {goal.target}</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Due by {formatDate(goal.dueDate)}
+                  </div>
                 </CardContent>
               </Card>
-            )}
+            ))}
           </TabsContent>
-
-          <TabsContent value="completed" className="space-y-4">
-            {completedCarePlans.length > 0 ? (
-              completedCarePlans.map((plan) => (
-                <Card key={plan.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle>{plan.title}</CardTitle>
-                        <CardDescription>
-                          {formatDate(plan.startDate)} - {formatDate(plan.endDate)}
-                        </CardDescription>
-                      </div>
-                      {getStatusBadge(plan.status)}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex justify-between mb-1 text-sm">
-                          <span>Progress</span>
-                          <span>{plan.progress}%</span>
-                        </div>
-                        <Progress value={plan.progress} className="h-2" />
-                      </div>
-
-                      <div className="flex items-center text-sm">
-                        <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span>Assigned to: {plan.assignedTo}</span>
-                      </div>
-
-                      <Separator />
-
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">Goals</h4>
-                        <ul className="space-y-2">
-                          {plan.goals.map((goal) => (
-                            <li key={goal.id} className="flex items-center gap-2">
-                              {getGoalStatusIcon(goal.status)}
-                              <span className="text-sm">{goal.title}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="pt-2">
-                    <Button variant="outline" className="w-full">
-                      <FileText className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))
-            ) : (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <h3 className="text-lg font-medium">No completed care plans</h3>
-                  <p className="text-muted-foreground mt-1">This patient has no completed care plans.</p>
+          <TabsContent value="medications" className="space-y-4 pt-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium">Current Medications</h3>
+              <Button size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Medication
+              </Button>
+            </div>
+            {carePlanData.medications.map((medication) => (
+              <Card key={medication.id}>
+                <CardHeader className="p-4 pb-2">
+                  <CardTitle className="text-base">{medication.name}</CardTitle>
+                  <CardDescription>
+                    {medication.dosage} - {medication.frequency}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Started on {formatDate(medication.startDate)}
+                  </div>
                 </CardContent>
               </Card>
-            )}
+            ))}
+          </TabsContent>
+          <TabsContent value="appointments" className="space-y-4 pt-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium">Upcoming Appointments</h3>
+              <Button size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Schedule Appointment
+              </Button>
+            </div>
+            {carePlanData.appointments.map((appointment) => (
+              <Card key={appointment.id}>
+                <CardHeader className="p-4 pb-2">
+                  <CardTitle className="text-base">{appointment.type}</CardTitle>
+                  <CardDescription>
+                    {appointment.provider} - {appointment.location}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {formatDate(appointment.date)}
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Clock className="mr-2 h-4 w-4" />
+                      {appointment.time}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </TabsContent>
         </Tabs>
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+          <Button>
+            <FileText className="mr-2 h-4 w-4" />
+            Full Care Plan
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )

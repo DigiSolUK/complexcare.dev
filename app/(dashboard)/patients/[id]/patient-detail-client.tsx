@@ -5,15 +5,27 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { User, AlertCircle } from "lucide-react"
-import PatientHeader from "@/components/patients/patient-header"
-import PatientMedicationsSummary from "@/components/patients/patient-medications-summary"
-import PatientAppointmentsSummary from "@/components/patients/patient-appointments-summary"
-import PatientCarePlansSummary from "@/components/patients/patient-care-plans-summary"
-import PatientClinicalNotesSummary from "@/components/patients/patient-clinical-notes-summary"
-import PatientVitalsSummary from "@/components/patients/patient-vitals-summary"
-import PatientAssessmentsSummary from "@/components/patients/patient-assessments-summary"
-import PatientDocumentsSummary from "@/components/patients/patient-documents-summary"
+import {
+  User,
+  AlertCircle,
+  FileText,
+  Pill,
+  Calendar,
+  ClipboardList,
+  Activity,
+  HeartPulse,
+  FileSpreadsheet,
+} from "lucide-react"
+import { PatientHeader } from "@/components/patients/patient-header"
+import PatientMedicalHistory from "@/components/patients/patient-medical-history"
+import PatientMedicationsList from "@/components/patients/patient-medications-list"
+import PatientAppointmentsList from "@/components/patients/patient-appointments-list"
+import PatientClinicalNotesList from "@/components/patients/patient-clinical-notes-list"
+import PatientCarePlansList from "@/components/patients/patient-care-plans-list"
+import PatientVitalsList from "@/components/patients/patient-vitals-list"
+import PatientAssessmentsList from "@/components/patients/patient-assessments-list"
+import PatientDocumentsList from "@/components/patients/patient-documents-list"
+import { PatientDemographicsEditor } from "@/components/patients/patient-demographics-editor"
 
 interface Patient {
   id: string
@@ -25,15 +37,17 @@ interface Patient {
   status: string
   primary_condition: string
   primary_care_provider: string
-  avatar_url: string
-  phone: string
-  email: string
-  address: string
-  emergency_contact_name: string
-  emergency_contact_phone: string
-  medical_history: string
-  allergies: string
-  current_medications: string
+  avatar_url?: string
+  phone?: string
+  contact_number?: string
+  email?: string
+  address?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  medical_history?: string
+  allergies?: string
+  current_medications?: string
+  notes?: string
 }
 
 interface PatientDetailClientProps {
@@ -124,6 +138,10 @@ export function PatientDetailClient({ patientId }: PatientDetailClientProps) {
     }
   }, [patientId])
 
+  const handlePatientUpdated = (updatedPatient: Patient) => {
+    setPatient(updatedPatient)
+  }
+
   if (loading) {
     return <PatientDetailSkeleton />
   }
@@ -159,57 +177,82 @@ export function PatientDetailClient({ patientId }: PatientDetailClientProps) {
 
   return (
     <div className="space-y-6">
-      <PatientHeader patient={patient} />
+      <PatientHeader patient={patient} onPatientUpdated={handlePatientUpdated} />
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="clinical-notes">Clinical Notes</TabsTrigger>
-          <TabsTrigger value="medications">Medications</TabsTrigger>
-          <TabsTrigger value="appointments">Appointments</TabsTrigger>
-          <TabsTrigger value="care-plans">Care Plans</TabsTrigger>
-          <TabsTrigger value="vitals">Vitals</TabsTrigger>
-          <TabsTrigger value="assessments">Assessments</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+        <TabsList className="flex flex-wrap">
+          <TabsTrigger value="overview" className="flex items-center">
+            <User className="mr-2 h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="medical-history" className="flex items-center">
+            <FileText className="mr-2 h-4 w-4" />
+            Medical History
+          </TabsTrigger>
+          <TabsTrigger value="medications" className="flex items-center">
+            <Pill className="mr-2 h-4 w-4" />
+            Medications
+          </TabsTrigger>
+          <TabsTrigger value="appointments" className="flex items-center">
+            <Calendar className="mr-2 h-4 w-4" />
+            Appointments
+          </TabsTrigger>
+          <TabsTrigger value="clinical-notes" className="flex items-center">
+            <FileText className="mr-2 h-4 w-4" />
+            Clinical Notes
+          </TabsTrigger>
+          <TabsTrigger value="care-plans" className="flex items-center">
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Care Plans
+          </TabsTrigger>
+          <TabsTrigger value="vitals" className="flex items-center">
+            <Activity className="mr-2 h-4 w-4" />
+            Vitals
+          </TabsTrigger>
+          <TabsTrigger value="assessments" className="flex items-center">
+            <HeartPulse className="mr-2 h-4 w-4" />
+            Assessments
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center">
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Documents
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <PatientMedicationsSummary patientId={patient.id} />
-            <PatientAppointmentsSummary patientId={patient.id} />
-            <PatientCarePlansSummary patientId={patient.id} />
-            <PatientClinicalNotesSummary patientId={patient.id} />
-            <PatientVitalsSummary patientId={patient.id} />
-            <PatientAssessmentsSummary patientId={patient.id} />
-          </div>
+          <PatientDemographicsEditor patient={patient} onPatientUpdated={handlePatientUpdated} />
         </TabsContent>
 
-        <TabsContent value="clinical-notes">
-          <PatientClinicalNotesSummary patientId={patient.id} detailed />
+        <TabsContent value="medical-history">
+          <PatientMedicalHistory patientId={patientId} />
         </TabsContent>
 
         <TabsContent value="medications">
-          <PatientMedicationsSummary patientId={patient.id} detailed />
+          <PatientMedicationsList patientId={patientId} />
         </TabsContent>
 
         <TabsContent value="appointments">
-          <PatientAppointmentsSummary patientId={patient.id} detailed />
+          <PatientAppointmentsList patientId={patientId} />
+        </TabsContent>
+
+        <TabsContent value="clinical-notes">
+          <PatientClinicalNotesList patientId={patientId} />
         </TabsContent>
 
         <TabsContent value="care-plans">
-          <PatientCarePlansSummary patientId={patient.id} detailed />
+          <PatientCarePlansList patientId={patientId} />
         </TabsContent>
 
         <TabsContent value="vitals">
-          <PatientVitalsSummary patientId={patient.id} detailed />
+          <PatientVitalsList patientId={patientId} />
         </TabsContent>
 
         <TabsContent value="assessments">
-          <PatientAssessmentsSummary patientId={patient.id} detailed />
+          <PatientAssessmentsList patientId={patientId} />
         </TabsContent>
 
         <TabsContent value="documents">
-          <PatientDocumentsSummary patientId={patient.id} detailed />
+          <PatientDocumentsList patientId={patientId} />
         </TabsContent>
       </Tabs>
     </div>

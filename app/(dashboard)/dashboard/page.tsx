@@ -1,20 +1,17 @@
-import { Suspense } from "react"
-import { DashboardClientPage } from "./DashboardClientPage"
+import { DashboardClient } from "./dashboard-client"
 
 export const metadata = {
-  title: "Dashboard | ComplexCare CRM",
-  description: "Dashboard for ComplexCare CRM",
+  title: "Dashboard",
+  description: "View your dashboard",
 }
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
       </div>
-      <Suspense fallback={<div>Loading dashboard...</div>}>
-        <DashboardClientPage />
-      </Suspense>
+      <DashboardClient />
     </div>
   )
 }

@@ -1,237 +1,115 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { useTenantData, useCreateTenantData, useDeleteTenantData } from "@/lib/hooks/use-tenant-data"
-import { DataTable } from "@/components/data-display/data-table"
-import { Button } from "@/components/ui/button"
-import { DeleteConfirmationDialog } from "@/components/data-management/delete-confirmation-dialog"
-import { Plus, Eye, FileText, Calendar, MoreHorizontal, Trash2 } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { PatientForm } from "@/components/patients/patient-form"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { z } from "zod"
+import { useState, useEffect } from "react"
+import { PatientTable } from "./patient-table"
+import { getPatients } from "@/lib/actions/patient-actions"
 
-// Schema for patient creation
-const patientSchema = z.object({
-  first_name: z.string().min(2, "First name must be at least 2 characters"),
-  last_name: z.string().min(2, "Last name must be at least 2 characters"),
-  date_of_birth: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date format",
-  }),
-  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]),
-  contact_number: z.string().optional(),
-  email: z.string().email("Invalid email address").optional().or(z.literal("")),
-  address: z.string().optional(),
-  medical_record_number: z.string().optional(),
-  primary_care_provider: z.string().optional(),
-})
+// Sample data for development
+const samplePatients = [
+  {
+    id: "1",
+    name: "John Smith",
+    dateOfBirth: "1975-05-15",
+    gender: "Male",
+    status: "active",
+    primaryCondition: "Diabetes Type 2",
+    nhsNumber: "123-456-7890",
+    riskLevel: "medium",
+    lastAppointment: "2023-05-01",
+    nextAppointment: "2023-06-15",
+  },
+  {
+    id: "2",
+    name: "Sarah Johnson",
+    dateOfBirth: "1982-11-23",
+    gender: "Female",
+    status: "stable",
+    primaryCondition: "Hypertension",
+    nhsNumber: "234-567-8901",
+    riskLevel: "low",
+    lastAppointment: "2023-05-10",
+    nextAppointment: "2023-07-10",
+  },
+  {
+    id: "3",
+    name: "Robert Williams",
+    dateOfBirth: "1968-03-12",
+    gender: "Male",
+    status: "critical",
+    primaryCondition: "COPD",
+    nhsNumber: "345-678-9012",
+    riskLevel: "high",
+    lastAppointment: "2023-05-18",
+    nextAppointment: "2023-05-25",
+  },
+  {
+    id: "4",
+    name: "Emily Davis",
+    dateOfBirth: "1990-07-30",
+    gender: "Female",
+    status: "active",
+    primaryCondition: "Asthma",
+    nhsNumber: "456-789-0123",
+    riskLevel: "low",
+    lastAppointment: "2023-04-22",
+    nextAppointment: "2023-07-22",
+  },
+  {
+    id: "5",
+    name: "Michael Brown",
+    dateOfBirth: "1955-09-08",
+    gender: "Male",
+    status: "inactive",
+    primaryCondition: "Arthritis",
+    nhsNumber: "567-890-1234",
+    riskLevel: "medium",
+    lastAppointment: "2023-03-15",
+    nextAppointment: null,
+  },
+]
 
 export function PatientManagement() {
-  const router = useRouter()
-  const [selectedPatient, setSelectedPatient] = useState<any>(null)
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [patients, setPatients] = useState(samplePatients)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Fetch patients data
-  const { data: patients, isLoading, error, refetch } = useTenantData<any[]>("/api/patients")
+  useEffect(() => {
+    async function loadPatients() {
+      try {
+        setIsLoading(true)
+        const result = await getPatients(100, 0)
 
-  // CRUD operations
-  const { createData, isLoading: isCreating } = useCreateTenantData<z.infer<typeof patientSchema>, any>("/api/patients")
-  const { deleteData, isLoading: isDeleting } = useDeleteTenantData("/api/patients")
+        if (result.success && result.data) {
+          // Transform the data to match the expected format
+          const formattedPatients = result.data.map((patient: any) => ({
+            id: patient.id,
+            name: `${patient.first_name} ${patient.last_name}`,
+            dateOfBirth: patient.date_of_birth,
+            gender: patient.gender,
+            status: patient.status,
+            primaryCondition: patient.primary_condition,
+            nhsNumber: patient.nhs_number,
+            riskLevel: patient.risk_level || "medium", // Default to medium if not set
+            lastAppointment: null, // We would need to fetch this separately
+            nextAppointment: null, // We would need to fetch this separately
+          }))
 
-  // Handle create patient
-  const handleCreatePatient = async (data: z.infer<typeof patientSchema>) => {
-    await createData(data)
-    setCreateDialogOpen(false)
-    refetch()
-  }
-
-  // Handle delete patient
-  const handleDeletePatient = async () => {
-    if (selectedPatient) {
-      await deleteData(selectedPatient.id)
-      refetch()
+          setPatients(formattedPatients)
+        } else {
+          // If there's an error or no data, use sample data in development
+          console.warn("Using sample patient data")
+          setPatients(samplePatients)
+        }
+      } catch (error) {
+        console.error("Error loading patients:", error)
+        // Fallback to sample data
+        setPatients(samplePatients)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }
 
-  // Navigate to patient details
-  const navigateToPatientDetails = (patientId: string) => {
-    router.push(`/patients/${patientId}`)
-  }
+    loadPatients()
+  }, [])
 
-  // Get initials for avatar
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
-  }
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString()
-  }
-
-  // Table columns
-  const columns = [
-    {
-      accessorKey: "name",
-      header: "Patient",
-      cell: ({ row }) => {
-        const patient = row.original
-        return (
-          <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarImage src={patient.avatar_url || ""} alt={`${patient.first_name} ${patient.last_name}`} />
-              <AvatarFallback>{getInitials(patient.first_name, patient.last_name)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="font-medium">{`${patient.first_name} ${patient.last_name}`}</div>
-              {patient.medical_record_number && (
-                <div className="text-xs text-muted-foreground">MRN: {patient.medical_record_number}</div>
-              )}
-            </div>
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: "date_of_birth",
-      header: "Date of Birth",
-      cell: ({ row }) => formatDate(row.getValue("date_of_birth")),
-    },
-    {
-      accessorKey: "gender",
-      header: "Gender",
-      cell: ({ row }) => <div className="capitalize">{row.getValue("gender")}</div>,
-    },
-    {
-      accessorKey: "contact_number",
-      header: "Contact",
-      cell: ({ row }) => row.getValue("contact_number") || "-",
-    },
-    {
-      accessorKey: "primary_care_provider",
-      header: "Primary Care Provider",
-      cell: ({ row }) => row.getValue("primary_care_provider") || "-",
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const patient = row.original
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => navigateToPatientDetails(patient.id)}>
-                <Eye className="mr-2 h-4 w-4" />
-                <span>View Details</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push(`/patients/${patient.id}/care-plans`)}>
-                <FileText className="mr-2 h-4 w-4" />
-                <span>Care Plans</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push(`/patients/${patient.id}/appointments`)}>
-                <Calendar className="mr-2 h-4 w-4" />
-                <span>Appointments</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setSelectedPatient(patient)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>Delete Patient</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )
-      },
-    },
-  ]
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Patient Management</CardTitle>
-          <CardDescription>Loading patients...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-[180px]" />
-            <Skeleton className="h-[400px] w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Patient Management</CardTitle>
-          <CardDescription>Error loading patients</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-destructive/10 p-4 rounded-md text-destructive">Error loading patients: {error}</div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Patient Management</CardTitle>
-          <CardDescription>Manage patients in the system</CardDescription>
-        </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Patient
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <DataTable columns={columns} data={patients || []} searchColumn="name" searchPlaceholder="Search patients..." />
-
-        {/* Create Patient Dialog */}
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Create New Patient</DialogTitle>
-              <DialogDescription>Add a new patient to the system.</DialogDescription>
-            </DialogHeader>
-            <PatientForm onSubmit={handleCreatePatient} isSubmitting={isCreating} />
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        {selectedPatient && (
-          <DeleteConfirmationDialog
-            title="Delete Patient"
-            description={`Are you sure you want to delete ${selectedPatient.first_name} ${selectedPatient.last_name}? This action cannot be undone and will permanently delete all associated data.`}
-            onConfirm={handleDeletePatient}
-            isDeleting={isDeleting}
-            trigger={<span className="hidden" />}
-          />
-        )}
-      </CardContent>
-    </Card>
-  )
+  return <PatientTable patients={patients} isLoading={isLoading} />
 }

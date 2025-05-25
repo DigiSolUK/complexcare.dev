@@ -76,3 +76,41 @@ export const authorizeRequest = async (request: any, requiredRole: string) => {
     return { success: false, message: "Authorization failed" }
   }
 }
+
+// Add the missing export
+export const requireAdmin = async (request: any) => {
+  try {
+    // Get the user from the request
+    const user = request.user || (await getCurrentUser())
+
+    // Check if the user has admin role
+    if (!user) {
+      return {
+        success: false,
+        message: "Authentication required",
+        status: 401,
+      }
+    }
+
+    if (user.role !== "admin" && user.role !== "superadmin") {
+      return {
+        success: false,
+        message: "Admin privileges required",
+        status: 403,
+      }
+    }
+
+    return {
+      success: true,
+      message: "Admin access granted",
+      user,
+    }
+  } catch (error) {
+    console.error("Error in requireAdmin:", error)
+    return {
+      success: false,
+      message: "Error checking admin privileges",
+      status: 500,
+    }
+  }
+}

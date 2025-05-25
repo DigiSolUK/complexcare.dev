@@ -22,7 +22,7 @@ import type { CareProfessional } from "@/types"
 export default function CareProfessionalsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [professionals, setProfessionals] = useState<CareProfessional[]>([])
+  const [professionals, setProfessionals] = useState<CareProfessional[]>([]) // Initialize as empty array
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState(searchParams?.get("search") || "")
@@ -46,18 +46,22 @@ export default function CareProfessionalsContent() {
 
       const data = await response.json()
 
+      // Ensure data is an array
+      const professionalsList = Array.isArray(data) ? data : []
+
       // Filter based on active tab
-      let filteredData = data
+      let filteredData = professionalsList
       if (activeTab === "active") {
-        filteredData = data.filter((prof: CareProfessional) => prof.is_active)
+        filteredData = professionalsList.filter((prof: CareProfessional) => prof.is_active)
       } else if (activeTab === "inactive") {
-        filteredData = data.filter((prof: CareProfessional) => !prof.is_active)
+        filteredData = professionalsList.filter((prof: CareProfessional) => !prof.is_active)
       }
 
       setProfessionals(filteredData)
     } catch (err) {
       console.error("Error fetching care professionals:", err)
       setError("Failed to load care professionals. Please try again.")
+      setProfessionals([]) // Reset to empty array on error
     } finally {
       setIsLoading(false)
     }
