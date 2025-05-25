@@ -1,273 +1,163 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import {
-  Users,
-  Calendar,
-  Activity,
-  ClipboardList,
-  AlertTriangle,
-  Clock,
-  UserCheck,
-  ArrowRight,
-  ArrowUpRight,
-} from "lucide-react"
-import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { BarChart } from "@/components/charts"
+import { useDashboard } from "./dashboard-context"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function SimpleDashboard() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({
-    totalPatients: 248,
-    activePatients: 187,
-    criticalPatients: 12,
-    appointmentsToday: 8,
-    appointmentsThisWeek: 32,
-    tasksOverdue: 5,
-    tasksDueToday: 11,
-    completionRate: 78,
-  })
+  const { filters, isLoading } = useDashboard()
+  const [metricsData, setMetricsData] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 1000)
+    const fetchData = async () => {
+      try {
+        // Fetch metrics data
+        const metricsResponse = await fetch("/api/dashboard/metrics")
+        const metricsResult = await metricsResponse.json()
 
-    return () => clearTimeout(timer)
-  }, [])
+        if (metricsResult.success) {
+          setMetricsData(metricsResult.data)
+        } else {
+          setError(metricsResult.error || "Failed to load metrics data")
+          // Provide fallback data
+          setMetricsData({
+            patientCount: 0,
+            patientGrowth: 0,
+            appointmentsToday: 0,
+            appointmentsPending: 0,
+            carePlansActive: 0,
+            carePlansReview: 0,
+            staffCompliance: 0,
+            certificationsExpiring: 0,
+            tasksAssigned: 0,
+            tasksCompleted: 0,
+            outstandingInvoices: 0,
+            overduePayments: 0,
+          })
+        }
+      } catch (err) {
+        console.error("Error fetching dashboard data:", err)
+        setError("Failed to load dashboard data")
+        // Set fallback data
+        setMetricsData({
+          patientCount: 0,
+          patientGrowth: 0,
+          appointmentsToday: 0,
+          appointmentsPending: 0,
+          carePlansActive: 0,
+          carePlansReview: 0,
+          staffCompliance: 0,
+          certificationsExpiring: 0,
+          tasksAssigned: 0,
+          tasksCompleted: 0,
+          outstandingInvoices: 0,
+          overduePayments: 0,
+        })
+      }
+    }
 
-  if (loading) {
-    return <div className="p-8 text-center">Loading dashboard data...</div>
+    fetchData()
+  }, [filters])
+
+  // If we're still loading or don't have data yet, show skeletons
+  if (isLoading || !metricsData) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-[120px]" />
+          ))}
+        </div>
+        <Skeleton className="h-[300px] w-full" />
+      </div>
+    )
   }
+
+  // Sample data for the chart
+  const performanceData = [
+    { category: "Patients", value: metricsData.patientCount || 0 },
+    { category: "Appointments", value: metricsData.appointmentsToday || 0 },
+    { category: "Care Plans", value: metricsData.carePlansActive || 0 },
+    { category: "Tasks", value: metricsData.tasksAssigned || 0 },
+  ]
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Patients</p>
-                <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold">{stats.totalPatients}</p>
-                  <span className="text-xs text-green-600 flex items-center">
-                    <ArrowUpRight className="h-3 w-3" />
-                    4%
-                  </span>
-                </div>
-              </div>
-              <div className="p-2 bg-primary/10 rounded-full">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Active: {stats.activePatients}</span>
-                <span>{Math.round((stats.activePatients / stats.totalPatients) * 100)}%</span>
-              </div>
-              <Progress value={(stats.activePatients / stats.totalPatients) * 100} className="h-1" />
-            </div>
+          <CardHeader>
+            <CardTitle>Patients</CardTitle>
+            <CardDescription>Total patients and growth</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{metricsData.patientCount || 0}</div>
+            <p className="text-sm text-muted-foreground mt-2">
+              {(metricsData.patientGrowth >= 0 ? "+" : "") + (metricsData.patientGrowth || 0)}% from last month
+            </p>
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Appointments</p>
-                <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold">{stats.appointmentsToday}</p>
-                  <span className="text-xs text-muted-foreground">today</span>
-                </div>
-              </div>
-              <div className="p-2 bg-blue-100 rounded-full">
-                <Calendar className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>This week: {stats.appointmentsThisWeek}</span>
-                <span>{Math.round((stats.appointmentsToday / stats.appointmentsThisWeek) * 100)}%</span>
-              </div>
-              <Progress value={(stats.appointmentsToday / stats.appointmentsThisWeek) * 100} className="h-1" />
-            </div>
+          <CardHeader>
+            <CardTitle>Appointments</CardTitle>
+            <CardDescription>Today's appointments</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{metricsData.appointmentsToday || 0}</div>
+            <p className="text-sm text-muted-foreground mt-2">{metricsData.appointmentsPending || 0} pending</p>
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Tasks</p>
-                <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold">{stats.tasksDueToday}</p>
-                  <span className="text-xs text-muted-foreground">due today</span>
-                </div>
-              </div>
-              <div className="p-2 bg-yellow-100 rounded-full">
-                <ClipboardList className="h-5 w-5 text-yellow-600" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span className="text-red-600 font-medium">Overdue: {stats.tasksOverdue}</span>
-                <span>Completion: {stats.completionRate}%</span>
-              </div>
-              <Progress value={stats.completionRate} className="h-1" />
-            </div>
+          <CardHeader>
+            <CardTitle>Care Plans</CardTitle>
+            <CardDescription>Active care plans</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{metricsData.carePlansActive || 0}</div>
+            <p className="text-sm text-muted-foreground mt-2">{metricsData.carePlansReview || 0} need review</p>
           </CardContent>
         </Card>
-
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Critical Patients</p>
-                <div className="flex items-center gap-1">
-                  <p className="text-2xl font-bold">{stats.criticalPatients}</p>
-                  <span className="text-xs text-red-600 flex items-center">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Attention needed
-                  </span>
-                </div>
-              </div>
-              <div className="p-2 bg-red-100 rounded-full">
-                <Activity className="h-5 w-5 text-red-600" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Of total: {stats.totalPatients}</span>
-                <span>{Math.round((stats.criticalPatients / stats.totalPatients) * 100)}%</span>
-              </div>
-              <Progress value={(stats.criticalPatients / stats.totalPatients) * 100} className="h-1" />
-            </div>
+          <CardHeader>
+            <CardTitle>Tasks</CardTitle>
+            <CardDescription>Assigned and completed tasks</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{metricsData.tasksAssigned || 0}</div>
+            <p className="text-sm text-muted-foreground mt-2">{metricsData.tasksCompleted || 0} completed today</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Patients</CardTitle>
-            <CardDescription>Recently updated patient records</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                {
-                  id: "pat-1",
-                  name: "John Smith",
-                  status: "Active",
-                  lastSeen: "Today",
-                },
-                {
-                  id: "pat-2",
-                  name: "Emily Johnson",
-                  status: "Critical",
-                  lastSeen: "Yesterday",
-                },
-                {
-                  id: "pat-3",
-                  name: "Michael Williams",
-                  status: "Stable",
-                  lastSeen: "2 days ago",
-                },
-              ].map((patient) => (
-                <div key={patient.id} className="flex items-center gap-4">
-                  <Avatar>
-                    <AvatarFallback>
-                      {patient.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <h4 className="font-medium">{patient.name}</h4>
-                      <Badge
-                        className={
-                          patient.status === "Active"
-                            ? "bg-green-100 text-green-800"
-                            : patient.status === "Critical"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-blue-100 text-blue-800"
-                        }
-                      >
-                        {patient.status}
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">Last seen: {patient.lastSeen}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full" onClick={() => router.push("/patients")}>
-              <Users className="mr-2 h-4 w-4" />
-              View All Patients
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardFooter>
-        </Card>
+      {/* Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Performance Overview</CardTitle>
+          <CardDescription>Key metrics visualization</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BarChart
+            data={performanceData}
+            categories={["value"]}
+            index="category"
+            valueFormatter={(value) => `${value}`}
+            colors={["#2563eb"]}
+            className="h-[300px]"
+          />
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>System Activity</CardTitle>
-            <CardDescription>Recent system events and notifications</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="bg-blue-100 text-blue-800 rounded-full p-2">
-                  <UserCheck className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">New patient registered</p>
-                  <p className="text-sm text-muted-foreground">Robert Thompson was added to the system</p>
-                  <p className="text-xs text-muted-foreground">10 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="bg-green-100 text-green-800 rounded-full p-2">
-                  <Calendar className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">Appointment completed</p>
-                  <p className="text-sm text-muted-foreground">
-                    Dr. Sarah Johnson completed appointment with Emily Johnson
-                  </p>
-                  <p className="text-xs text-muted-foreground">1 hour ago</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="bg-yellow-100 text-yellow-800 rounded-full p-2">
-                  <AlertTriangle className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">Medication alert</p>
-                  <p className="text-sm text-muted-foreground">Potential interaction detected for John Smith</p>
-                  <p className="text-xs text-muted-foreground">2 hours ago</p>
-                </div>
-              </div>
-            </div>
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-red-600">{error}</p>
+            <p className="text-sm text-red-500 mt-2">Some data may be using fallback values.</p>
           </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full">
-              <Clock className="mr-2 h-4 w-4" />
-              View Activity Log
-            </Button>
-          </CardFooter>
         </Card>
-      </div>
+      )}
     </div>
   )
 }

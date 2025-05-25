@@ -1,56 +1,82 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import type { DateRange } from "react-day-picker"
-import { startOfDay, endOfDay, subDays } from "date-fns"
-import type { FilterState } from "./dashboard-filters"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
-// Define the dashboard context type
-type DashboardContextType = {
-  filters: FilterState
-  setFilters: (filters: FilterState) => void
+// Define the filter types
+export interface DateRange {
+  from: Date | undefined
+  to: Date | undefined
+}
+
+export interface Filters {
+  dateRange: DateRange
+  patientStatus: string[]
+  appointmentType: string[]
+  taskPriority: string[]
+  [key: string]: any
+}
+
+// Define the context type
+interface DashboardContextType {
+  filters: Filters
+  setFilters: (filters: Filters) => void
   isLoading: boolean
-  refreshData: () => Promise<void>
+  refreshData: () => void
 }
 
-// Create the context with a default value
-const DashboardContext = createContext<DashboardContextType | undefined>(undefined)
-
-// Default date range (last 30 days)
-const defaultDateRange: DateRange = {
-  from: startOfDay(subDays(new Date(), 29)),
-  to: endOfDay(new Date()),
-}
+// Create the context with default values
+const DashboardContext = createContext<DashboardContextType>({
+  filters: {
+    dateRange: { from: undefined, to: undefined },
+    patientStatus: [],
+    appointmentType: [],
+    taskPriority: [],
+  },
+  setFilters: () => {},
+  isLoading: false,
+  refreshData: () => {},
+})
 
 // Provider component
-export function DashboardProvider({ children }: { children: React.ReactNode }) {
-  // State for filters
-  const [filters, setFilters] = useState<FilterState>({
-    dateRange: defaultDateRange,
-    filters: {},
+export function DashboardProvider({ children }: { children: ReactNode }) {
+  // Default date range: last 30 days
+  const defaultFrom = new Date()
+  defaultFrom.setDate(defaultFrom.getDate() - 30)
+
+  const [filters, setFilters] = useState<Filters>({
+    dateRange: { from: defaultFrom, to: new Date() },
+    patientStatus: [],
+    appointmentType: [],
+    taskPriority: [],
   })
 
-  // Loading state
   const [isLoading, setIsLoading] = useState(false)
 
   // Function to refresh data
-  const refreshData = async () => {
+  const refreshData = () => {
     setIsLoading(true)
-    try {
-      // In a real app, this would fetch data based on the current filters
-      // For now, we'll just simulate a delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    } catch (error) {
-      console.error("Error refreshing dashboard data:", error)
-    } finally {
+    // Simulate data loading
+    setTimeout(() => {
       setIsLoading(false)
-    }
+    }, 1000)
   }
 
-  // Refresh data when filters change
+  // Initial load
   useEffect(() => {
-    refreshData()
+    setIsLoading(true)
+    // Simulate initial data loading
+    setTimeout(() => {
+      setIsLoading(false)
+    }, 1000)
+  }, [])
+
+  // When filters change, reload data
+  useEffect(() => {
+    setIsLoading(true)
+    // Simulate data loading when filters change
+    setTimeout(() => {
+      setIsLoading(false)
+    }, 500)
   }, [filters])
 
   return (
@@ -60,7 +86,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Hook to use the dashboard context
+// Hook for using the dashboard context
 export function useDashboard() {
   const context = useContext(DashboardContext)
   if (context === undefined) {
