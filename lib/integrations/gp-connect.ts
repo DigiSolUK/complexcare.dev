@@ -8,7 +8,10 @@
  * https://digital.nhs.uk/services/gp-connect
  */
 
-import { db } from "@/lib/db"
+// In a real implementation, these would be environment variables
+const GP_CONNECT_BASE_URL = "https://api.gp-connect.nhs.uk/v1"
+const GP_CONNECT_CLIENT_ID = "demo-client-id"
+const GP_CONNECT_CLIENT_SECRET = "demo-client-secret"
 
 export interface GPConnectPatient {
   nhsNumber: string
@@ -26,9 +29,6 @@ interface Medication {
   startDate: string
   endDate?: string
   prescribedBy: string
-  dmdCode?: string
-  medicationId?: string
-  medicationType?: "VMP" | "AMP"
 }
 
 interface Allergy {
@@ -36,8 +36,6 @@ interface Allergy {
   severity: string
   recordedDate: string
   recordedBy: string
-  reaction?: string
-  status?: string
 }
 
 interface Condition {
@@ -45,56 +43,17 @@ interface Condition {
   onsetDate: string
   status: string
   recordedBy: string
-  snomedCode?: string
-  notes?: string
-}
-
-interface Immunization {
-  name: string
-  date: string
-  administeredBy: string
-  batchNumber?: string
-  site?: string
-  route?: string
 }
 
 export class GPConnectService {
   private accessToken: string | null = null
   private tokenExpiry: Date | null = null
-  private clientId: string
-  private clientSecret: string
-  private baseUrl: string
 
-  constructor(private readonly tenantId: string) {
-    this.clientId = "demo-client-id"
-    this.clientSecret = "demo-client-secret"
-    this.baseUrl = "https://api.gp-connect.nhs.uk/v1"
-  }
-
-  /**
-   * Initialize the service by fetching API credentials
-   */
-  async initialize(): Promise<void> {
-    try {
-      const result = await db.query(
-        `SELECT api_key, api_secret, api_url 
-         FROM tenant_api_keys 
-         WHERE tenant_id = $1 AND service_name = 'GP_CONNECT' AND is_active = true`,
-        [this.tenantId],
-      )
-
-      if (result.rows.length > 0) {
-        this.clientId = result.rows[0].api_key
-        this.clientSecret = result.rows[0].api_secret
-        if (result.rows[0].api_url) {
-          this.baseUrl = result.rows[0].api_url
-        }
-      }
-    } catch (error) {
-      console.error("Error initializing GP Connect service:", error)
-      // Continue with default credentials
-    }
-  }
+  constructor(
+    private readonly clientId: string = GP_CONNECT_CLIENT_ID,
+    private readonly clientSecret: string = GP_CONNECT_CLIENT_SECRET,
+    private readonly baseUrl: string = GP_CONNECT_BASE_URL,
+  ) {}
 
   /**
    * Authenticate with the GP Connect API
@@ -151,27 +110,18 @@ export class GPConnectService {
             dosage: "500mg twice daily",
             startDate: "10/01/2022",
             prescribedBy: "Dr. Johnson",
-            dmdCode: "vmp123456",
-            medicationId: "vmp123456",
-            medicationType: "VMP",
           },
           {
             name: "Lisinopril",
             dosage: "10mg once daily",
             startDate: "15/03/2022",
             prescribedBy: "Dr. Johnson",
-            dmdCode: "vmp234567",
-            medicationId: "vmp234567",
-            medicationType: "VMP",
           },
           {
             name: "Atorvastatin",
             dosage: "20mg once daily",
             startDate: "05/02/2022",
             prescribedBy: "Dr. Williams",
-            dmdCode: "vmp345678",
-            medicationId: "vmp345678",
-            medicationType: "VMP",
           },
         ]
       : [
@@ -180,18 +130,12 @@ export class GPConnectService {
             dosage: "44mcg three times weekly",
             startDate: "20/05/2021",
             prescribedBy: "Dr. Williams",
-            dmdCode: "amp123456",
-            medicationId: "amp123456",
-            medicationType: "AMP",
           },
           {
             name: "Sertraline",
             dosage: "50mg once daily",
             startDate: "12/11/2021",
             prescribedBy: "Dr. Williams",
-            dmdCode: "vmp456789",
-            medicationId: "vmp456789",
-            medicationType: "VMP",
           },
         ]
   }
@@ -211,16 +155,12 @@ export class GPConnectService {
             severity: "Severe",
             recordedDate: "03/06/2015",
             recordedBy: "Dr. Thompson",
-            reaction: "Anaphylaxis",
-            status: "Active",
           },
           {
             substance: "Shellfish",
             severity: "Moderate",
             recordedDate: "15/08/2018",
             recordedBy: "Dr. Johnson",
-            reaction: "Rash and swelling",
-            status: "Active",
           },
         ]
       : [
@@ -229,8 +169,6 @@ export class GPConnectService {
             severity: "Moderate",
             recordedDate: "22/04/2019",
             recordedBy: "Dr. Williams",
-            reaction: "Skin rash",
-            status: "Active",
           },
         ]
   }
@@ -250,24 +188,18 @@ export class GPConnectService {
             onsetDate: "15/12/2020",
             status: "Active",
             recordedBy: "Dr. Johnson",
-            snomedCode: "44054006",
-            notes: "Well controlled with medication and diet",
           },
           {
             name: "Hypertension",
             onsetDate: "10/03/2021",
             status: "Active",
             recordedBy: "Dr. Johnson",
-            snomedCode: "38341003",
-            notes: "Monitoring regularly",
           },
           {
             name: "Osteoarthritis",
             onsetDate: "05/06/2019",
             status: "Active",
             recordedBy: "Dr. Thompson",
-            snomedCode: "396275006",
-            notes: "Affecting both knees",
           },
         ]
       : [
@@ -276,103 +208,12 @@ export class GPConnectService {
             onsetDate: "18/02/2020",
             status: "Active",
             recordedBy: "Dr. Williams",
-            snomedCode: "24700007",
-            notes: "Relapsing-remitting type",
           },
           {
             name: "Depression",
             onsetDate: "30/09/2021",
             status: "Active",
             recordedBy: "Dr. Williams",
-            snomedCode: "35489007",
-            notes: "Responding well to treatment",
-          },
-        ]
-  }
-
-  /**
-   * Get patient immunizations from GP Connect
-   */
-  async getImmunizations(nhsNumber: string): Promise<Immunization[]> {
-    const token = await this.authenticate()
-
-    // In a real implementation, this would make an actual API call
-    // For demo purposes, we'll return mock data
-    return nhsNumber === "1234567890"
-      ? [
-          {
-            name: "Influenza vaccine",
-            date: "15/10/2022",
-            administeredBy: "Nurse Smith",
-            batchNumber: "FL2022-001",
-            site: "Left deltoid",
-            route: "Intramuscular",
-          },
-          {
-            name: "COVID-19 vaccine (Pfizer)",
-            date: "20/03/2021",
-            administeredBy: "Dr. Johnson",
-            batchNumber: "PF2021-123",
-            site: "Right deltoid",
-            route: "Intramuscular",
-          },
-          {
-            name: "COVID-19 vaccine (Pfizer) - Dose 2",
-            date: "10/06/2021",
-            administeredBy: "Nurse Williams",
-            batchNumber: "PF2021-456",
-            site: "Left deltoid",
-            route: "Intramuscular",
-          },
-          {
-            name: "COVID-19 vaccine (Pfizer) - Booster",
-            date: "05/01/2022",
-            administeredBy: "Nurse Williams",
-            batchNumber: "PF2022-001",
-            site: "Right deltoid",
-            route: "Intramuscular",
-          },
-          {
-            name: "Pneumococcal polysaccharide vaccine",
-            date: "12/05/2021",
-            administeredBy: "Dr. Thompson",
-            batchNumber: "PN2021-078",
-            site: "Left deltoid",
-            route: "Intramuscular",
-          },
-        ]
-      : [
-          {
-            name: "Influenza vaccine",
-            date: "22/10/2022",
-            administeredBy: "Nurse Johnson",
-            batchNumber: "FL2022-002",
-            site: "Right deltoid",
-            route: "Intramuscular",
-          },
-          {
-            name: "COVID-19 vaccine (AstraZeneca)",
-            date: "15/04/2021",
-            administeredBy: "Dr. Williams",
-            batchNumber: "AZ2021-789",
-            site: "Left deltoid",
-            route: "Intramuscular",
-          },
-          {
-            name: "COVID-19 vaccine (AstraZeneca) - Dose 2",
-            date: "08/07/2021",
-            administeredBy: "Nurse Brown",
-            batchNumber: "AZ2021-012",
-            site: "Right deltoid",
-            route: "Intramuscular",
-          },
-          {
-            name: "COVID-19 vaccine (Moderna) - Booster",
-            date: "12/01/2022",
-            administeredBy: "Nurse Brown",
-            batchNumber: "MD2022-034",
-            site: "Left deltoid",
-            route: "Intramuscular",
           },
         ]
   }
@@ -381,12 +222,11 @@ export class GPConnectService {
    * Get all patient data from GP Connect
    */
   async getAllPatientData(nhsNumber: string) {
-    const [patient, medications, allergies, conditions, immunizations] = await Promise.all([
+    const [patient, medications, allergies, conditions] = await Promise.all([
       this.getPatient(nhsNumber),
       this.getMedications(nhsNumber),
       this.getAllergies(nhsNumber),
       this.getConditions(nhsNumber),
-      this.getImmunizations(nhsNumber),
     ])
 
     return {
@@ -394,10 +234,43 @@ export class GPConnectService {
       medications,
       allergies,
       conditions,
-      immunizations,
     }
+  }
+
+  async initialize() {
+    // Authentication logic here if needed
   }
 }
 
 // Export a singleton instance
-export const gpConnectService = new GPConnectService("demo-tenant")
+export const gpConnectService = new GPConnectService()
+
+export async function getPatient(nhsNumber: string) {
+  // Placeholder implementation
+  console.log(`Fetching patient data from GP Connect for NHS number: ${nhsNumber}`)
+  return {
+    name: "Demo Patient",
+    dateOfBirth: "01/01/1970",
+    gender: "Unknown",
+    address: "Unknown",
+    telephone: "Unknown",
+  }
+}
+
+export async function getMedications(nhsNumber: string) {
+  // Placeholder implementation
+  console.log(`Fetching medications from GP Connect for NHS number: ${nhsNumber}`)
+  return []
+}
+
+export async function getAllergies(nhsNumber: string) {
+  // Placeholder implementation
+  console.log(`Fetching allergies from GP Connect for NHS number: ${nhsNumber}`)
+  return []
+}
+
+export async function getConditions(nhsNumber: string) {
+  // Placeholder implementation
+  console.log(`Fetching conditions from GP Connect for NHS number: ${nhsNumber}`)
+  return []
+}
