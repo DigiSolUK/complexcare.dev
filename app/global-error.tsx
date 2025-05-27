@@ -1,9 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { SourceMappedError } from "@/components/error-boundaries/source-mapped-error"
-import { setupGlobalErrorHandling, logErrorWithSourceMap } from "@/lib/error-tracking"
-import { ErrorSeverity, ErrorCategory, captureException } from "@/lib/services/error-logging-service"
+import { Button } from "@/components/ui/button"
+import { AlertTriangle } from "lucide-react"
 
 export default function GlobalError({
   error,
@@ -13,51 +12,34 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    // Set up global error handling
-    setupGlobalErrorHandling()
-
-    // Log the error with source map information and enhanced context
-    logErrorWithSourceMap(error, {
-      location: "GlobalError",
-      component: "GlobalErrorBoundary",
-      action: "render",
-      severity: "critical",
-      additionalInfo: {
-        appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "unknown",
-        environment: process.env.NODE_ENV || "development",
-        timestamp: new Date().toISOString(),
-      },
-      digest: error.digest,
-    })
-
-    // Also capture the exception with our error logging service
-    captureException(error, {
-      severity: ErrorSeverity.CRITICAL,
-      category: ErrorCategory.SYSTEM,
-      component: "GlobalErrorBoundary",
-      action: "render",
-      digest: error.digest,
-      timestamp: new Date().toISOString(),
-      isGlobalError: true,
-    })
-  }, [error, error.digest])
+    // Log the error to console in production
+    console.error("Global error:", error)
+  }, [error])
 
   return (
     <html>
       <body>
         <div className="flex min-h-screen flex-col items-center justify-center p-4">
-          <SourceMappedError error={error} resetError={reset} severity="critical" />
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertTriangle className="h-8 w-8 text-red-600" />
+              </div>
+            </div>
 
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500">
-              If this error persists, please contact support or try refreshing the page.
+            <h1 className="text-2xl font-bold">Critical Error</h1>
+            <p className="text-gray-600 max-w-md">
+              A critical error occurred. Please refresh the page or contact support if the problem persists.
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-            >
-              Refresh Page
-            </button>
+
+            <div className="flex gap-3 justify-center pt-4">
+              <Button onClick={reset}>Try Again</Button>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                Refresh Page
+              </Button>
+            </div>
+
+            {error.digest && <p className="text-xs text-gray-500 mt-4">Error ID: {error.digest}</p>}
           </div>
         </div>
       </body>
