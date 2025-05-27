@@ -1,44 +1,91 @@
-import { useTenant } from "@/contexts"
-
-// This file will contain utility functions related to tenant management.
-// For example, functions to get the current tenant, validate tenant IDs, etc.
+import type { NextRequest } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 /**
- * Retrieves the current tenant ID from the tenant context.
- * @returns {string | undefined} The current tenant ID, or undefined if not available.
+ * Get tenant ID from request headers or query params
  */
-export const useTenantId = (): string | undefined => {
-  const tenant = useTenant()
-  return tenant?.tenantId
+export function getTenantIdFromRequest(request: NextRequest): string | null {
+  // Check headers first
+  const tenantHeader = request.headers.get("x-tenant-id")
+  if (tenantHeader) return tenantHeader
+
+  // Check query params
+  const { searchParams } = new URL(request.url)
+  const tenantParam = searchParams.get("tenantId")
+  if (tenantParam) return tenantParam
+
+  // Check for tenant in path
+  const pathname = request.nextUrl.pathname
+  const tenantMatch = pathname.match(/\/tenant\/([^/]+)/)
+  if (tenantMatch) return tenantMatch[1]
+
+  return null
 }
 
 /**
- * Checks if a given tenant ID is valid.
- * This is a placeholder function; in a real application, you would
- * likely have a more sophisticated validation mechanism.
- * @param {string} tenantId The tenant ID to validate.
- * @returns {boolean} True if the tenant ID is valid, false otherwise.
+ * Get tenant from request (server-side)
+ */
+export async function getTenantFromRequest(request: NextRequest) {
+  const tenantId = getTenantIdFromRequest(request)
+  if (!tenantId) return null
+
+  try {
+    // In a real app, fetch tenant from database
+    // For now, return mock data
+    return {
+      id: tenantId,
+      name: "Mock Tenant",
+      slug: "mock-tenant",
+      plan: "Professional",
+    }
+  } catch (error) {
+    console.error("Error fetching tenant:", error)
+    return null
+  }
+}
+
+/**
+ * Get current tenant (server-side)
+ */
+export async function getCurrentTenant() {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) return null
+
+    // In a real app, fetch user's primary tenant from database
+    // For now, return mock data
+    return {
+      id: "default-tenant",
+      name: "Default Tenant",
+      slug: "default-tenant",
+      plan: "Professional",
+    }
+  } catch (error) {
+    console.error("Error getting current tenant:", error)
+    return null
+  }
+}
+
+/**
+ * Checks if a given tenant ID is valid
  */
 export const isValidTenantId = (tenantId: string): boolean => {
-  // Replace with your actual validation logic.
   return typeof tenantId === "string" && tenantId.length > 0
 }
 
 /**
- * A placeholder function to fetch tenant-specific configuration.
- * In a real application, this would likely involve an API call.
- * @param {string} tenantId The tenant ID.
- * @returns {Promise<any>} A promise that resolves to the tenant configuration.
+ * Get tenant configuration
  */
 export const getTenantConfig = async (tenantId: string): Promise<any> => {
-  // Replace with your actual logic to fetch tenant configuration.
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        tenantId: tenantId,
-        theme: "default",
-        // Add more configuration properties as needed.
-      })
-    }, 500) // Simulate an API call with a 500ms delay.
-  })
+  // In a real app, fetch from database
+  return {
+    tenantId: tenantId,
+    theme: "default",
+    features: ["patients", "appointments", "clinical-notes"],
+    settings: {
+      allowPublicRegistration: false,
+      requireEmailVerification: true,
+    },
+  }
 }
