@@ -1,7 +1,9 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { DEFAULT_TENANT_ID } from "@/lib/constants"
+
+// Define default tenant ID
+const DEFAULT_TENANT_ID = "default-tenant"
 
 // Define the Tenant type
 export interface Tenant {
@@ -56,7 +58,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setError(null)
 
       // For demo purposes, we'll use mock data instead of fetching from API
-      // In a real app, you would fetch from /api/user/tenants
       const mockTenants: Tenant[] = [
         { id: "tenant-1", name: "Main Hospital", slug: "main-hospital", plan: "Enterprise" },
         { id: "tenant-2", name: "North Clinic", slug: "north-clinic", plan: "Professional" },
@@ -138,7 +139,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 // Hook to use the tenant context
 export function useTenantContext() {
   const context = useContext(TenantContext)
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useTenantContext must be used within a TenantProvider")
   }
   return context

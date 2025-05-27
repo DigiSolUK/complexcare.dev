@@ -1,115 +1,78 @@
 "use client"
 
 import { useOnboarding } from "@/contexts/onboarding-context"
-import { useTenant } from "@/contexts/tenant-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowRight, CheckCircle, Lightbulb, Users, FileText, Settings } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
 export default function WelcomePage() {
-  const { markStepAsCompleted } = useOnboarding()
-  const { currentTenant } = useTenant()
+  const { completeStep } = useOnboarding()
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="text-center mb-12">
-        <h1 className="text-3xl font-bold mb-2">Welcome to ComplexCare CRM</h1>
-        <p className="text-muted-foreground text-lg">Let's get your organization set up for success</p>
-      </div>
+    <div className="max-w-3xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Welcome to ComplexCare CRM</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <p className="text-lg mb-8">
+        We're excited to help you get started with our platform. This quick onboarding process will guide you through
+        setting up your organization and getting the most out of ComplexCare.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center">
-              <Users className="h-5 w-5 mr-2 text-primary" />
-              Patient Management
-            </CardTitle>
+          <CardHeader>
+            <CardTitle>Patient Management</CardTitle>
+            <CardDescription>Comprehensive patient records and care plans</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Manage patient records, medical history, and care plans in one place.
-            </p>
+            <p>Manage patient information, medical history, and care plans in one secure location.</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center">
-              <FileText className="h-5 w-5 mr-2 text-primary" />
-              Clinical Notes
-            </CardTitle>
+          <CardHeader>
+            <CardTitle>Care Professional Tools</CardTitle>
+            <CardDescription>Streamline your care team's workflow</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Create, organize, and search clinical notes with ease.</p>
+            <p>Schedule appointments, manage credentials, and optimize care professional assignments.</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center">
-              <Lightbulb className="h-5 w-5 mr-2 text-primary" />
-              AI-Powered Insights
-            </CardTitle>
+          <CardHeader>
+            <CardTitle>Clinical Documentation</CardTitle>
+            <CardDescription>Efficient note-taking and documentation</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Get intelligent recommendations and automate routine tasks.</p>
+            <p>Create, store, and share clinical notes and documentation with your team.</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center">
-              <Settings className="h-5 w-5 mr-2 text-primary" />
-              Customizable Workflows
-            </CardTitle>
+          <CardHeader>
+            <CardTitle>Compliance & Reporting</CardTitle>
+            <CardDescription>Stay compliant with UK healthcare regulations</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Tailor the platform to match your organization's unique processes.
-            </p>
+            <p>Generate reports and ensure compliance with CQC and NHS requirements.</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="mt-8">
+      <Card>
         <CardHeader>
-          <CardTitle>What to expect during onboarding</CardTitle>
-          <CardDescription>We'll guide you through setting up your organization in just a few steps</CardDescription>
+          <CardTitle>Let's get started!</CardTitle>
+          <CardDescription>Complete this onboarding to set up your organization</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-start">
-            <CheckCircle className="h-5 w-5 text-primary mr-3 mt-0.5" />
-            <div>
-              <h3 className="font-medium">Organization Profile</h3>
-              <p className="text-sm text-muted-foreground">Complete your organization details and branding</p>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <CheckCircle className="h-5 w-5 text-primary mr-3 mt-0.5" />
-            <div>
-              <h3 className="font-medium">Invite Team Members</h3>
-              <p className="text-sm text-muted-foreground">Add your team and assign appropriate roles</p>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <CheckCircle className="h-5 w-5 text-primary mr-3 mt-0.5" />
-            <div>
-              <h3 className="font-medium">Add Patients & Care Professionals</h3>
-              <p className="text-sm text-muted-foreground">Start building your patient database and care team</p>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <CheckCircle className="h-5 w-5 text-primary mr-3 mt-0.5" />
-            <div>
-              <h3 className="font-medium">Set Up Integrations</h3>
-              <p className="text-sm text-muted-foreground">Connect with other healthcare systems and tools</p>
-            </div>
-          </div>
+        <CardContent>
+          <p>
+            This onboarding will guide you through setting up your organization profile, inviting team members, and
+            configuring your ComplexCare instance.
+          </p>
         </CardContent>
-        <CardFooter>
-          <Button onClick={() => markStepAsCompleted("welcome")} className="w-full">
-            Get Started
-            <ArrowRight className="ml-2 h-4 w-4" />
+        <CardFooter className="flex justify-end">
+          <Button onClick={() => completeStep("welcome")} className="gap-2">
+            Continue <ArrowRight className="h-4 w-4" />
           </Button>
         </CardFooter>
       </Card>
