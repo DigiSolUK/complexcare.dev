@@ -16,12 +16,18 @@ import { Card } from "@/components/ui/card"
 interface LineChartProps {
   data: any[]
   xAxisKey: string
-  yAxisKey: string
+  yAxisKeys: string[]
   height?: number
-  color?: string
+  colors?: string[]
 }
 
-export function LineChart({ data, xAxisKey, yAxisKey, height = 300, color = "#3b82f6" }: LineChartProps) {
+export function LineChart({
+  data,
+  xAxisKey,
+  yAxisKeys,
+  height = 300,
+  colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
+}: LineChartProps) {
   const [chartWidth, setChartWidth] = useState(0)
   const chartRef = useRef<HTMLDivElement>(null)
 
@@ -65,7 +71,9 @@ export function LineChart({ data, xAxisKey, yAxisKey, height = 300, color = "#3b
           <YAxis />
           <Tooltip />
           <Legend />
-          <Line type="monotone" dataKey={yAxisKey} stroke={color} activeDot={{ r: 8 }} />
+          {yAxisKeys.map((key, index) => (
+            <Line key={key} type="monotone" dataKey={key} stroke={colors[index % colors.length]} activeDot={{ r: 8 }} />
+          ))}
         </RechartsLineChart>
       </ResponsiveContainer>
     </div>

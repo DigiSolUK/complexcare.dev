@@ -1,162 +1,141 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  LayoutDashboard,
   Users,
-  Calendar,
-  ClipboardList,
   FileText,
+  Calendar,
   Settings,
-  Shield,
+  Home,
+  ClipboardList,
+  PieChart,
+  User,
+  CreditCard,
   BarChart,
-  Brain,
-  Stethoscope,
-  UserCheck,
-  DollarSign,
-  Clock,
-  FileSpreadsheet,
-  Info,
+  Menu,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
-const sidebarNavItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Patients",
-    href: "/patients",
-    icon: Users,
-  },
-  {
-    title: "Care Professionals",
-    href: "/care-professionals",
-    icon: UserCheck,
-  },
-  {
-    title: "Appointments",
-    href: "/appointments",
-    icon: Calendar,
-  },
-  {
-    title: "Clinical Notes",
-    href: "/clinical-notes",
-    icon: Stethoscope,
-  },
-  {
-    title: "Care Plans",
-    href: "/care-plans",
-    icon: ClipboardList,
-  },
-  {
-    title: "Tasks",
-    href: "/tasks",
-    icon: ClipboardList,
-  },
-  {
-    title: "Medications",
-    href: "/medications",
-    icon: FileText,
-  },
-  {
-    title: "Documents",
-    href: "/documents",
-    icon: FileText,
-  },
-  {
-    title: "Timesheets",
-    href: "/timesheets",
-    icon: Clock,
-  },
-  {
-    title: "Invoicing",
-    href: "/invoicing",
-    icon: DollarSign,
-  },
-  {
-    title: "Payroll",
-    href: "/payroll",
-    icon: FileSpreadsheet,
-  },
-  {
-    title: "Compliance",
-    href: "/compliance",
-    icon: Shield,
-  },
-  {
-    title: "Analytics",
-    href: "/analytics",
-    icon: BarChart,
-  },
-  {
-    title: "Reports",
-    href: "/reports",
-    icon: BarChart,
-  },
-  {
-    title: "AI Tools",
-    href: "/ai-tools",
-    icon: Brain,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-  {
-    title: "Public Mode",
-    href: "/public-mode",
-    icon: Info,
-  },
-  {
-    title: "API Docs",
-    href: "/api-docs",
-    icon: FileText,
-  },
-]
-
-interface SidebarProps {
-  className?: string
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, open, onOpenChange }: SidebarProps) {
   const pathname = usePathname()
 
-  return (
-    <div className={cn("hidden h-full border-r bg-background md:flex md:w-64 md:flex-col", className)}>
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          <div className="space-y-1">
-            <h2 className="mb-2 px-4 text-xl font-semibold tracking-tight">ComplexCare CRM</h2>
-            <nav className="flex flex-col space-y-1">
-              {sidebarNavItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    pathname === item.href || (pathname?.startsWith(item.href) && item.href !== "/dashboard")
-                      ? "bg-accent text-accent-foreground"
-                      : "transparent",
-                  )}
-                >
-                  <item.icon className="mr-2 h-4 w-4" />
-                  <span>{item.title}</span>
-                </Link>
-              ))}
-            </nav>
-          </div>
+  const routes = [
+    {
+      label: "Dashboard",
+      icon: Home,
+      href: "/dashboard",
+      active: pathname === "/dashboard",
+    },
+    {
+      label: "Patients",
+      icon: Users,
+      href: "/patients",
+      active: pathname === "/patients" || pathname.startsWith("/patients/"),
+    },
+    {
+      label: "Clinical Notes",
+      icon: FileText,
+      href: "/clinical-notes",
+      active: pathname === "/clinical-notes" || pathname.startsWith("/clinical-notes/"),
+    },
+    {
+      label: "Appointments",
+      icon: Calendar,
+      href: "/appointments",
+      active: pathname === "/appointments" || pathname.startsWith("/appointments/"),
+    },
+    {
+      label: "Tasks",
+      icon: ClipboardList,
+      href: "/tasks",
+      active: pathname === "/tasks" || pathname.startsWith("/tasks/"),
+    },
+    {
+      label: "Analytics",
+      icon: BarChart,
+      href: "/analytics",
+      active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
+    },
+    {
+      label: "Reports",
+      icon: PieChart,
+      href: "/reports",
+      active: pathname === "/reports" || pathname.startsWith("/reports/"),
+    },
+    {
+      label: "Billing",
+      icon: CreditCard,
+      href: "/billing",
+      active: pathname === "/billing" || pathname.startsWith("/billing/"),
+    },
+    {
+      label: "Profile",
+      icon: User,
+      href: "/profile",
+      active: pathname === "/profile" || pathname.startsWith("/profile/"),
+    },
+    {
+      label: "Settings",
+      icon: Settings,
+      href: "/settings",
+      active: pathname === "/settings" || pathname.startsWith("/settings/"),
+    },
+  ]
+
+  const sidebarContent = (
+    <div className={cn("flex h-full flex-col", className)}>
+      <div className="px-3 py-2">
+        <div className="flex h-16 items-center px-4">
+          <Link href="/" className="flex items-center">
+            <span className="text-xl font-bold">ComplexCare CRM</span>
+          </Link>
         </div>
       </div>
+      <ScrollArea className="flex-1 overflow-auto py-2">
+        <nav className="grid gap-1 px-2">
+          {routes.map((route) => (
+            <Link
+              key={route.href}
+              href={route.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                route.active ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <route.icon className="h-5 w-5" />
+              {route.label}
+            </Link>
+          ))}
+        </nav>
+      </ScrollArea>
     </div>
   )
+
+  return (
+    <>
+      <aside className="hidden h-screen w-64 border-r md:block">{sidebarContent}</aside>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="icon" className="md:hidden absolute left-4 top-4 z-50">
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle Menu</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="p-0">
+          {sidebarContent}
+        </SheetContent>
+      </Sheet>
+    </>
+  )
 }
-
-// Add this named export to match what's being imported
-export const DashboardSidebar = Sidebar
-
-export default Sidebar

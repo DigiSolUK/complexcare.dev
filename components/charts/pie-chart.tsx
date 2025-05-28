@@ -5,19 +5,15 @@ import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveCon
 import { Card } from "@/components/ui/card"
 
 interface PieChartProps {
-  data: any[]
-  nameKey: string
-  valueKey: string
+  data: Array<{ name: string; value: number }>
   height?: number
   colors?: string[]
 }
 
 export function PieChart({
   data,
-  nameKey,
-  valueKey,
   height = 300,
-  colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"],
+  colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#a855f7", "#ec4899"],
 }: PieChartProps) {
   const [chartWidth, setChartWidth] = useState(0)
   const chartRef = useRef<HTMLDivElement>(null)
@@ -53,18 +49,17 @@ export function PieChart({
             data={data}
             cx="50%"
             cy="50%"
-            labelLine={true}
+            labelLine={false}
             outerRadius={80}
             fill="#8884d8"
-            dataKey={valueKey}
-            nameKey={nameKey}
+            dataKey="value"
             label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip formatter={(value) => [`${value}`, ""]} />
           <Legend />
         </RechartsPieChart>
       </ResponsiveContainer>

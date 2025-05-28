@@ -2,26 +2,20 @@
 
 import type React from "react"
 
-import { useTenant } from "@/contexts"
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { usePathname } from "next/navigation"
+import { Sidebar } from "@/components/dashboard/sidebar"
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
-  const { tenant } = useTenant()
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const pathname = usePathname()
 
-  useEffect(() => {
-    if (!tenant) {
-      router.push("/onboarding")
-    } else {
-      setIsLoading(false)
-    }
-  }, [tenant, router])
-
-  if (isLoading) {
-    return <div>Loading...</div>
-  }
-
-  return <>{children}</>
+  return (
+    <div className="flex min-h-screen flex-col">
+      <div className="flex flex-1">
+        <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
+        <main className="flex-1 overflow-y-auto">{children}</main>
+      </div>
+    </div>
+  )
 }

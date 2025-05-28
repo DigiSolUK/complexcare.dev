@@ -1,3 +1,3 @@
-export { BarChart } from "./bar-chart"
-export { LineChart } from "./line-chart"
-export { PieChart } from "./pie-chart"
+export { BarChart } from "@/components/charts/bar-chart"
+export { LineChart } from "@/components/charts/line-chart"
+export { PieChart } from "@/components/charts/pie-chart"
