@@ -8,20 +8,11 @@ export async function middleware(request: NextRequest) {
   // Get the pathname of the request
   const pathname = request.nextUrl.pathname
 
-  // Allow access to public API endpoints without authentication
-  if (pathname.startsWith("/api/public/")) {
-    return NextResponse.next()
-  }
-
-  // Allow access to superadmin routes without authentication
-  if (pathname.startsWith("/superadmin") || pathname.startsWith("/api/superadmin")) {
-    return NextResponse.next()
-  }
-
   // Add tenant ID header to all requests
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set("x-tenant-id", DEFAULT_TENANT_ID)
 
+  // Always allow access by returning NextResponse.next()
   return NextResponse.next({
     request: {
       headers: requestHeaders,
