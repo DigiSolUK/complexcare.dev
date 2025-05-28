@@ -1,94 +1,59 @@
-"use client"
-
-import { useEffect, useState } from "react"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 
-// Server-side function to get current user
+/**
+ * Get the current authenticated user
+ */
 export async function getCurrentUser() {
-  try {
-    // This would typically fetch from a database or auth service
-    // For now, returning a placeholder user
-    return {
-      id: "current-user-id",
-      name: "Current User",
-      email: "user@example.com",
-      role: "admin",
-    }
-  } catch (error) {
-    console.error("Error getting current user:", error)
-    return null
-  }
+  const session = await getServerSession(authOptions)
+  return session?.user || null
 }
 
-// Client-side authentication utilities
-export function useAuth() {
-  const [user, setUser] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
+/**
+ * Require admin role or redirect
+ */
+export async function requireAdmin() {
+  const session = await getServerSession(authOptions)
 
-  useEffect(() => {
-    // Fetch user data from an API endpoint
-    async function fetchUser() {
-      try {
-        const res = await fetch("/api/auth/me")
-        if (res.ok) {
-          const userData = await res.json()
-          setUser(userData)
-        }
-      } catch (error) {
-        console.error("Error fetching user:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  if (!session?.user) {
+    redirect("/login")
+  }
 
-    fetchUser()
-  }, [])
+  // Check if user has admin role
+  const userRoles = session.user.roles || []
+  const isAdmin = userRoles.includes("admin") || userRoles.includes("superadmin")
 
-  return { user, isLoading }
+  if (!isAdmin) {
+    redirect("/unauthorized")
+  }
+
+  return session.user
 }
 
-// Additional auth utility functions
-export const authenticateUser = async (credentials: any) => {
-  try {
-    // Simulate authentication logic (replace with actual implementation)
-    if (credentials.username === "testuser" && credentials.password === "password") {
-      return { success: true, message: "Authentication successful", user: { username: "testuser" } }
-    } else {
-      return { success: false, message: "Invalid credentials" }
-    }
-  } catch (error) {
-    console.error("Error during authentication:", error)
-    return { success: false, message: "Authentication failed" }
-  }
+/**
+ * Check if user has a specific permission
+ */
+export async function hasPermission(permission: string): Promise<boolean> {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return false
+
+  // In a real app, check permissions from database
+  // For now, just check if user is authenticated
+  return true
 }
 
-export const authorizeRequest = async (request: any, requiredRole: string) => {
-  try {
-    // Simulate authorization logic (replace with actual implementation)
-    const userRole = request.user?.role || "guest"
+/**
+ * Get user's tenant IDs
+ */
+export async function getUserTenants() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return []
 
-    if (userRole === requiredRole || requiredRole === "guest") {
-      return { success: true, message: "Authorization successful" }
-    } else {
-      return { success: false, message: "Unauthorized" }
-    }
-  } catch (error) {
-    console.error("Error during authorization:", error)
-    return { success: false, message: "Authorization failed" }
-  }
-}
-
-// Server-side middleware to require admin role
-export async function requireAdmin(request: Request) {
-  const user = await getCurrentUser()
-
-  if (!user) {
-    return redirect("/login")
-  }
-
-  if (user.role !== "admin") {
-    return redirect("/unauthorized")
-  }
-
-  return user
+  // In a real app, fetch from database
+  // For now, return mock data
+  return [
+    { id: "tenant-1", name: "Main Hospital", role: "admin" },
+    { id: "tenant-2", name: "North Clinic", role: "user" },
+  ]
 }

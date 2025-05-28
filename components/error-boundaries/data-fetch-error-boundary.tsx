@@ -14,16 +14,18 @@ interface DataFetchErrorFallbackProps {
 
 function DataFetchErrorFallback({ error, resetError }: DataFetchErrorFallbackProps) {
   return (
-    <Card className="border-blue-200 bg-blue-50">
+    <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/10 dark:border-blue-900/50">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-blue-700 text-lg">
+        <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400 text-lg">
           <AlertTriangle className="h-4 w-4" />
           Data Loading Error
         </CardTitle>
-        <CardDescription className="text-blue-600">Failed to load data</CardDescription>
+        <CardDescription className="text-blue-600 dark:text-blue-500">Failed to load data</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-gray-600 mb-4">{error.message || "An error occurred while fetching data"}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {error.message || "An error occurred while fetching data"}
+        </p>
         <Button onClick={resetError} size="sm" variant="outline" className="gap-2">
           <RefreshCw className="h-4 w-4" />
           Retry

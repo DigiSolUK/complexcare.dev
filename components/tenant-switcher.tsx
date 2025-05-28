@@ -1,95 +1,63 @@
 "use client"
 
+import { useTenant } from "@/contexts"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState } from "react"
-import { Check, ChevronsUpDown, PlusCircle, Building } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { useTenant } from "@/lib/tenant-context"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useRouter } from "next/navigation"
 
-export function TenantSwitcher() {
+interface Tenant {
+  id: string
+  name: string
+  slug: string
+  imageUrl?: string
+}
+
+interface TenantSwitcherProps {
+  tenants: Tenant[]
+}
+
+export function TenantSwitcher({ tenants }: TenantSwitcherProps) {
+  const router = useRouter()
+  const { tenant, setTenant } = useTenant()
   const [open, setOpen] = useState(false)
-  const { currentTenant, tenants, isLoading, switchTenant } = useTenant()
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-8 w-8 rounded-full" />
-        <div className="space-y-1">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-3 w-16" />
-        </div>
-      </div>
-    )
-  }
+  const currentTenant = tenants.find((t) => t.id === tenant?.id)
 
-  if (!currentTenant) {
-    return null
+  const onSelect = (tenant: Tenant) => {
+    setTenant(tenant)
+    setOpen(false)
+    router.push(`/${tenant.slug}`)
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          aria-label="Select a tenant"
-          className="w-[200px] justify-between"
-        >
-          <div className="flex items-center gap-2 truncate">
-            <Building className="h-4 w-4" />
-            <span className="truncate">{currentTenant.name}</span>
-          </div>
-          <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
-        <Command>
-          <CommandList>
-            <CommandInput placeholder="Search tenant..." />
-            <CommandEmpty>No tenant found.</CommandEmpty>
-            <CommandGroup heading="Tenants">
-              {tenants.map((tenant) => (
-                <CommandItem
-                  key={tenant.id}
-                  onSelect={() => {
-                    switchTenant(tenant.id)
-                    setOpen(false)
-                  }}
-                  className="text-sm"
-                >
-                  <Building className="mr-2 h-4 w-4" />
-                  <span className="truncate">{tenant.name}</span>
-                  {tenant.id === currentTenant.id && <Check className="ml-auto h-4 w-4" />}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-          <CommandSeparator />
-          <CommandList>
-            <CommandGroup>
-              <CommandItem
-                onSelect={() => {
-                  window.location.href = "/superadmin/tenants"
-                }}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Manage Tenants
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center space-x-2" aria-label="Open tenant switcher">
+          <Avatar className="h-8 w-8">
+            {currentTenant?.imageUrl ? (
+              <AvatarImage src={currentTenant.imageUrl || "/placeholder.svg"} alt={currentTenant.name} />
+            ) : (
+              <AvatarFallback>{currentTenant?.name.substring(0, 2)}</AvatarFallback>
+            )}
+          </Avatar>
+          <span className="font-medium hidden md:block">{currentTenant?.name}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" forceMount>
+        {tenants.map((tenant) => (
+          <DropdownMenuItem key={tenant.id} onSelect={() => onSelect(tenant)}>
+            <Avatar className="mr-2 h-6 w-6">
+              {tenant.imageUrl ? (
+                <AvatarImage src={tenant.imageUrl || "/placeholder.svg"} alt={tenant.name} />
+              ) : (
+                <AvatarFallback>{tenant.name.substring(0, 2)}</AvatarFallback>
+              )}
+            </Avatar>
+            <span>{tenant.name}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

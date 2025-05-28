@@ -1,118 +1,73 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DataFetchErrorBoundary } from "@/components/error-boundaries"
+import { DashboardProvider } from "@/components/dashboard/dashboard-context"
+import { DashboardFilters } from "@/components/dashboard/dashboard-filters"
+import { EnhancedDashboard } from "@/components/dashboard/enhanced-dashboard"
+import { SimpleDashboard } from "@/components/dashboard/simple-dashboard"
 
 export function DashboardClientPage() {
-  const [stats, setStats] = useState({
-    patients: 0,
-    appointments: 0,
-    clinicalNotes: 0,
-    tasks: 0,
-  })
-
-  useEffect(() => {
-    // In a real app, we would fetch this data from an API
-    // For now, we'll just set some dummy data
-    setStats({
-      patients: 128,
-      appointments: 47,
-      clinicalNotes: 312,
-      tasks: 18,
-    })
-  }, [])
+  const [activeTab, setActiveTab] = useState("overview")
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            className="h-4 w-4 text-muted-foreground"
-          >
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.patients}</div>
-          <p className="text-xs text-muted-foreground">+12% from last month</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Appointments</CardTitle>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            className="h-4 w-4 text-muted-foreground"
-          >
-            <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-            <line x1="16" x2="16" y1="2" y2="6" />
-            <line x1="8" x2="8" y1="2" y2="6" />
-            <line x1="3" x2="21" y1="10" y2="10" />
-          </svg>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.appointments}</div>
-          <p className="text-xs text-muted-foreground">+8% from last week</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Clinical Notes</CardTitle>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            className="h-4 w-4 text-muted-foreground"
-          >
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-          </svg>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.clinicalNotes}</div>
-          <p className="text-xs text-muted-foreground">+19% from last month</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            className="h-4 w-4 text-muted-foreground"
-          >
-            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-          </svg>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.tasks}</div>
-          <p className="text-xs text-muted-foreground">-4% from yesterday</p>
-        </CardContent>
-      </Card>
-    </div>
+    <DashboardProvider>
+      <div className="space-y-4">
+        <DashboardFilters />
+
+        <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="patients">Patients</TabsTrigger>
+            <TabsTrigger value="staff">Staff</TabsTrigger>
+            <TabsTrigger value="finance">Finance</TabsTrigger>
+          </TabsList>
+
+          <DataFetchErrorBoundary>
+            <TabsContent value="overview" className="space-y-4">
+              <EnhancedDashboard />
+            </TabsContent>
+
+            <TabsContent value="patients" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Patient Metrics</CardTitle>
+                  <CardDescription>Key patient statistics and trends</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SimpleDashboard type="patients" />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="staff" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Staff Performance</CardTitle>
+                  <CardDescription>Care professional metrics and productivity</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SimpleDashboard type="staff" />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="finance" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Financial Overview</CardTitle>
+                  <CardDescription>Revenue, expenses and financial health</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SimpleDashboard type="finance" />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </DataFetchErrorBoundary>
+        </Tabs>
+      </div>
+    </DashboardProvider>
   )
 }

@@ -1,57 +1,73 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
 import {
-  Line,
   LineChart as RechartsLineChart,
-  ResponsiveContainer,
+  Line,
   XAxis,
   YAxis,
-  Tooltip,
   CartesianGrid,
+  Tooltip,
   Legend,
+  ResponsiveContainer,
 } from "recharts"
+import { Card } from "@/components/ui/card"
 
 interface LineChartProps {
   data: any[]
-  categories: string[]
-  index: string
-  colors?: string[]
-  valueFormatter?: (value: number) => string
-  className?: string
+  xAxisKey: string
+  yAxisKey: string
+  height?: number
+  color?: string
 }
 
-export function LineChart({
-  data,
-  categories,
-  index,
-  colors = ["#0ea5e9", "#6366f1", "#10b981", "#f43f5e", "#8b5cf6"],
-  valueFormatter = (value: number) => `${value}`,
-  className,
-}: LineChartProps) {
+export function LineChart({ data, xAxisKey, yAxisKey, height = 300, color = "#3b82f6" }: LineChartProps) {
+  const [chartWidth, setChartWidth] = useState(0)
+  const chartRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (chartRef.current) {
+      setChartWidth(chartRef.current.getBoundingClientRect().width)
+    }
+
+    const handleResize = () => {
+      if (chartRef.current) {
+        setChartWidth(chartRef.current.getBoundingClientRect().width)
+      }
+    }
+
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  if (!data || data.length === 0) {
+    return (
+      <Card className="flex items-center justify-center h-[300px] bg-muted/10">
+        <p className="text-muted-foreground">No data available</p>
+      </Card>
+    )
+  }
+
   return (
-    <ResponsiveContainer width="100%" height="100%" className={className}>
-      <RechartsLineChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-        <XAxis dataKey={index} stroke="#94a3b8" />
-        <YAxis stroke="#94a3b8" tickFormatter={valueFormatter} />
-        <Tooltip
-          formatter={(value: number) => [valueFormatter(value), ""]}
-          labelFormatter={(label) => `${label}`}
-          contentStyle={{ backgroundColor: "#ffffff", borderRadius: "6px", border: "1px solid #e2e8f0" }}
-        />
-        <Legend />
-        {categories.map((category, i) => (
-          <Line
-            key={category}
-            type="monotone"
-            dataKey={category}
-            stroke={colors[i % colors.length]}
-            strokeWidth={2}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-        ))}
-      </RechartsLineChart>
-    </ResponsiveContainer>
+    <div ref={chartRef} style={{ width: "100%", height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <RechartsLineChart
+          data={data}
+          margin={{
+            top: 20,
+            right: 30,
+            left: 20,
+            bottom: 5,
+          }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey={xAxisKey} />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Line type="monotone" dataKey={yAxisKey} stroke={color} activeDot={{ r: 8 }} />
+        </RechartsLineChart>
+      </ResponsiveContainer>
+    </div>
   )
 }

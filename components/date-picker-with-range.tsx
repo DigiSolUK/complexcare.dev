@@ -1,8 +1,8 @@
 "use client"
 
-import type * as React from "react"
+import * as React from "react"
+import { addDays, format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
@@ -10,13 +10,26 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
-interface DatePickerWithRangeProps {
-  date: DateRange
-  setDate: React.Dispatch<React.SetStateAction<DateRange>>
-  className?: string
+interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> {
+  dateRange?: DateRange
+  onDateRangeChange?: (range: DateRange | undefined) => void
 }
 
-export function DatePickerWithRange({ date, setDate, className }: DatePickerWithRangeProps) {
+export function DatePickerWithRange({ className, dateRange, onDateRangeChange }: DatePickerWithRangeProps) {
+  const [date, setDate] = React.useState<DateRange | undefined>(
+    dateRange || {
+      from: new Date(),
+      to: addDays(new Date(), 7),
+    },
+  )
+
+  const handleDateChange = (range: DateRange | undefined) => {
+    setDate(range)
+    if (onDateRangeChange) {
+      onDateRangeChange(range)
+    }
+  }
+
   return (
     <div className={cn("grid gap-2", className)}>
       <Popover>
@@ -36,7 +49,7 @@ export function DatePickerWithRange({ date, setDate, className }: DatePickerWith
                 format(date.from, "LLL dd, y")
               )
             ) : (
-              <span>Pick a date range</span>
+              <span>Pick a date</span>
             )}
           </Button>
         </PopoverTrigger>
@@ -46,7 +59,7 @@ export function DatePickerWithRange({ date, setDate, className }: DatePickerWith
             mode="range"
             defaultMonth={date?.from}
             selected={date}
-            onSelect={setDate}
+            onSelect={handleDateChange}
             numberOfMonths={2}
           />
         </PopoverContent>

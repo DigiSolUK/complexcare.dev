@@ -1,7 +1,6 @@
-import { db } from "../db"
+import { db } from "../db-utils"
 import { PatientCache } from "../redis/patient-cache"
 import { logActivity } from "./activity-log-service"
-import { DEFAULT_TENANT_ID } from "@/lib/constants"
 
 export interface Patient {
   id: string
@@ -168,28 +167,39 @@ export class PatientService {
 
     return result.rows[0]
   }
-
-  // Other methods remain unchanged...
 }
 
 // Add the missing exports
-export const getPatients = async (tenantId: string = DEFAULT_TENANT_ID) => {
-  return PatientService.getAllPatients(tenantId)
-}
-
-export const getPatientById = async (id: string, tenantId: string = DEFAULT_TENANT_ID) => {
-  return PatientService.getPatientById(id, tenantId)
-}
-
-export const validatePatientsTable = async () => {
+export async function getPatients(tenantId: string, limit = 50, offset = 0) {
   try {
-    const result = await db.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'patients'
-      )
-    `)
+    const result = await db.query(
+      `SELECT * FROM patients 
+       WHERE tenant_id = $1 
+       ORDER BY last_name ASC 
+       LIMIT $2 OFFSET $3`,
+      [tenantId, limit, offset],
+    )
+    return result.rows
+  } catch (error) {
+    console.error("Error fetching patients:", error)
+    return []
+  }
+}
+
+// Re-export the getPatientById function from the class
+export const getPatientById = PatientService.getPatientById
+
+export async function validatePatientsTable(tenantId: string) {
+  try {
+    // Check if the patients table exists and has the expected structure
+    const result = await db.query(
+      `SELECT EXISTS (
+         SELECT FROM information_schema.tables 
+         WHERE table_schema = 'public' 
+         AND table_name = 'patients'
+       );`,
+    )
+
     return result.rows[0].exists
   } catch (error) {
     console.error("Error validating patients table:", error)
@@ -197,43 +207,39 @@ export const validatePatientsTable = async () => {
   }
 }
 
-export const countAllPatients = async (tenantId: string = DEFAULT_TENANT_ID) => {
+export async function countAllPatients(tenantId: string) {
   try {
-    const result = await db.query("SELECT COUNT(*) FROM patients WHERE tenant_id = $1", [tenantId])
-    return Number.parseInt(result.rows[0].count, 10)
+    const result = await db.query(`SELECT COUNT(*) FROM patients WHERE tenant_id = $1`, [tenantId])
+    return Number.parseInt(result.rows[0].count)
   } catch (error) {
     console.error("Error counting patients:", error)
     return 0
   }
 }
 
-export const getTenantsWithPatients = async () => {
+export async function getTenantsWithPatients() {
   try {
-    const result = await db.query(`
-      SELECT DISTINCT tenant_id, COUNT(*) as patient_count
-      FROM patients
-      GROUP BY tenant_id
-    `)
-    return result.rows
+    const result = await db.query(`SELECT DISTINCT tenant_id FROM patients`)
+    return result.rows.map((row) => row.tenant_id)
   } catch (error) {
-    console.error("Error getting tenants with patients:", error)
+    console.error("Error fetching tenants with patients:", error)
     return []
   }
 }
 
-export const createTestPatient = async (tenantId: string = DEFAULT_TENANT_ID) => {
+export async function createTestPatient(tenantId: string) {
   try {
     const testPatient = {
       firstName: "Test",
-      lastName: `Patient ${Date.now()}`,
+      lastName: "Patient",
       dateOfBirth: "1990-01-01",
       gender: "Other",
       address: "123 Test Street",
       phone: "07700900000",
-      email: `test.patient.${Date.now()}@example.com`,
+      email: "test.patient@example.com",
     }
 
-    return await PatientService.createPatient(testPatient, tenantId)
+    return await PatientService.createPatient(testPatient, tenantId, "system")
   } catch (error) {
     console.error("Error creating test patient:", error)
     return null
