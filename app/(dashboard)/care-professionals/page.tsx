@@ -1,14 +1,11 @@
-import { useTenant } from "@/contexts"
+import type { Metadata } from "next"
+import CareProfessionalsContent from "./care-professionals-content"
 
-const CareProfessionalsPage = () => {
-  const { tenant } = useTenant()
-
-  return (
-    <div>
-      <h1>Care Professionals</h1>
-      {tenant ? <p>Tenant ID: {tenant.id}</p> : <p>No tenant found.</p>}
-    </div>
-  )
+export const metadata: Metadata = {
+  title: "Care Professionals | ComplexCare CRM",
+  description: "Manage care professionals in your organization",
 }
 
-export default CareProfessionalsPage
+export default function CareProfessionalsPage() {
+  return <CareProfessionalsContent />
+}

@@ -5,18 +5,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { FileText, Plus, Download, Eye } from "lucide-react"
+import { FileText, Upload, Download, Eye } from "lucide-react"
 import { format, parseISO } from "date-fns"
 
 interface Document {
   id: string
-  title: string
-  file_name: string
-  file_type: string
-  file_size: number
+  name: string
+  type: string
+  size: number
   uploaded_at: string
   uploaded_by_name: string
-  category?: string
+  status: string
 }
 
 interface PatientDocumentsProps {
@@ -33,14 +32,47 @@ export function PatientDocuments({ patientId }: PatientDocumentsProps) {
 
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/patients/${patientId}/documents?limit=5`)
-        if (response.ok) {
-          const data = await response.json()
-          setDocuments(data)
-        }
+        // This would be replaced with a real API call
+        // const response = await fetch(`/api/patients/${patientId}/documents`)
+        // const data = await response.json()
+
+        // Mock data for now
+        const mockDocuments = [
+          {
+            id: "1",
+            name: "Medical History.pdf",
+            type: "application/pdf",
+            size: 2500000,
+            uploaded_at: new Date().toISOString(),
+            uploaded_by_name: "Dr. Sarah Johnson",
+            status: "verified",
+          },
+          {
+            id: "2",
+            name: "Blood Test Results.pdf",
+            type: "application/pdf",
+            size: 1200000,
+            uploaded_at: new Date(Date.now() - 86400000).toISOString(),
+            uploaded_by_name: "Lab Technician",
+            status: "pending",
+          },
+          {
+            id: "3",
+            name: "Prescription.docx",
+            type: "application/docx",
+            size: 500000,
+            uploaded_at: new Date(Date.now() - 172800000).toISOString(),
+            uploaded_by_name: "Dr. Sarah Johnson",
+            status: "verified",
+          },
+        ]
+
+        setTimeout(() => {
+          setDocuments(mockDocuments)
+          setIsLoading(false)
+        }, 1000)
       } catch (error) {
         console.error("Error fetching documents:", error)
-      } finally {
         setIsLoading(false)
       }
     }
@@ -49,18 +81,28 @@ export function PatientDocuments({ patientId }: PatientDocumentsProps) {
   }, [patientId])
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+    if (bytes < 1024) return bytes + " bytes"
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB"
+    else return (bytes / 1048576).toFixed(1) + " MB"
   }
 
-  const getFileIcon = (fileType: string) => {
-    if (fileType.includes("pdf")) return "📄"
-    if (fileType.includes("image")) return "🖼️"
-    if (fileType.includes("word")) return "📝"
-    if (fileType.includes("excel") || fileType.includes("spreadsheet")) return "📊"
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "verified":
+        return "bg-green-100 text-green-800"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
+      case "rejected":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const getFileIcon = (type: string) => {
+    if (type.includes("pdf")) return "📄"
+    if (type.includes("doc")) return "📝"
+    if (type.includes("image")) return "🖼️"
     return "📁"
   }
 
@@ -69,7 +111,7 @@ export function PatientDocuments({ patientId }: PatientDocumentsProps) {
       <Card>
         <CardHeader>
           <CardTitle>Documents</CardTitle>
-          <CardDescription>Patient files and documents</CardDescription>
+          <CardDescription>Patient medical documents and files</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -87,11 +129,11 @@ export function PatientDocuments({ patientId }: PatientDocumentsProps) {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
           <CardTitle>Documents</CardTitle>
-          <CardDescription>Patient files and documents</CardDescription>
+          <CardDescription>Patient medical documents and files</CardDescription>
         </div>
         <Button size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          Upload
+          <Upload className="h-4 w-4 mr-1" />
+          Upload Document
         </Button>
       </CardHeader>
       <CardContent>
@@ -103,32 +145,27 @@ export function PatientDocuments({ patientId }: PatientDocumentsProps) {
         ) : (
           <div className="space-y-4">
             {documents.map((doc) => (
-              <div key={doc.id} className="flex items-start justify-between border-b pb-3 last:border-0 last:pb-0">
-                <div className="flex items-start gap-3">
-                  <div className="text-2xl">{getFileIcon(doc.file_type)}</div>
-                  <div>
-                    <h4 className="font-medium text-sm">{doc.title}</h4>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      {doc.file_name} ({formatFileSize(doc.file_size)})
-                    </p>
-                    <div className="flex items-center gap-2">
+              <div key={doc.id} className="border rounded-md p-3">
+                <div className="flex justify-between items-start mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{getFileIcon(doc.type)}</span>
+                    <div>
+                      <h4 className="font-medium text-sm">{doc.name}</h4>
                       <p className="text-xs text-muted-foreground">
-                        Uploaded {format(parseISO(doc.uploaded_at), "PPP")} by {doc.uploaded_by_name}
+                        {formatFileSize(doc.size)} • Uploaded {format(parseISO(doc.uploaded_at), "PPP")}
                       </p>
-                      {doc.category && (
-                        <Badge variant="outline" className="text-xs">
-                          {doc.category}
-                        </Badge>
-                      )}
                     </div>
                   </div>
+                  <Badge className={getStatusColor(doc.status)}>{doc.status}</Badge>
                 </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Eye className="h-4 w-4" />
+                <div className="flex justify-end gap-2 mt-2">
+                  <Button variant="outline" size="sm">
+                    <Eye className="h-3 w-3 mr-1" />
+                    View
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Download className="h-4 w-4" />
+                  <Button variant="outline" size="sm">
+                    <Download className="h-3 w-3 mr-1" />
+                    Download
                   </Button>
                 </div>
               </div>

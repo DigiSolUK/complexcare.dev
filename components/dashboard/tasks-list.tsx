@@ -1,23 +1,20 @@
-"use client"
-import Link from "next/link"
-import { Clock, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { PendingTask } from "@/lib/actions/dashboard-actions"
+import { format, parseISO, isToday, isPast, isTomorrow } from "date-fns"
 
 interface TasksListProps {
-  tasks?: PendingTask[]
-  isLoading?: boolean
+  tasks: any[] | undefined
+  isLoading: boolean
 }
 
-export function TasksList({ tasks, isLoading = false }: TasksListProps) {
+export function TasksList({ tasks, isLoading }: TasksListProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="space-y-2">
+            <Skeleton className="h-4 w-[300px]" />
             <Skeleton className="h-4 w-[250px]" />
-            <Skeleton className="h-3 w-[200px]" />
           </div>
         ))}
       </div>
@@ -25,67 +22,74 @@ export function TasksList({ tasks, isLoading = false }: TasksListProps) {
   }
 
   if (!tasks || tasks.length === 0) {
-    return (
-      <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed p-8 text-center">
-        <div>
-          <p className="text-sm text-muted-foreground">No pending tasks</p>
-        </div>
-      </div>
-    )
+    return <div className="text-center py-4 text-muted-foreground">No pending tasks</div>
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case "high":
+        return "bg-red-100 text-red-800"
+      case "medium":
+        return "bg-yellow-100 text-yellow-800"
+      case "low":
+        return "bg-green-100 text-green-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "completed":
+        return "bg-green-100 text-green-800"
+      case "overdue":
+        return "bg-red-100 text-red-800"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = parseISO(dateString)
+      if (isToday(date)) {
+        return "Today"
+      }
+      if (isTomorrow(date)) {
+        return "Tomorrow"
+      }
+      if (isPast(date)) {
+        return `Overdue: ${format(date, "MMM d")}`
+      }
+      return format(date, "MMM d, yyyy")
+    } catch (e) {
+      return dateString
+    }
   }
 
   return (
     <div className="space-y-4">
-      {tasks.map((task) => {
-        const dueDate = task.dueDate ? new Date(task.dueDate) : null
-        const isOverdue = dueDate && dueDate < new Date()
-        const formattedDueDate = dueDate
-          ? dueDate.toLocaleDateString("en-GB", {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-            })
-          : "No due date"
-
-        return (
-          <Link
-            key={task.id}
-            href={`/tasks/${task.id}`}
-            className="block rounded-lg p-3 transition-colors hover:bg-muted"
-          >
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium">{task.title}</h4>
-              <TaskPriorityBadge priority={task.priority} />
-            </div>
-            <div className="mt-1 flex items-center text-sm text-muted-foreground">
-              <Clock className="mr-1 h-3.5 w-3.5" />
-              <span className={isOverdue ? "text-red-500 font-medium" : ""}>
-                {formattedDueDate}
-                {isOverdue ? " (Overdue)" : ""}
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">Assigned to: {task.assignedTo}</p>
-          </Link>
-        )
-      })}
+      {tasks.map((task) => (
+        <div key={task.id} className="space-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">{task.title}</p>
+            <Badge className={getPriorityColor(task.priority)}>{task.priority}</Badge>
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Assigned to: {task.assignedTo}</span>
+            <span
+              className={
+                isPast(parseISO(task.dueDate)) && task.status !== "completed" ? "text-red-600 font-medium" : ""
+              }
+            >
+              Due: {formatDate(task.dueDate)}
+            </span>
+          </div>
+          {task.status === "overdue" && <Badge className={getStatusColor(task.status)}>Overdue</Badge>}
+        </div>
+      ))}
     </div>
   )
-}
-
-function TaskPriorityBadge({ priority }: { priority: "low" | "medium" | "high" }) {
-  switch (priority) {
-    case "high":
-      return (
-        <Badge variant="destructive" className="flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" />
-          High
-        </Badge>
-      )
-    case "medium":
-      return <Badge variant="default">Medium</Badge>
-    case "low":
-      return <Badge variant="outline">Low</Badge>
-    default:
-      return null
-  }
 }

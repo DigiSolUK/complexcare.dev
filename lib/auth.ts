@@ -1,10 +1,11 @@
 import { executeQuery } from "@/lib/db"
+import type { NextAuthOptions } from "next-auth"
+import { getServerSession as nextAuthGetServerSession } from "next-auth"
 
 // Session management - Server-side only
 export async function getSession() {
-  // This is a placeholder for server-side session management
-  // In a real implementation, you would check cookies or headers here
-  return null
+  // In a real implementation, you would use getServerSession from next-auth
+  return await getServerSession()
 }
 
 // Authentication
@@ -73,14 +74,12 @@ export async function requireRole(role: string | string[]) {
   return session
 }
 
-import type { NextAuthOptions } from "next-auth"
-
-const nextAuthConfig = {}
+// Auth0 configuration
 const auth0Config = {
   clientId: process.env.AUTH0_CLIENT_ID,
   clientSecret: process.env.AUTH0_CLIENT_SECRET,
-  issuer: process.env.AUTH0_ISSUER,
-  secret: process.env.NEXTAUTH_SECRET,
+  issuer: process.env.AUTH0_ISSUER_BASE_URL,
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH0_SECRET,
 }
 
 export const authOptions: NextAuthOptions = {
@@ -128,4 +127,7 @@ export const authOptions: NextAuthOptions = {
   secret: auth0Config.secret,
 }
 
-// Add this line to explicitly export authOptions as a named export
+// Export a wrapper for getServerSession that uses our authOptions
+export async function getServerSession() {
+  return await nextAuthGetServerSession(authOptions)
+}

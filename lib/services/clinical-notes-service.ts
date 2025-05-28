@@ -1,6 +1,6 @@
 import { DEFAULT_TENANT_ID } from "@/lib/constants"
 import { logActivity } from "./activity-log-service"
-import { sql } from "@/lib/db-utils"
+import { sql } from "@/lib/db-manager"
 
 export interface ClinicalNote {
   id: string
@@ -179,7 +179,18 @@ export async function getClinicalNoteTemplates(tenantId: string = DEFAULT_TENANT
 }
 
 export async function createClinicalNote(
-  data: Omit<ClinicalNote, "id" | "created_at" | "updated_at" | "category_name" | "category_color" | "created_by_name">,
+  data: {
+    patient_id: string
+    title: string
+    content: string
+    category_id?: string
+    is_private?: boolean
+    is_important?: boolean
+    tags?: string[]
+    follow_up_date?: string
+    follow_up_notes?: string
+  },
+  userId: string,
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNote | null> {
   try {
@@ -207,27 +218,33 @@ export async function createClinicalNote(
         data.patient_id,
         data.title,
         data.content,
-        data.category_id,
-        data.created_by,
-        data.is_private,
-        data.is_important,
+        data.category_id || null,
+        userId,
+        data.is_private || false,
+        data.is_important || false,
         data.tags || [],
-        data.follow_up_date,
-        data.follow_up_notes,
+        data.follow_up_date || null,
+        data.follow_up_notes || null,
       ],
     )
 
     if (result.rows && result.rows.length > 0) {
+      const note = result.rows[0] as ClinicalNote
+
       // Log activity
       await logActivity({
         tenantId,
         activityType: "clinical_note_created",
         description: `Clinical note created: ${data.title}`,
         patientId: data.patient_id,
-        userId: data.created_by,
+        userId,
+        metadata: {
+          noteId: note.id,
+          noteTitle: data.title,
+        },
       })
 
-      return result.rows[0] as ClinicalNote
+      return note
     }
 
     return null
@@ -292,99 +309,106 @@ export async function getClinicalNoteById(
 
 export async function updateClinicalNote(
   id: string,
-  data: Partial<
-    Omit<
-      ClinicalNote,
-      | "id"
-      | "created_at"
-      | "updated_at"
-      | "tenant_id"
-      | "patient_id"
-      | "created_by"
-      | "category_name"
-      | "category_color"
-      | "created_by_name"
-    >
-  >,
-  tenantId: string = DEFAULT_TENANT_ID,
+  data: {
+    title?: string
+    content?: string
+    category_id?: string
+    is_private?: boolean
+    is_important?: boolean
+    tags?: string[]
+    follow_up_date?: string | null
+    follow_up_notes?: string | null
+  },
   userId: string,
+  tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNote | null> {
   try {
-    // Get the original note for comparison
+    // Get the original note for comparison and validation
     const originalNote = await getClinicalNoteById(id, tenantId)
     if (!originalNote) {
       throw new Error("Clinical note not found")
     }
 
     // Build the update query dynamically based on provided fields
-    const updateFields: string[] = []
-    const queryParams: any[] = []
-    let paramIndex = 1
+    const updates = []
+    const values = [id, tenantId]
+    let paramIndex = 3
 
-    // Add each field that needs to be updated
     if (data.title !== undefined) {
-      updateFields.push(`title = $${paramIndex++}`)
-      queryParams.push(data.title)
+      updates.push(`title = $${paramIndex++}`)
+      values.push(data.title)
     }
+
     if (data.content !== undefined) {
-      updateFields.push(`content = $${paramIndex++}`)
-      queryParams.push(data.content)
+      updates.push(`content = $${paramIndex++}`)
+      values.push(data.content)
     }
+
     if (data.category_id !== undefined) {
-      updateFields.push(`category_id = $${paramIndex++}`)
-      queryParams.push(data.category_id)
+      updates.push(`category_id = $${paramIndex++}`)
+      values.push(data.category_id || null)
     }
+
     if (data.is_private !== undefined) {
-      updateFields.push(`is_private = $${paramIndex++}`)
-      queryParams.push(data.is_private)
+      updates.push(`is_private = $${paramIndex++}`)
+      values.push(data.is_private)
     }
+
     if (data.is_important !== undefined) {
-      updateFields.push(`is_important = $${paramIndex++}`)
-      queryParams.push(data.is_important)
+      updates.push(`is_important = $${paramIndex++}`)
+      values.push(data.is_important)
     }
+
     if (data.tags !== undefined) {
-      updateFields.push(`tags = $${paramIndex++}`)
-      queryParams.push(data.tags)
+      updates.push(`tags = $${paramIndex++}`)
+      values.push(data.tags)
     }
+
     if (data.follow_up_date !== undefined) {
-      updateFields.push(`follow_up_date = $${paramIndex++}`)
-      queryParams.push(data.follow_up_date)
+      updates.push(`follow_up_date = $${paramIndex++}`)
+      values.push(data.follow_up_date)
     }
+
     if (data.follow_up_notes !== undefined) {
-      updateFields.push(`follow_up_notes = $${paramIndex++}`)
-      queryParams.push(data.follow_up_notes)
+      updates.push(`follow_up_notes = $${paramIndex++}`)
+      values.push(data.follow_up_notes)
     }
 
-    // Always update the updated_at timestamp
-    updateFields.push(`updated_at = NOW()`)
+    // Add updated_at timestamp
+    updates.push(`updated_at = NOW()`)
 
-    // Add the WHERE clause parameters
-    queryParams.push(id)
-    queryParams.push(tenantId)
+    if (updates.length === 0) {
+      return originalNote // No updates to make
+    }
 
-    // Execute the update query
     const result = await sql.query(
       `
       UPDATE clinical_notes
-      SET ${updateFields.join(", ")}
-      WHERE id = $${paramIndex++}
-      AND tenant_id = $${paramIndex}
+      SET ${updates.join(", ")}
+      WHERE id = $1
+      AND tenant_id = $2
       RETURNING *
     `,
-      queryParams,
+      values,
     )
 
     if (result.rows && result.rows.length > 0) {
+      const updatedNote = result.rows[0] as ClinicalNote
+
       // Log activity
       await logActivity({
         tenantId,
         activityType: "clinical_note_updated",
-        description: `Clinical note updated: ${originalNote.title}`,
+        description: `Clinical note updated: ${updatedNote.title}`,
         patientId: originalNote.patient_id,
         userId,
+        metadata: {
+          noteId: id,
+          noteTitle: updatedNote.title,
+        },
       })
 
-      return result.rows[0] as ClinicalNote
+      return updatedNote
     }
 
     return null
@@ -396,8 +420,8 @@ export async function updateClinicalNote(
 
 export async function deleteClinicalNote(
   id: string,
-  tenantId: string = DEFAULT_TENANT_ID,
   userId: string,
+  tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<boolean> {
   try {
     // Get the note before deletion for logging
@@ -425,6 +449,10 @@ export async function deleteClinicalNote(
         description: `Clinical note deleted: ${note.title}`,
         patientId: note.patient_id,
         userId,
+        metadata: {
+          noteId: id,
+          noteTitle: note.title,
+        },
       })
 
       return true
@@ -433,16 +461,29 @@ export async function deleteClinicalNote(
     return false
   } catch (error) {
     console.error("Error deleting clinical note:", error)
-    return false
+    throw error
   }
 }
 
 export async function addAttachmentToNote(
   noteId: string,
-  attachment: Omit<ClinicalNoteAttachment, "id" | "note_id" | "uploaded_at">,
+  data: {
+    file_name: string
+    file_path: string
+    file_type?: string
+    file_size?: number
+    content_type?: string
+  },
+  userId: string,
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNoteAttachment | null> {
   try {
+    // Verify the note exists and belongs to the tenant
+    const note = await getClinicalNoteById(noteId, tenantId)
+    if (!note) {
+      throw new Error("Clinical note not found")
+    }
+
     const result = await sql.query(
       `
       INSERT INTO clinical_note_attachments (
@@ -460,17 +501,33 @@ export async function addAttachmentToNote(
     `,
       [
         noteId,
-        attachment.file_name,
-        attachment.file_path,
-        attachment.file_type,
-        attachment.file_size,
-        attachment.uploaded_by,
-        attachment.content_type,
+        data.file_name,
+        data.file_path,
+        data.file_type || null,
+        data.file_size || null,
+        userId,
+        data.content_type || null,
       ],
     )
 
     if (result.rows && result.rows.length > 0) {
-      return result.rows[0] as ClinicalNoteAttachment
+      const attachment = result.rows[0] as ClinicalNoteAttachment
+
+      // Log activity
+      await logActivity({
+        tenantId,
+        activityType: "clinical_note_attachment_added",
+        description: `Attachment added to clinical note: ${data.file_name}`,
+        patientId: note.patient_id,
+        userId,
+        metadata: {
+          noteId,
+          attachmentId: attachment.id,
+          fileName: data.file_name,
+        },
+      })
+
+      return attachment
     }
 
     return null
@@ -480,18 +537,51 @@ export async function addAttachmentToNote(
   }
 }
 
-// Create a service object for default export
-const clinicalNotesService = {
-  getClinicalNotesByPatientId,
-  getClinicalNoteCategories,
-  createClinicalNoteCategory,
-  getClinicalNoteTemplates,
-  createClinicalNote,
-  getAttachmentsByNoteId,
-  getClinicalNoteById,
-  updateClinicalNote,
-  deleteClinicalNote,
-  addAttachmentToNote,
+// Create a class for the service to export as default
+class ClinicalNotesService {
+  static async getNotesByPatientId(patientId: string, tenantId: string = DEFAULT_TENANT_ID, limit = 50) {
+    return getClinicalNotesByPatientId(patientId, tenantId, limit)
+  }
+
+  static async getCategories(tenantId: string = DEFAULT_TENANT_ID) {
+    return getClinicalNoteCategories(tenantId)
+  }
+
+  static async createCategory(
+    data: Omit<ClinicalNoteCategory, "id" | "created_at" | "updated_at">,
+    tenantId: string = DEFAULT_TENANT_ID,
+  ) {
+    return createClinicalNoteCategory(data, tenantId)
+  }
+
+  static async getTemplates(tenantId: string = DEFAULT_TENANT_ID) {
+    return getClinicalNoteTemplates(tenantId)
+  }
+
+  static async createNote(data: any, userId: string, tenantId: string = DEFAULT_TENANT_ID) {
+    return createClinicalNote(data, userId, tenantId)
+  }
+
+  static async getNoteById(id: string, tenantId: string = DEFAULT_TENANT_ID) {
+    return getClinicalNoteById(id, tenantId)
+  }
+
+  static async updateNote(id: string, data: any, userId: string, tenantId: string = DEFAULT_TENANT_ID) {
+    return updateClinicalNote(id, data, userId, tenantId)
+  }
+
+  static async deleteNote(id: string, userId: string, tenantId: string = DEFAULT_TENANT_ID) {
+    return deleteClinicalNote(id, userId, tenantId)
+  }
+
+  static async getAttachments(noteId: string, tenantId: string = DEFAULT_TENANT_ID) {
+    return getAttachmentsByNoteId(noteId, tenantId)
+  }
+
+  static async addAttachment(noteId: string, data: any, userId: string, tenantId: string = DEFAULT_TENANT_ID) {
+    return addAttachmentToNote(noteId, data, userId, tenantId)
+  }
 }
 
-export default clinicalNotesService
+// Export the service as default
+export default ClinicalNotesService

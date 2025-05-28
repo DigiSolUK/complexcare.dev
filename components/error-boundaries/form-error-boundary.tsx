@@ -4,6 +4,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react"
 import { AlertTriangle, RefreshCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { logError } from "@/lib/services/error-logging-service"
 
 interface Props {
   children: ReactNode
@@ -32,7 +33,16 @@ export class FormErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo })
 
-    // Log the error
+    // Log the error to our error logging service
+    logError({
+      message: error.message,
+      stack: error.stack || "",
+      componentStack: errorInfo.componentStack,
+      section: `Form: ${this.props.formName || "Unknown Form"}`,
+      type: "form-submission-error",
+      severity: "error",
+    })
+
     console.error("Error caught by FormErrorBoundary:", error, errorInfo)
   }
 

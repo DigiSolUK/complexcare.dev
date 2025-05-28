@@ -1,24 +1,23 @@
 import type React from "react"
-import { useTenant } from "@/contexts"
+import { PageErrorBoundary } from "@/components/error-boundaries/page-error-boundary"
+import { DashboardLayoutClient } from "./dashboard-layout-client"
+import { DashboardHeader } from "@/components/dashboard/header"
+import { DashboardSidebar } from "@/components/dashboard/sidebar"
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { tenant } = useTenant()
-
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div className="w-64 bg-gray-100 p-4">
-        <h2 className="text-2xl font-semibold mb-4">Dashboard</h2>
-        <p>Tenant: {tenant?.name || "No Tenant"}</p>
-        {/* Add sidebar navigation links here */}
+    <PageErrorBoundary>
+      <div className="flex min-h-screen flex-col">
+        <DashboardHeader />
+        <div className="flex flex-1 overflow-hidden">
+          <DashboardSidebar />
+          <DashboardLayoutClient>{children}</DashboardLayoutClient>
+        </div>
       </div>
-
-      {/* Main Content */}
-      <div className="flex-1 p-4">{children}</div>
-    </div>
+    </PageErrorBoundary>
   )
 }

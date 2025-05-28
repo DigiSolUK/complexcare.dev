@@ -1,91 +1,99 @@
-import type { NextRequest } from "next/server"
+import { cookies } from "next/headers"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { authOptions } from "@/lib/auth-config"
+
+// Default tenant ID to use if none is found
+export const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || "default-tenant"
 
 /**
- * Get tenant ID from request headers or query params
+ * Get tenant ID from request headers or default
  */
-export function getTenantIdFromRequest(request: NextRequest): string | null {
-  // Check headers first
-  const tenantHeader = request.headers.get("x-tenant-id")
-  if (tenantHeader) return tenantHeader
-
-  // Check query params
-  const { searchParams } = new URL(request.url)
-  const tenantParam = searchParams.get("tenantId")
-  if (tenantParam) return tenantParam
-
-  // Check for tenant in path
-  const pathname = request.nextUrl.pathname
-  const tenantMatch = pathname.match(/\/tenant\/([^/]+)/)
-  if (tenantMatch) return tenantMatch[1]
-
-  return null
-}
-
-/**
- * Get tenant from request (server-side)
- */
-export async function getTenantFromRequest(request: NextRequest) {
-  const tenantId = getTenantIdFromRequest(request)
-  if (!tenantId) return null
-
+export function getTenantIdFromRequest(req: Request): string {
   try {
-    // In a real app, fetch tenant from database
-    // For now, return mock data
-    return {
-      id: tenantId,
-      name: "Mock Tenant",
-      slug: "mock-tenant",
-      plan: "Professional",
-    }
+    // Try to get from headers first
+    const tenantId = req.headers.get("x-tenant-id")
+    if (tenantId) return tenantId
+
+    // Default to a hard-coded tenant ID
+    return DEFAULT_TENANT_ID
   } catch (error) {
-    console.error("Error fetching tenant:", error)
-    return null
+    console.error("Error getting tenant ID from request:", error)
+    return DEFAULT_TENANT_ID
   }
 }
 
 /**
- * Get current tenant (server-side)
+ * Get tenant object from request
  */
-export async function getCurrentTenant() {
+export function getTenantFromRequest(req: Request): { id: string } {
+  const tenantId = getTenantIdFromRequest(req)
+  return { id: tenantId }
+}
+
+export async function getCurrentTenant(): Promise<string> {
+  // Try to get tenant from session
+  const session = await getServerSession(authOptions)
+  if (session?.user?.tenantId) {
+    return session.user.tenantId
+  }
+
+  // Fallback to cookie
+  const cookieStore = cookies()
+  const tenantId = cookieStore.get("tenantId")?.value
+
+  // Fallback to default tenant
+  return tenantId || process.env.DEFAULT_TENANT_ID || "default"
+}
+
+/**
+ * Safely extract tenant ID from tenant object or string
+ */
+export function extractTenantId(tenant: any): string {
+  if (!tenant) return DEFAULT_TENANT_ID
+
+  if (typeof tenant === "string") return tenant
+
+  if (typeof tenant === "object" && tenant !== null && "id" in tenant) {
+    return tenant.id
+  }
+
+  return DEFAULT_TENANT_ID
+}
+
+/**
+ * Format tenant ID for display (short format)
+ */
+export function formatTenantId(id: string): string {
+  return id.substring(0, 8)
+}
+
+/**
+ * Check if a path is public (no tenant required)
+ */
+export function isPublicPath(path: string): boolean {
+  const publicPaths = ["/login", "/register", "/forgot-password", "/api/auth", "/api/public"]
+  return publicPaths.some((p) => path.startsWith(p))
+}
+
+/**
+ * Get tenant ID from cookies or default (server-side)
+ */
+export function getTenantIdFromCookies(): string {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) return null
-
-    // In a real app, fetch user's primary tenant from database
-    // For now, return mock data
-    return {
-      id: "default-tenant",
-      name: "Default Tenant",
-      slug: "default-tenant",
-      plan: "Professional",
-    }
+    // This would normally use cookies() from next/headers
+    // For now, return the default tenant ID
+    const cookieStore = cookies()
+    const tenantId = cookieStore.get("tenantId")?.value
+    return tenantId || DEFAULT_TENANT_ID
   } catch (error) {
-    console.error("Error getting current tenant:", error)
-    return null
+    console.error("Error getting tenant ID from cookies:", error)
+    return DEFAULT_TENANT_ID
   }
 }
 
 /**
- * Checks if a given tenant ID is valid
+ * Get current tenant ID (for server components)
  */
-export const isValidTenantId = (tenantId: string): boolean => {
-  return typeof tenantId === "string" && tenantId.length > 0
-}
-
-/**
- * Get tenant configuration
- */
-export const getTenantConfig = async (tenantId: string): Promise<any> => {
-  // In a real app, fetch from database
-  return {
-    tenantId: tenantId,
-    theme: "default",
-    features: ["patients", "appointments", "clinical-notes"],
-    settings: {
-      allowPublicRegistration: false,
-      requireEmailVerification: true,
-    },
-  }
+export function getCurrentTenantId(): string {
+  return getTenantIdFromCookies()
 }

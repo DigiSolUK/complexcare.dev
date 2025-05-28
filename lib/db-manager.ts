@@ -35,7 +35,7 @@ const createSqlClient = () => {
     return {
       query: async (...args: any[]) => {
         console.warn("Mock SQL client used. Database operations will not work.")
-        return { rows: [] }
+        return []
       },
     }
   }
@@ -48,7 +48,7 @@ const createSqlClient = () => {
     return {
       query: async (...args: any[]) => {
         console.error("Database client initialization failed")
-        return { rows: [] }
+        return []
       },
     }
   }
@@ -73,7 +73,7 @@ export async function executeQuery(
 
   try {
     const result = await sql.query(query, params)
-    return result.rows || []
+    return result || []
   } catch (error) {
     console.error("Database query error:", error)
     return []
@@ -85,7 +85,7 @@ export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
   if (isBrowser) {
     console.error("Database connection attempted in browser environment")
     return {
-      query: async () => ({ rows: [] }),
+      query: async () => [],
     }
   }
 
@@ -96,7 +96,7 @@ export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
         return result
       } catch (error) {
         console.error("Database query error:", error)
-        return { rows: [] }
+        return []
       }
     },
   }
@@ -133,7 +133,7 @@ export async function getById(table: string, id: string, tenantId: string = DEFA
       id,
       tenantId,
     ])
-    return result.rows?.[0] || null
+    return result?.[0] || null
   } catch (error) {
     console.error(`Error getting ${table} by ID:`, error)
     return null
@@ -162,7 +162,7 @@ export async function insert(
     `
 
     const result = await sql.query(query, values)
-    return result.rows?.[0] || null
+    return result?.[0] || null
   } catch (error) {
     console.error(`Error inserting into ${table}:`, error)
     return null
@@ -194,7 +194,7 @@ export async function update(
 
     const values = [id, tenantId, ...Object.values(data)]
     const result = await sql.query(query, values)
-    return result.rows?.[0] || null
+    return result?.[0] || null
   } catch (error) {
     console.error(`Error updating ${table}:`, error)
     return null
@@ -225,43 +225,5 @@ export async function remove(
   } catch (error) {
     console.error(`Error removing from ${table}:`, error)
     return false
-  }
-}
-
-// Helper function to sanitize SQL inputs
-export function sanitize(input: string): string {
-  if (!input) return ""
-  return input.replace(/'/g, "''")
-}
-
-// Helper function to build a WHERE clause with filters
-export function buildWhereClause(
-  filters: Record<string, any>,
-  tenantId = DEFAULT_TENANT_ID,
-): {
-  whereClause: string
-  params: any[]
-} {
-  const conditions: string[] = ["tenant_id = $1", "deleted_at IS NULL"]
-  const params: any[] = [tenantId]
-
-  let paramIndex = 2
-
-  for (const [key, value] of Object.entries(filters)) {
-    if (value !== undefined && value !== null && value !== "") {
-      if (typeof value === "string" && value.includes("%")) {
-        // Handle LIKE queries
-        conditions.push(`${key} ILIKE $${paramIndex}`)
-      } else {
-        conditions.push(`${key} = $${paramIndex}`)
-      }
-      params.push(value)
-      paramIndex++
-    }
-  }
-
-  return {
-    whereClause: conditions.join(" AND "),
-    params,
   }
 }

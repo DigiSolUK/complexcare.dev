@@ -1,33 +1,54 @@
-import type React from "react"
-import { useTenant } from "@/contexts"
+import { Calendar, FileText, Home, LayoutDashboard, ListChecks, Settings, User, Video } from "lucide-react"
 
-const DashboardSidebar: React.FC = () => {
-  // Example usage of the tenant context
-  const { tenant } = useTenant()
+import type { NavItem } from "@/types"
 
-  return (
-    <aside className="bg-gray-100 w-64 p-4">
-      <h2 className="text-lg font-semibold mb-4">Dashboard Sidebar</h2>
-      {tenant && <p>Current Tenant: {tenant.name}</p>}
-      <ul>
-        <li>
-          <a href="#" className="block py-2 px-4 hover:bg-gray-200">
-            Overview
-          </a>
-        </li>
-        <li>
-          <a href="#" className="block py-2 px-4 hover:bg-gray-200">
-            Analytics
-          </a>
-        </li>
-        <li>
-          <a href="#" className="block py-2 px-4 hover:bg-gray-200">
-            Settings
-          </a>
-        </li>
-      </ul>
-    </aside>
-  )
-}
-
-export default DashboardSidebar
+export const dashboardNavItems: NavItem[] = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    description: "Overview of your account",
+  },
+  {
+    title: "Home",
+    href: "/",
+    icon: Home,
+    description: "Go to home page",
+  },
+  {
+    title: "Appointments",
+    href: "/appointments",
+    icon: Calendar,
+    description: "Manage your appointments",
+  },
+  {
+    title: "Telemedicine",
+    href: "/telemedicine",
+    icon: Video,
+    description: "Video consultations",
+  },
+  {
+    title: "Patients",
+    href: "/patients",
+    icon: User,
+    description: "Manage your patients",
+  },
+  {
+    title: "Reports",
+    href: "/reports",
+    icon: FileText,
+    description: "View your reports",
+  },
+  {
+    title: "Tasks",
+    href: "/tasks",
+    icon: ListChecks,
+    description: "Manage your tasks",
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: Settings,
+    description: "Manage your settings",
+  },
+]

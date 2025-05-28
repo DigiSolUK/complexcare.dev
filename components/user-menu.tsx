@@ -1,6 +1,5 @@
 "use client"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -10,44 +9,61 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useSession, signOut } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useToast } from "@/components/ui/use-toast"
-import { useTenant } from "@/contexts"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { User, Settings, LogOut } from "lucide-react"
+import Link from "next/link"
 
 export function UserMenu() {
-  const { data: session } = useSession()
-  const router = useRouter()
-  const { toast } = useToast()
-  const { tenant } = useTenant()
-
-  async function handleSignOut() {
-    await signOut()
-    router.push("/login")
-    toast({
-      title: "Signed out",
-      description: "You have been signed out successfully.",
-    })
+  // In demo mode, we always show a demo user
+  const demoUser = {
+    name: "Demo User",
+    email: "demo@complexcare.dev",
+    image: "",
   }
+
+  const userInitials = "DU"
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+        <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name || "User Avatar"} />
-            <AvatarFallback>{session?.user?.name?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+            <AvatarImage src={demoUser.image} alt={demoUser.name} />
+            <AvatarFallback>{userInitials}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel>{session?.user?.name}</DropdownMenuLabel>
-        <DropdownMenuItem disabled>{session?.user?.email}</DropdownMenuItem>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{demoUser.name}</p>
+            <p className="text-xs leading-none text-muted-foreground">{demoUser.email}</p>
+          </div>
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {tenant && <DropdownMenuItem onClick={() => router.push(`/${tenant.slug}/admin`)}>Dashboard</DropdownMenuItem>}
-        <DropdownMenuItem onClick={() => router.push("/account")}>Account Settings</DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/profile" className="flex w-full cursor-pointer items-center">
+            <User className="mr-2 h-4 w-4" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/settings" className="flex w-full cursor-pointer items-center">
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>Sign out</DropdownMenuItem>
+        <DropdownMenuItem
+          className="flex cursor-pointer items-center"
+          onClick={() => {
+            // In demo mode, just redirect to home
+            window.location.href = "/"
+          }}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
