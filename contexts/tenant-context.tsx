@@ -57,11 +57,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
       setError(null)
 
-      // For demo purposes, we'll use mock data instead of fetching from API
+      // For public mode, we'll use mock data
       const mockTenants: Tenant[] = [
         { id: "tenant-1", name: "Main Hospital", slug: "main-hospital", plan: "Enterprise" },
         { id: "tenant-2", name: "North Clinic", slug: "north-clinic", plan: "Professional" },
         { id: "tenant-3", name: "South Care Center", slug: "south-care", plan: "Standard" },
+        { id: "tenant-4", name: "East Medical Group", slug: "east-medical", plan: "Enterprise" },
+        { id: "tenant-5", name: "West Health Partners", slug: "west-health", plan: "Professional" },
       ]
 
       setTenants(mockTenants)
@@ -92,14 +94,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         throw new Error("Tenant not found")
       }
 
-      // In a real app, you would call an API to set the primary tenant
-      // await fetch("/api/user/tenants/primary", {...})
-
       setCurrentTenant(tenant)
       setTenantId(tenant.id)
-
-      // In a real app, you might want to reload the page or refetch data
-      // window.location.reload()
     } catch (err) {
       console.error("Error switching tenant:", err)
       setError("Failed to switch tenant. Please try again.")

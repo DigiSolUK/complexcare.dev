@@ -18,6 +18,7 @@ import {
   DollarSign,
   Clock,
   FileSpreadsheet,
+  Info,
 } from "lucide-react"
 
 const sidebarNavItems = [
@@ -105,6 +106,16 @@ const sidebarNavItems = [
     title: "Settings",
     href: "/settings",
     icon: Settings,
+  },
+  {
+    title: "Public Mode",
+    href: "/public-mode",
+    icon: Info,
+  },
+  {
+    title: "API Docs",
+    href: "/api-docs",
+    icon: FileText,
   },
 ]
 

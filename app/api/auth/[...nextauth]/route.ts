@@ -1,5 +1,6 @@
 import NextAuth from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
+import CredentialsProvider from "next-auth/providers/credentials"
 
 const handler = NextAuth({
   providers: [
@@ -7,11 +8,32 @@ const handler = NextAuth({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
+    // Add credentials provider for public mode
+    CredentialsProvider({
+      name: "Public Access",
+      credentials: {
+        username: { label: "Username", type: "text", placeholder: "public" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize() {
+        // In public mode, always return a user
+        return {
+          id: "public-user",
+          name: "Public User",
+          email: "public@example.com",
+          image: "/abstract-geometric-shapes.png",
+        }
+      },
+    }),
   ],
   callbacks: {
     async session({ session, token }) {
       if (session?.user && token?.sub) {
         session.user.id = token.sub
+      }
+      // Add roles to session for public mode
+      if (session?.user) {
+        session.user.roles = ["admin", "user"]
       }
       return session
     },

@@ -1,45 +1,36 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { redirect } from "next/navigation"
-
 /**
  * Get the current authenticated user
  */
 export async function getCurrentUser() {
-  const session = await getServerSession(authOptions)
-  return session?.user || null
+  // In public mode, return a default user
+  return {
+    id: "default-user-id",
+    name: "Public User",
+    email: "public@example.com",
+    roles: ["admin", "user"],
+    image: "/abstract-geometric-shapes.png",
+  }
 }
 
 /**
  * Require admin role or redirect
  */
 export async function requireAdmin() {
-  const session = await getServerSession(authOptions)
-
-  if (!session?.user) {
-    redirect("/login")
+  // In public mode, always grant admin access
+  return {
+    id: "default-admin-id",
+    name: "Public Admin",
+    email: "admin@example.com",
+    roles: ["admin", "superadmin"],
+    image: "/admin-interface.png",
   }
-
-  // Check if user has admin role
-  const userRoles = session.user.roles || []
-  const isAdmin = userRoles.includes("admin") || userRoles.includes("superadmin")
-
-  if (!isAdmin) {
-    redirect("/unauthorized")
-  }
-
-  return session.user
 }
 
 /**
  * Check if user has a specific permission
  */
 export async function hasPermission(permission: string): Promise<boolean> {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) return false
-
-  // In a real app, check permissions from database
-  // For now, just check if user is authenticated
+  // In public mode, always return true
   return true
 }
 
@@ -47,11 +38,7 @@ export async function hasPermission(permission: string): Promise<boolean> {
  * Get user's tenant IDs
  */
 export async function getUserTenants() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) return []
-
-  // In a real app, fetch from database
-  // For now, return mock data
+  // In public mode, return default tenants
   return [
     { id: "tenant-1", name: "Main Hospital", role: "admin" },
     { id: "tenant-2", name: "North Clinic", role: "user" },

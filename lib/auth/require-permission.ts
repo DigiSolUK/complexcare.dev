@@ -5,6 +5,6 @@ export async function requirePermission(
   tenantId: string,
   redirectTo = "/unauthorized",
 ): Promise<void> {
-  // Always grant permission in development mode
+  // Always grant permission in public mode
   return
 }
