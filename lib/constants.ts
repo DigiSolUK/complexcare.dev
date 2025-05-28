@@ -1,43 +1,37 @@
-// Default tenant ID to use when none is selected
-export const DEFAULT_TENANT_ID = "tenant-1"
+// Default tenant ID
+export const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
 
-// Other application constants can be added here
-export const APP_NAME = "ComplexCare CRM"
-export const APP_VERSION = "1.0.0"
-
-// API endpoints
-export const API_BASE_URL = "/api"
-export const API_TIMEOUT = 30000 // 30 seconds
-
-// Pagination defaults
-export const DEFAULT_PAGE_SIZE = 10
-export const DEFAULT_PAGE = 1
-
-// Date formats
-export const DATE_FORMAT = "dd/MM/yyyy"
-export const DATE_TIME_FORMAT = "dd/MM/yyyy HH:mm"
-
-// Status options
-export const PATIENT_STATUSES = ["active", "inactive", "critical", "stable"]
-export const APPOINTMENT_STATUSES = ["scheduled", "completed", "cancelled", "no-show"]
-export const TASK_STATUSES = ["pending", "in-progress", "completed", "cancelled"]
-export const CARE_PLAN_STATUSES = ["draft", "active", "completed", "cancelled"]
-
-// Risk levels
-export const RISK_LEVELS = ["low", "medium", "high"]
-
-// Gender options
-export const GENDER_OPTIONS = ["male", "female", "other", "not_specified"]
-
-// User roles
-export const USER_ROLES = ["admin", "care_professional", "receptionist", "patient"]
-
-// Feature flags
-export const FEATURES = {
-  APPOINTMENTS: true,
-  MEDICATIONS: true,
-  CARE_PLANS: true,
-  BILLING: true,
-  REPORTING: true,
-  MESSAGING: true,
+// Public mode configuration
+export const PUBLIC_MODE = {
+  enabled: true,
+  mockDataEnabled: true,
 }
+
+// Demo mode configuration
+export const DEMO_MODE = {
+  enabled: true,
+}
+
+// API base URL
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ""
+
+// Default pagination limit
+export const DEFAULT_PAGE_SIZE = 10
+
+// Date format
+export const DATE_FORMAT = "yyyy-MM-dd"
+
+// Time format
+export const TIME_FORMAT = "HH:mm"
+
+// DateTime format
+export const DATETIME_FORMAT = "yyyy-MM-dd HH:mm"
+
+// Default locale
+export const DEFAULT_LOCALE = "en-GB"
+
+// Default currency
+export const DEFAULT_CURRENCY = "GBP"
+
+// Default timezone
+export const DEFAULT_TIMEZONE = "Europe/London"

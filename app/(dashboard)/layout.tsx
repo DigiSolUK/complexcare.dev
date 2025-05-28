@@ -1,6 +1,5 @@
 import type React from "react"
 import { Sidebar } from "@/components/dashboard/sidebar"
-import { PublicModeBanner } from "@/components/public-mode-banner"
 
 export default function DashboardLayout({
   children,
@@ -12,7 +11,12 @@ export default function DashboardLayout({
       <div className="flex flex-1">
         <Sidebar />
         <main className="flex-1 p-6">
-          <PublicModeBanner />
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-yellow-800">
+              <strong>Public Mode:</strong> The system is running in public mode with mock data. All features are
+              accessible without authentication.
+            </p>
+          </div>
           {children}
         </main>
       </div>

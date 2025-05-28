@@ -1,36 +1,35 @@
 import { NextResponse } from "next/server"
-import { publicApiService } from "@/lib/services/public-api-service"
+import { mockData } from "@/lib/db"
 
 export async function GET(request: Request) {
   try {
     // Get tenant ID from headers or use default
-    const tenantId = request.headers.get("x-tenant-id") || "tenant-1"
+    const tenantId = request.headers.get("x-tenant-id") || "ba367cfe-6de0-4180-9566-1002b75cf82c"
 
     // Get URL parameters
-    const { searchParams } = new URL(request.url)
-    const patientId = searchParams.get("patientId")
+    const url = new URL(request.url)
+    const patientId = url.searchParams.get("patientId")
 
-    // Get clinical notes from public API service
-    let clinicalNotes
+    // Filter mock data
+    let notes = mockData.clinical_notes.filter((note) => note.tenant_id === tenantId && !note.is_deleted)
+
     if (patientId) {
-      clinicalNotes = await publicApiService.getClinicalNotesByPatientId(patientId, tenantId)
-    } else {
-      clinicalNotes = await publicApiService.getClinicalNotes(tenantId)
+      notes = notes.filter((note) => note.patient_id === patientId)
     }
 
-    return NextResponse.json({ clinicalNotes })
+    return NextResponse.json(notes)
   } catch (error) {
     console.error("Error fetching clinical notes:", error)
-    return NextResponse.json({ error: "Failed to fetch clinical notes" }, { status: 500 })
+    return NextResponse.json([])
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const tenantId = request.headers.get("x-tenant-id") || "tenant-1"
+    const tenantId = request.headers.get("x-tenant-id") || "ba367cfe-6de0-4180-9566-1002b75cf82c"
 
-    // In public mode, just return the submitted data with an ID
+    // Create a new clinical note
     const newNote = {
       id: `cn${Date.now()}`,
       tenant_id: tenantId,
@@ -40,7 +39,7 @@ export async function POST(request: Request) {
       is_deleted: false,
     }
 
-    return NextResponse.json({ clinicalNote: newNote }, { status: 201 })
+    return NextResponse.json(newNote, { status: 201 })
   } catch (error) {
     console.error("Error creating clinical note:", error)
     return NextResponse.json({ error: "Failed to create clinical note" }, { status: 500 })

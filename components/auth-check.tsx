@@ -3,6 +3,6 @@
 import type React from "react"
 
 export function AuthCheck({ children }: { children: React.ReactNode }) {
-  // In public mode, we allow all access
+  // Always render children in public mode
   return <>{children}</>
 }

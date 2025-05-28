@@ -1,13 +1,8 @@
 import NextAuth from "next-auth"
-import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 
 const handler = NextAuth({
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    }),
     // Add credentials provider for public mode
     CredentialsProvider({
       name: "Public Access",
@@ -27,30 +22,23 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async session({ session, token }) {
-      if (session?.user && token?.sub) {
-        session.user.id = token.sub
-      }
+    async session({ session }) {
       // Add roles to session for public mode
       if (session?.user) {
+        session.user.id = "public-user"
         session.user.roles = ["admin", "user"]
       }
       return session
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-      }
+    async jwt({ token }) {
+      // Add roles to token
+      token.roles = ["admin", "user"]
       return token
     },
-    async signIn({ account, profile }) {
-      return true
-    },
   },
-  secret: process.env.NEXTAUTH_SECRET,
   pages: {
-    signIn: "/auth/signin",
-    error: "/auth/error",
+    signIn: "/login",
+    error: "/error",
   },
 })
 

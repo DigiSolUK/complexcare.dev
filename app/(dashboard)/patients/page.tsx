@@ -1,191 +1,128 @@
-"use client"
-
-import { Button } from "@/components/ui/button"
-import {
-  type ColumnDef,
-  type ColumnFiltersState,
-  type SortingState,
-  type VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { useState } from "react"
-import { MoreHorizontal } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { mockData } from "@/lib/db"
 
-interface Patient {
-  id: string
-  name: string
-  email: string
-  phone: string
-  address: string
-}
-
-const data: Patient[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "123-456-7890",
-    address: "123 Main St",
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane.smith@example.com",
-    phone: "987-654-3210",
-    address: "456 Oak Ave",
-  },
-  {
-    id: "3",
-    name: "Robert Jones",
-    email: "robert.jones@example.com",
-    phone: "555-123-4567",
-    address: "789 Pine Ln",
-  },
-]
-
-const columns: ColumnDef<Patient>[] = [
-  {
-    accessorKey: "name",
-    header: "Name",
-  },
-  {
-    accessorKey: "email",
-    header: "Email",
-  },
-  {
-    accessorKey: "phone",
-    header: "Phone",
-  },
-  {
-    accessorKey: "address",
-    header: "Address",
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const patient = row.original
-
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link href={`/patients/${patient.id}`}>View</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuItem>Delete</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Download</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
-    },
-  },
-]
-
-const PatientsPage = () => {
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [rowSelection, setRowSelection] = useState({})
-
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      rowSelection,
-    },
-  })
+export default function PatientsPage() {
+  // Use mock data directly
+  const patients = mockData.patients
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Patients</h1>
-        <Button>Add Patient</Button>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Patients</h1>
+        <Link href="/patients/new">
+          <Button>Add New Patient</Button>
+        </Link>
       </div>
-      <div className="py-4">
-        <Input
-          placeholder="Filter patients..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-          onChange={(event) => table.getColumn("name")?.setFilterValue(event.target.value)}
-          className="max-w-sm"
-        />
-      </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Patient List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                <TableHead>Name</TableHead>
+                <TableHead>NHS Number</TableHead>
+                <TableHead>Date of Birth</TableHead>
+                <TableHead>Primary Condition</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {patients.map((patient) => (
+                <TableRow key={patient.id}>
+                  <TableCell className="font-medium">
+                    {patient.first_name} {patient.last_name}
+                  </TableCell>
+                  <TableCell>{patient.nhs_number}</TableCell>
+                  <TableCell>{patient.date_of_birth}</TableCell>
+                  <TableCell>{patient.primary_condition}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>
+                      <span>Active</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex space-x-2">
+                      <Link href={`/patients/${patient.id}`}>
+                        <Button variant="outline" size="sm">
+                          View
+                        </Button>
+                      </Link>
+                      <Link href={`/patients/${patient.id}/edit`}>
+                        <Button variant="outline" size="sm">
+                          Edit
+                        </Button>
+                      </Link>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+
+              {/* Add a few more mock patients */}
+              <TableRow>
+                <TableCell className="font-medium">Robert Johnson</TableCell>
+                <TableCell>NHS54321</TableCell>
+                <TableCell>1965-03-22</TableCell>
+                <TableCell>Asthma</TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>
+                    <span>Active</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex space-x-2">
+                    <Link href="/patients/p3">
+                      <Button variant="outline" size="sm">
+                        View
+                      </Button>
+                    </Link>
+                    <Link href="/patients/p3/edit">
+                      <Button variant="outline" size="sm">
+                        Edit
+                      </Button>
+                    </Link>
+                  </div>
                 </TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-          Previous
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-          Next
-        </Button>
-      </div>
+
+              <TableRow>
+                <TableCell className="font-medium">Sarah Williams</TableCell>
+                <TableCell>NHS98765</TableCell>
+                <TableCell>1982-11-15</TableCell>
+                <TableCell>Migraine</TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>
+                    <span>Active</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex space-x-2">
+                    <Link href="/patients/p4">
+                      <Button variant="outline" size="sm">
+                        View
+                      </Button>
+                    </Link>
+                    <Link href="/patients/p4/edit">
+                      <Button variant="outline" size="sm">
+                        Edit
+                      </Button>
+                    </Link>
+                  </div>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 }
-
-export default PatientsPage
