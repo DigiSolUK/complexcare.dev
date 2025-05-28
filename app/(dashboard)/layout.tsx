@@ -1,5 +1,5 @@
 import type React from "react"
-import { useTenant } from "@/contexts/tenant-context"
+import { useTenant } from "../../contexts/tenant-context"
 
 export default function DashboardLayout({
   children,

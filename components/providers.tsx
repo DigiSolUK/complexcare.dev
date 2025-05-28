@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react"
 import { ThemeProvider } from "@/components/theme-provider"
-import { TenantProvider } from "@/contexts/tenant-context"
+import { TenantProvider } from "../contexts/tenant-context"
 import { DatabaseProvider } from "@/components/database-provider"
 
 export function Providers({ children }: { children: ReactNode }) {
