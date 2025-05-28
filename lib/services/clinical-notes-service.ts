@@ -1,25 +1,22 @@
 import { DEFAULT_TENANT_ID } from "@/lib/constants"
 import { logActivity } from "./activity-log-service"
 import { sql } from "@/lib/db-utils"
+import { v4 as uuidv4 } from "uuid"
+import { getAll, getById, insert, update, remove } from "../db-connection"
 
 export interface ClinicalNote {
   id: string
   tenant_id: string
   patient_id: string
+  author_id: string
+  category_id?: string
   title: string
   content: string
-  category_id: string
-  category_name?: string
-  category_color?: string
-  created_by: string
-  created_by_name?: string
-  created_at: string
-  updated_at: string
   is_private: boolean
   is_important: boolean
-  tags: string[]
-  follow_up_date: string | null
-  follow_up_notes: string | null
+  created_at: string
+  updated_at: string
+  deleted_at?: string
 }
 
 export interface ClinicalNoteCategory {
@@ -55,6 +52,14 @@ export interface ClinicalNoteAttachment {
   uploaded_by: string
   uploaded_at: string
   content_type: string | null
+}
+
+export async function getAllClinicalNotes(
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+  offset = 0,
+): Promise<ClinicalNote[]> {
+  return getAll<ClinicalNote>("clinical_notes", tenantId, limit, offset)
 }
 
 // Server-side function to get clinical notes by patient ID
@@ -94,6 +99,36 @@ export async function getClinicalNotesByPatientId(
   } catch (error) {
     console.error("Error fetching clinical notes:", error)
     return []
+  }
+}
+
+export async function getClinicalNoteById(
+  id: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<ClinicalNote | null> {
+  return getById<ClinicalNote>("clinical_notes", id, tenantId)
+}
+
+export async function getClinicalNotesByPatient(
+  patientId: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+  offset = 0,
+): Promise<ClinicalNote[]> {
+  try {
+    const query = `
+      SELECT * FROM clinical_notes
+      WHERE tenant_id = $1
+      AND patient_id = $2
+      AND deleted_at IS NULL
+      ORDER BY created_at DESC
+      LIMIT $3 OFFSET $4
+    `
+    const result = await sql.query(query, [tenantId, patientId, limit, offset])
+    return result.rows as ClinicalNote[]
+  } catch (error) {
+    console.error("Error getting clinical notes by patient:", error)
+    throw error
   }
 }
 
@@ -179,62 +214,34 @@ export async function getClinicalNoteTemplates(tenantId: string = DEFAULT_TENANT
 }
 
 export async function createClinicalNote(
-  data: Omit<ClinicalNote, "id" | "created_at" | "updated_at" | "category_name" | "category_color" | "created_by_name">,
+  data: Omit<ClinicalNote, "id" | "tenant_id" | "created_at" | "updated_at" | "deleted_at">,
   tenantId: string = DEFAULT_TENANT_ID,
 ): Promise<ClinicalNote | null> {
-  try {
-    const result = await sql.query(
-      `
-      INSERT INTO clinical_notes (
-        tenant_id,
-        patient_id,
-        title,
-        content,
-        category_id,
-        created_by,
-        is_private,
-        is_important,
-        tags,
-        follow_up_date,
-        follow_up_notes
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-      )
-      RETURNING *
-    `,
-      [
-        tenantId,
-        data.patient_id,
-        data.title,
-        data.content,
-        data.category_id,
-        data.created_by,
-        data.is_private,
-        data.is_important,
-        data.tags || [],
-        data.follow_up_date,
-        data.follow_up_notes,
-      ],
-    )
-
-    if (result.rows && result.rows.length > 0) {
-      // Log activity
-      await logActivity({
-        tenantId,
-        activityType: "clinical_note_created",
-        description: `Clinical note created: ${data.title}`,
-        patientId: data.patient_id,
-        userId: data.created_by,
-      })
-
-      return result.rows[0] as ClinicalNote
-    }
-
-    return null
-  } catch (error) {
-    console.error("Error creating clinical note:", error)
-    throw error
+  const noteData = {
+    ...data,
+    id: uuidv4(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }
+
+  return insert<ClinicalNote>("clinical_notes", noteData, tenantId)
+}
+
+export async function updateClinicalNote(
+  id: string,
+  data: Partial<ClinicalNote>,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<ClinicalNote | null> {
+  const updateData = {
+    ...data,
+    updated_at: new Date().toISOString(),
+  }
+
+  return update<ClinicalNote>("clinical_notes", id, updateData, tenantId)
+}
+
+export async function deleteClinicalNote(id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<boolean> {
+  return remove("clinical_notes", id, tenantId, true)
 }
 
 export async function getAttachmentsByNoteId(
@@ -258,182 +265,25 @@ export async function getAttachmentsByNoteId(
   }
 }
 
-export async function getClinicalNoteById(
-  id: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<ClinicalNote | null> {
+export async function getClinicalNoteCount(patientId?: string, tenantId: string = DEFAULT_TENANT_ID): Promise<number> {
   try {
-    const result = await sql.query(
-      `
-      SELECT 
-        cn.*,
-        cnc.name as category_name,
-        cnc.color as category_color,
-        CONCAT(u.first_name, ' ', u.last_name) as created_by_name
-      FROM clinical_notes cn
-      LEFT JOIN clinical_note_categories cnc ON cn.category_id = cnc.id
-      LEFT JOIN users u ON cn.created_by = u.id
-      WHERE cn.id = $1
-      AND cn.tenant_id = $2
-    `,
-      [id, tenantId],
-    )
+    let query = `
+      SELECT COUNT(*) as count
+      FROM clinical_notes
+      WHERE tenant_id = $1 AND deleted_at IS NULL
+    `
+    const params = [tenantId]
 
-    if (result.rows && result.rows.length > 0) {
-      return result.rows[0] as ClinicalNote
+    if (patientId) {
+      query += ` AND patient_id = $2`
+      params.push(patientId)
     }
 
-    return null
+    const result = await sql.query(query, params)
+    return Number.parseInt(result.rows?.[0]?.count || "0", 10)
   } catch (error) {
-    console.error("Error fetching clinical note:", error)
-    return null
-  }
-}
-
-export async function updateClinicalNote(
-  id: string,
-  data: Partial<
-    Omit<
-      ClinicalNote,
-      | "id"
-      | "created_at"
-      | "updated_at"
-      | "tenant_id"
-      | "patient_id"
-      | "created_by"
-      | "category_name"
-      | "category_color"
-      | "created_by_name"
-    >
-  >,
-  tenantId: string = DEFAULT_TENANT_ID,
-  userId: string,
-): Promise<ClinicalNote | null> {
-  try {
-    // Get the original note for comparison
-    const originalNote = await getClinicalNoteById(id, tenantId)
-    if (!originalNote) {
-      throw new Error("Clinical note not found")
-    }
-
-    // Build the update query dynamically based on provided fields
-    const updateFields: string[] = []
-    const queryParams: any[] = []
-    let paramIndex = 1
-
-    // Add each field that needs to be updated
-    if (data.title !== undefined) {
-      updateFields.push(`title = $${paramIndex++}`)
-      queryParams.push(data.title)
-    }
-    if (data.content !== undefined) {
-      updateFields.push(`content = $${paramIndex++}`)
-      queryParams.push(data.content)
-    }
-    if (data.category_id !== undefined) {
-      updateFields.push(`category_id = $${paramIndex++}`)
-      queryParams.push(data.category_id)
-    }
-    if (data.is_private !== undefined) {
-      updateFields.push(`is_private = $${paramIndex++}`)
-      queryParams.push(data.is_private)
-    }
-    if (data.is_important !== undefined) {
-      updateFields.push(`is_important = $${paramIndex++}`)
-      queryParams.push(data.is_important)
-    }
-    if (data.tags !== undefined) {
-      updateFields.push(`tags = $${paramIndex++}`)
-      queryParams.push(data.tags)
-    }
-    if (data.follow_up_date !== undefined) {
-      updateFields.push(`follow_up_date = $${paramIndex++}`)
-      queryParams.push(data.follow_up_date)
-    }
-    if (data.follow_up_notes !== undefined) {
-      updateFields.push(`follow_up_notes = $${paramIndex++}`)
-      queryParams.push(data.follow_up_notes)
-    }
-
-    // Always update the updated_at timestamp
-    updateFields.push(`updated_at = NOW()`)
-
-    // Add the WHERE clause parameters
-    queryParams.push(id)
-    queryParams.push(tenantId)
-
-    // Execute the update query
-    const result = await sql.query(
-      `
-      UPDATE clinical_notes
-      SET ${updateFields.join(", ")}
-      WHERE id = $${paramIndex++}
-      AND tenant_id = $${paramIndex}
-      RETURNING *
-    `,
-      queryParams,
-    )
-
-    if (result.rows && result.rows.length > 0) {
-      // Log activity
-      await logActivity({
-        tenantId,
-        activityType: "clinical_note_updated",
-        description: `Clinical note updated: ${originalNote.title}`,
-        patientId: originalNote.patient_id,
-        userId,
-      })
-
-      return result.rows[0] as ClinicalNote
-    }
-
-    return null
-  } catch (error) {
-    console.error("Error updating clinical note:", error)
+    console.error("Error counting clinical notes:", error)
     throw error
-  }
-}
-
-export async function deleteClinicalNote(
-  id: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-  userId: string,
-): Promise<boolean> {
-  try {
-    // Get the note before deletion for logging
-    const note = await getClinicalNoteById(id, tenantId)
-    if (!note) {
-      return false
-    }
-
-    // Delete the note
-    const result = await sql.query(
-      `
-      DELETE FROM clinical_notes
-      WHERE id = $1
-      AND tenant_id = $2
-      RETURNING id
-    `,
-      [id, tenantId],
-    )
-
-    if (result.rows && result.rows.length > 0) {
-      // Log activity
-      await logActivity({
-        tenantId,
-        activityType: "clinical_note_deleted",
-        description: `Clinical note deleted: ${note.title}`,
-        patientId: note.patient_id,
-        userId,
-      })
-
-      return true
-    }
-
-    return false
-  } catch (error) {
-    console.error("Error deleting clinical note:", error)
-    return false
   }
 }
 
@@ -492,6 +342,9 @@ const clinicalNotesService = {
   updateClinicalNote,
   deleteClinicalNote,
   addAttachmentToNote,
+  getAllClinicalNotes,
+  getClinicalNotesByPatient,
+  getClinicalNoteCount,
 }
 
 export default clinicalNotesService

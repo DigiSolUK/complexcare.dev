@@ -1,247 +1,129 @@
-import { db } from "../db-utils"
-import { PatientCache } from "../redis/patient-cache"
-import { logActivity } from "./activity-log-service"
+import { v4 as uuidv4 } from "uuid"
+import { getAll, getById, insert, update, remove, sql } from "../db-connection"
+import { DEFAULT_TENANT_ID } from "../constants"
 
-export interface Patient {
+export type Patient = {
   id: string
   tenant_id: string
   first_name: string
   last_name: string
-  email: string
-  status: string
   date_of_birth: string
   gender: string
-  contact_number: string
-  address: string
-  medical_record_number: string
-  primary_care_provider: string
+  nhs_number?: string
+  contact_number?: string
+  email?: string
+  address?: string
+  postcode?: string
+  primary_condition?: string
   created_at: string
   updated_at: string
-  deleted_at: string | null
+  deleted_at?: string
+  is_active: boolean
 }
 
-export class PatientService {
-  /**
-   * Get all patients with caching
-   */
-  static async getAllPatients(tenantId: string) {
-    const cacheResult = await PatientCache.getOrSetAllPatients(async () => {
-      const result = await db.query("SELECT * FROM patients WHERE tenant_id = $1 ORDER BY last_name ASC", [tenantId])
-      return result.rows
-    })
-
-    return cacheResult.data
-  }
-
-  /**
-   * Get a patient by ID with caching
-   */
-  static async getPatientById(id: string, tenantId: string) {
-    const cacheResult = await PatientCache.getOrSetPatient(id, async () => {
-      const result = await db.query("SELECT * FROM patients WHERE id = $1 AND tenant_id = $2", [id, tenantId])
-      return result.rows[0]
-    })
-
-    // Log patient viewed activity
-    await logActivity({
-      tenantId,
-      activityType: "patient_viewed",
-      description: `Patient profile viewed`,
-      patientId: id,
-    })
-
-    return cacheResult.data
-  }
-
-  /**
-   * Create a new patient and invalidate caches
-   */
-  static async createPatient(patientData: any, tenantId: string, userId?: string) {
-    const { firstName, lastName, dateOfBirth, gender, address, phone, email } = patientData
-
-    const result = await db.query(
-      `INSERT INTO patients 
-      (first_name, last_name, date_of_birth, gender, address, phone, email, tenant_id) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-      RETURNING *`,
-      [firstName, lastName, dateOfBirth, gender, address, phone, email, tenantId],
-    )
-
-    const newPatient = result.rows[0]
-
-    // Invalidate the patients list cache
-    await PatientCache.invalidatePatientList()
-
-    // Log patient creation activity
-    await logActivity({
-      tenantId,
-      activityType: "patient_created",
-      description: `New patient created: ${firstName} ${lastName}`,
-      patientId: newPatient.id,
-      userId,
-      metadata: {
-        patientName: `${firstName} ${lastName}`,
-        dateOfBirth: dateOfBirth,
-        gender: gender,
-      },
-    })
-
-    return newPatient
-  }
-
-  /**
-   * Update a patient and update cache
-   */
-  static async updatePatient(id: string, patientData: any, tenantId: string, userId?: string) {
-    const { firstName, lastName, dateOfBirth, gender, address, phone, email } = patientData
-
-    // Get original patient data for comparison
-    const originalPatient = await PatientService.getPatientById(id, tenantId)
-
-    const result = await db.query(
-      `UPDATE patients 
-      SET first_name = $1, last_name = $2, date_of_birth = $3, 
-          gender = $4, address = $5, phone = $6, email = $7 
-      WHERE id = $8 AND tenant_id = $9 
-      RETURNING *`,
-      [firstName, lastName, dateOfBirth, gender, address, phone, email, id, tenantId],
-    )
-
-    const updatedPatient = result.rows[0]
-
-    // Update the patient in cache
-    if (updatedPatient) {
-      await PatientCache.updatePatient(id, updatedPatient)
-    }
-
-    // Determine which fields were updated
-    const updatedFields = []
-    if (originalPatient.first_name !== firstName || originalPatient.last_name !== lastName) updatedFields.push("name")
-    if (originalPatient.date_of_birth !== dateOfBirth) updatedFields.push("date_of_birth")
-    if (originalPatient.gender !== gender) updatedFields.push("gender")
-    if (originalPatient.address !== address) updatedFields.push("address")
-    if (originalPatient.phone !== phone) updatedFields.push("phone")
-    if (originalPatient.email !== email) updatedFields.push("email")
-
-    // Log patient update activity
-    await logActivity({
-      tenantId,
-      activityType: "patient_updated",
-      description: `Patient information updated: ${updatedFields.join(", ")}`,
-      patientId: id,
-      userId,
-      metadata: {
-        updatedFields,
-        patientName: `${firstName} ${lastName}`,
-      },
-    })
-
-    return updatedPatient
-  }
-
-  /**
-   * Delete a patient and invalidate caches
-   */
-  static async deletePatient(id: string, tenantId: string, userId?: string) {
-    // Get patient details before deletion
-    const patient = await PatientService.getPatientById(id, tenantId)
-
-    const result = await db.query("DELETE FROM patients WHERE id = $1 AND tenant_id = $2 RETURNING *", [id, tenantId])
-
-    // Delete the patient from cache
-    await PatientCache.deletePatient(id)
-
-    // Log patient deletion activity
-    if (patient) {
-      await logActivity({
-        tenantId,
-        activityType: "patient_deleted",
-        description: `Patient deleted: ${patient.first_name} ${patient.last_name}`,
-        userId,
-        metadata: {
-          patientName: `${patient.first_name} ${patient.last_name}`,
-          patientId: id,
-        },
-      })
-    }
-
-    return result.rows[0]
-  }
+export async function getAllPatients(
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+  offset = 0,
+): Promise<Patient[]> {
+  return getAll<Patient>("patients", tenantId, limit, offset)
 }
 
-// Add the missing exports
-export async function getPatients(tenantId: string, limit = 50, offset = 0) {
+export async function getPatientById(id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<Patient | null> {
+  return getById<Patient>("patients", id, tenantId)
+}
+
+export async function searchPatients(
+  searchTerm: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+  offset = 0,
+): Promise<Patient[]> {
   try {
-    const result = await db.query(
-      `SELECT * FROM patients 
-       WHERE tenant_id = $1 
-       ORDER BY last_name ASC 
-       LIMIT $2 OFFSET $3`,
-      [tenantId, limit, offset],
-    )
-    return result.rows
+    const query = `
+      SELECT * FROM patients
+      WHERE tenant_id = $1
+      AND deleted_at IS NULL
+      AND (
+        first_name ILIKE $2 OR
+        last_name ILIKE $2 OR
+        nhs_number ILIKE $2 OR
+        email ILIKE $2 OR
+        primary_condition ILIKE $2
+      )
+      ORDER BY last_name ASC, first_name ASC
+      LIMIT $3 OFFSET $4
+    `
+    const result = await sql.query(query, [tenantId, `%${searchTerm}%`, limit, offset])
+    return result.rows as Patient[]
   } catch (error) {
-    console.error("Error fetching patients:", error)
-    return []
+    console.error("Error searching patients:", error)
+    throw error
   }
 }
 
-// Re-export the getPatientById function from the class
-export const getPatientById = PatientService.getPatientById
-
-export async function validatePatientsTable(tenantId: string) {
-  try {
-    // Check if the patients table exists and has the expected structure
-    const result = await db.query(
-      `SELECT EXISTS (
-         SELECT FROM information_schema.tables 
-         WHERE table_schema = 'public' 
-         AND table_name = 'patients'
-       );`,
-    )
-
-    return result.rows[0].exists
-  } catch (error) {
-    console.error("Error validating patients table:", error)
-    return false
+export async function createPatient(
+  data: Omit<Patient, "id" | "tenant_id" | "created_at" | "updated_at" | "deleted_at">,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<Patient | null> {
+  const patientData = {
+    ...data,
+    id: uuidv4(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }
+
+  return insert<Patient>("patients", patientData, tenantId)
 }
 
-export async function countAllPatients(tenantId: string) {
+export async function updatePatient(
+  id: string,
+  data: Partial<Patient>,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<Patient | null> {
+  const updateData = {
+    ...data,
+    updated_at: new Date().toISOString(),
+  }
+
+  return update<Patient>("patients", id, updateData, tenantId)
+}
+
+export async function deletePatient(id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<boolean> {
+  return remove("patients", id, tenantId, true)
+}
+
+export async function getPatientCount(tenantId: string = DEFAULT_TENANT_ID): Promise<number> {
   try {
-    const result = await db.query(`SELECT COUNT(*) FROM patients WHERE tenant_id = $1`, [tenantId])
-    return Number.parseInt(result.rows[0].count)
+    const query = `
+      SELECT COUNT(*) as count
+      FROM patients
+      WHERE tenant_id = $1 AND deleted_at IS NULL
+    `
+    const result = await sql.query(query, [tenantId])
+    return Number.parseInt(result.rows?.[0]?.count || "0", 10)
   } catch (error) {
     console.error("Error counting patients:", error)
-    return 0
+    throw error
   }
 }
 
-export async function getTenantsWithPatients() {
+export async function getPatientsByCondition(
+  condition: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<Patient[]> {
   try {
-    const result = await db.query(`SELECT DISTINCT tenant_id FROM patients`)
-    return result.rows.map((row) => row.tenant_id)
+    const query = `
+      SELECT * FROM patients
+      WHERE tenant_id = $1
+      AND deleted_at IS NULL
+      AND primary_condition ILIKE $2
+      ORDER BY last_name ASC, first_name ASC
+    `
+    const result = await sql.query(query, [tenantId, `%${condition}%`])
+    return result.rows as Patient[]
   } catch (error) {
-    console.error("Error fetching tenants with patients:", error)
-    return []
-  }
-}
-
-export async function createTestPatient(tenantId: string) {
-  try {
-    const testPatient = {
-      firstName: "Test",
-      lastName: "Patient",
-      dateOfBirth: "1990-01-01",
-      gender: "Other",
-      address: "123 Test Street",
-      phone: "07700900000",
-      email: "test.patient@example.com",
-    }
-
-    return await PatientService.createPatient(testPatient, tenantId, "system")
-  } catch (error) {
-    console.error("Error creating test patient:", error)
-    return null
+    console.error("Error getting patients by condition:", error)
+    throw error
   }
 }

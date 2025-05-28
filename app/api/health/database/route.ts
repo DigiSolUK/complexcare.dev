@@ -1,20 +1,24 @@
 import { NextResponse } from "next/server"
-import { sql } from "@/lib/db-manager"
+import { sql } from "@/lib/db-connection"
 
 export async function GET() {
   try {
-    // Simple query to check database connection
-    const result = await sql.query("SELECT 1 as health_check")
+    // Try to execute a simple query to check database connection
+    const result = await sql.query("SELECT version()")
 
-    if (result.rows && result.rows.length > 0) {
-      return NextResponse.json({ status: "healthy", message: "Database connection successful" })
-    } else {
-      return NextResponse.json({ status: "unhealthy", message: "Database query returned no results" }, { status: 500 })
-    }
+    return NextResponse.json({
+      success: true,
+      message: "Database connection successful",
+      version: result.rows?.[0]?.version || "Unknown",
+    })
   } catch (error) {
     console.error("Database health check failed:", error)
+
     return NextResponse.json(
-      { status: "unhealthy", message: "Database connection failed", error: String(error) },
+      {
+        success: false,
+        message: error instanceof Error ? error.message : "Database connection failed",
+      },
       { status: 500 },
     )
   }

@@ -1,56 +1,73 @@
-import { PageHeader } from "@/components/page-header"
+import { Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { RunMigrationButton } from "@/components/admin/run-migration-button"
-import { requirePermission } from "@/lib/auth/require-permission"
-import { AlertTriangle } from "lucide-react"
+import DatabaseConnectionCheck from "@/components/database-connection-check"
 
-export default async function DatabaseSettingsPage() {
-  // Check if user has admin permissions
-  const permissionCheck = await requirePermission(["admin", "superadmin"])
-
-  if (!permissionCheck.success) {
-    return (
-      <div className="container mx-auto py-10">
-        <Card>
-          <CardHeader>
-            <CardTitle>Unauthorized</CardTitle>
-            <CardDescription>You do not have permission to access database settings.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    )
-  }
-
+// Loading component for Suspense
+function LoadingCard() {
   return (
-    <div className="container mx-auto py-10">
-      <PageHeader heading="Database Settings" text="Manage database configuration and run migrations" />
+    <Card>
+      <CardHeader>
+        <CardTitle className="animate-pulse bg-gray-200 h-6 w-1/2 rounded"></CardTitle>
+        <CardDescription className="animate-pulse bg-gray-200 h-4 w-3/4 rounded"></CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="animate-pulse bg-gray-200 h-24 rounded"></div>
+      </CardContent>
+    </Card>
+  )
+}
 
-      <div className="grid gap-6">
+export default function DatabaseSettingsPage() {
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Database Settings</h2>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Suspense fallback={<LoadingCard />}>
+          <DatabaseConnectionCheck />
+        </Suspense>
+
         <Card>
           <CardHeader>
-            <CardTitle>Database Migrations</CardTitle>
-            <CardDescription>Run database migrations to update the schema</CardDescription>
+            <CardTitle>Database Information</CardTitle>
+            <CardDescription>Information about your NeonDB database</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="rounded-md bg-amber-50 p-4 border border-amber-200">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <AlertTriangle className="h-5 w-5 text-amber-400" aria-hidden="true" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-amber-800">Migration Information</h3>
-                    <div className="mt-2 text-sm text-amber-700">
-                      <p>
-                        This will add the missing <code>compliance_status</code> column to the credentials table. This
-                        migration is safe to run multiple times and will not affect existing data.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="font-medium">Type:</div>
+                <div>PostgreSQL (NeonDB)</div>
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="font-medium">Status:</div>
+                <div className="text-green-600">Connected</div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="font-medium">Environment:</div>
+                <div>Production</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <RunMigrationButton />
+        <Card>
+          <CardHeader>
+            <CardTitle>Database Diagnostics</CardTitle>
+            <CardDescription>Run diagnostics on your database</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <button className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Run Schema Validation
+              </button>
+              <button className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Check Database Performance
+              </button>
+              <button className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                View Database Logs
+              </button>
             </div>
           </CardContent>
         </Card>

@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from "uuid"
 import type { CareProfessional as CareProfessionalInterface } from "@/types"
 import { neon } from "@neondatabase/serverless"
 import { neon as neonDatabase } from "@neondatabase/serverless"
+import { getAll, getById, insert, update, remove, sql } from "../db-connection"
+import { DEFAULT_TENANT_ID } from "../constants"
 
 // Cache key prefix for care professionals
 const CACHE_PREFIX = "care-professional:"
@@ -145,27 +147,21 @@ export interface Credential {
   updated_at: Date
 }
 
-export interface CareProfessional {
+export type CareProfessional = {
   id: string
   tenant_id: string
   first_name: string
   last_name: string
-  email: string
-  phone_number: string
-  role: string
   title?: string
+  email: string
+  phone_number?: string
+  role: string
   specialization?: string
   qualifications?: string
   is_active: boolean
-  address?: string
-  postcode?: string
-  notes?: string
-  emergency_contact_relationship?: string
-  created_at: Date
-  updated_at: Date
-  created_by?: string
-  updated_by?: string
-  avatar_url?: string
+  created_at: string
+  updated_at: string
+  deleted_at?: string
 }
 
 export class CareProfessionalService {
@@ -314,7 +310,119 @@ export class CareProfessionalService {
 }
 
 // Simplified functions that use demo data when database fails
-export async function getAllCareProfessionals(tenantId: string) {
+export async function getAllCareProfessionals(
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+  offset = 0,
+): Promise<CareProfessional[]> {
+  return getAll<CareProfessional>("care_professionals", tenantId, limit, offset, "last_name ASC, first_name ASC")
+}
+
+export async function getCareProfessionalById(
+  id: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<CareProfessional | null> {
+  return getById<CareProfessional>("care_professionals", id, tenantId)
+}
+
+export async function searchCareProfessionals(
+  searchTerm: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+  offset = 0,
+): Promise<CareProfessional[]> {
+  try {
+    const query = `
+      SELECT * FROM care_professionals
+      WHERE tenant_id = $1
+      AND deleted_at IS NULL
+      AND (
+        first_name ILIKE $2 OR
+        last_name ILIKE $2 OR
+        email ILIKE $2 OR
+        role ILIKE $2 OR
+        specialization ILIKE $2
+      )
+      ORDER BY last_name ASC, first_name ASC
+      LIMIT $3 OFFSET $4
+    `
+    const result = await sql.query(query, [tenantId, `%${searchTerm}%`, limit, offset])
+    return result.rows as CareProfessional[]
+  } catch (error) {
+    console.error("Error searching care professionals:", error)
+    throw error
+  }
+}
+
+export async function createCareProfessional(
+  data: Omit<CareProfessional, "id" | "tenant_id" | "created_at" | "updated_at" | "deleted_at">,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<CareProfessional | null> {
+  const professionalData = {
+    ...data,
+    id: uuidv4(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+
+  return insert<CareProfessional>("care_professionals", professionalData, tenantId)
+}
+
+export async function updateCareProfessional(
+  id: string,
+  data: Partial<CareProfessional>,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<CareProfessional | null> {
+  const updateData = {
+    ...data,
+    updated_at: new Date().toISOString(),
+  }
+
+  return update<CareProfessional>("care_professionals", id, updateData, tenantId)
+}
+
+export async function deleteCareProfessional(id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<boolean> {
+  return remove("care_professionals", id, tenantId, true)
+}
+
+export async function getCareProfessionalsByRole(
+  role: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<CareProfessional[]> {
+  try {
+    const query = `
+      SELECT * FROM care_professionals
+      WHERE tenant_id = $1
+      AND deleted_at IS NULL
+      AND role ILIKE $2
+      ORDER BY last_name ASC, first_name ASC
+    `
+    const result = await sql.query(query, [tenantId, `%${role}%`])
+    return result.rows as CareProfessional[]
+  } catch (error) {
+    console.error("Error getting care professionals by role:", error)
+    throw error
+  }
+}
+
+export async function getActiveCareProfessionals(tenantId: string = DEFAULT_TENANT_ID): Promise<CareProfessional[]> {
+  try {
+    const query = `
+      SELECT * FROM care_professionals
+      WHERE tenant_id = $1
+      AND deleted_at IS NULL
+      AND is_active = true
+      ORDER BY last_name ASC, first_name ASC
+    `
+    const result = await sql.query(query, [tenantId])
+    return result.rows as CareProfessional[]
+  } catch (error) {
+    console.error("Error getting active care professionals:", error)
+    throw error
+  }
+}
+
+export async function getAllCareProfessionalsOld(tenantId: string) {
   try {
     const sql = neon(process.env.DATABASE_URL || "")
     const careProfessionals = await sql`
@@ -349,7 +457,7 @@ export async function getCareProfessionalByIdSql(id: string, tenantId: string) {
   }
 }
 
-export async function createCareProfessional(tenantId: string, data: Partial<CareProfessionalInterface>) {
+export async function createCareProfessionalOld(tenantId: string, data: Partial<CareProfessionalInterface>) {
   try {
     const sql = neon(process.env.DATABASE_URL || "")
     const [careProfessional] = await sql`
@@ -372,7 +480,11 @@ export async function createCareProfessional(tenantId: string, data: Partial<Car
   }
 }
 
-export async function updateCareProfessional(id: string, tenantId: string, data: Partial<CareProfessionalInterface>) {
+export async function updateCareProfessionalOld(
+  id: string,
+  tenantId: string,
+  data: Partial<CareProfessionalInterface>,
+) {
   try {
     const sql = neon(process.env.DATABASE_URL || "")
     const [careProfessional] = await sql`
@@ -399,20 +511,6 @@ export async function updateCareProfessional(id: string, tenantId: string, data:
   } catch (error) {
     console.error(`Error updating care professional with ID ${id}:`, error)
     return { careProfessional: null, error: "Failed to update care professional" }
-  }
-}
-
-export async function deleteCareProfessional(id: string, tenantId: string) {
-  try {
-    const sql = neon(process.env.DATABASE_URL || "")
-    await sql`
-      DELETE FROM care_professionals
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-    `
-    return { success: true, error: null }
-  } catch (error) {
-    console.error(`Error deleting care professional with ID ${id}:`, error)
-    return { success: false, error: "Failed to delete care professional" }
   }
 }
 
@@ -486,7 +584,7 @@ export async function getCareProfessionalCredentials(id: string, tenantId: strin
  * @param id The ID of the care professional to retrieve
  * @returns The care professional data
  */
-export async function getCareProfessionalById(id: string) {
+export async function getCareProfessionalByIdOld(id: string) {
   try {
     // Make sure we have a database URL
     if (!process.env.DATABASE_URL) {

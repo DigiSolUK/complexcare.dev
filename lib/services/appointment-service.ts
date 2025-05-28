@@ -1,115 +1,158 @@
-import { logActivity } from './activity-log-service'
+import { v4 as uuidv4 } from "uuid"
+import { getAll, getById, insert, update, remove, sql } from "../db-connection"
+import { DEFAULT_TENANT_ID } from "../constants"
 
-interface AppointmentData {
-  patient_id: string;
-  appointment_date: Date;
-  type: string;
-  // ... other appointment data
+export type Appointment = {
+  id: string
+  tenant_id: string
+  patient_id: string
+  care_professional_id: string
+  appointment_date: string
+  appointment_time: string
+  end_time: string
+  duration_minutes: number
+  status: string
+  appointment_type: string
+  location: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  deleted_at?: string
 }
 
-interface AppointmentUpdateData {
-  appointment_date?: Date;
-  type?: string;
-  // ... other updatable fields
+export async function getAllAppointments(
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+  offset = 0,
+): Promise<Appointment[]> {
+  return getAll<Appointment>("appointments", tenantId, limit, offset, "appointment_date DESC, appointment_time DESC")
 }
 
-interface CancellationData {
-  cancellation_reason: string;
+export async function getAppointmentById(
+  id: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<Appointment | null> {
+  return getById<Appointment>("appointments", id, tenantId)
 }
 
-interface Appointment {
-  id: string;
-  patient_id: string;
-  appointment_date: Date;
-  type: string;
-  // ... other appointment properties
-}
-
-// Mock database for demonstration purposes
-const appointments: Appointment[] = [];
-
-async function createAppointment(data: AppointmentData): Promise<Appointment> {
-  // Simulate creating an appointment in a database
-  const appointment: Appointment = {
-    id: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15), // Generate a random ID
-    patient_id: data.patient_id,
-    appointment_date: data.appointment_date,
-    type: data.type,
-    // ... other appointment properties
-  };
-
-  appointments.push(appointment);
-
-  // Log the activity
-  await logActivity({
-    activityType: 'appointment_created',
-    description: `Scheduled appointment for ${appointment.appointment_date}`,
-    patientId: data.patient_id,
-    metadata: { 
-      appointmentId: appointment.id,
-      appointmentDate: appointment.appointment_date,
-      appointmentType: data.type
-    }
-  })
-
-  return appointment;
-}
-
-async function getAppointment(id: string): Promise<Appointment | undefined> {
-  return appointments.find(appointment => appointment.id === id);
-}
-
-async function updateAppointment(id: string, data: AppointmentUpdateData): Promise<Appointment | undefined> {
-  const appointmentIndex = appointments.findIndex(appointment => appointment.id === id);
-
-  if (appointmentIndex === -1) {
-    return undefined; // Appointment not found
+export async function getAppointmentsByPatient(
+  patientId: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+  offset = 0,
+): Promise<Appointment[]> {
+  try {
+    const query = `
+      SELECT * FROM appointments
+      WHERE tenant_id = $1
+      AND patient_id = $2
+      AND deleted_at IS NULL
+      ORDER BY appointment_date DESC, appointment_time DESC
+      LIMIT $3 OFFSET $4
+    `
+    const result = await sql.query(query, [tenantId, patientId, limit, offset])
+    return result.rows as Appointment[]
+  } catch (error) {
+    console.error("Error getting appointments by patient:", error)
+    throw error
   }
+}
 
-  const appointment = appointments[appointmentIndex];
+export async function getAppointmentsByCareProfessional(
+  careProfessionalId: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 100,
+  offset = 0,
+): Promise<Appointment[]> {
+  try {
+    const query = `
+      SELECT * FROM appointments
+      WHERE tenant_id = $1
+      AND care_professional_id = $2
+      AND deleted_at IS NULL
+      ORDER BY appointment_date DESC, appointment_time DESC
+      LIMIT $3 OFFSET $4
+    `
+    const result = await sql.query(query, [tenantId, careProfessionalId, limit, offset])
+    return result.rows as Appointment[]
+  } catch (error) {
+    console.error("Error getting appointments by care professional:", error)
+    throw error
+  }
+}
 
-  // Update the appointment with the provided data
-  const updatedAppointment: Appointment = {
-    ...appointment,
+export async function getUpcomingAppointments(
+  tenantId: string = DEFAULT_TENANT_ID,
+  limit = 10,
+): Promise<Appointment[]> {
+  try {
+    const today = new Date().toISOString().split("T")[0]
+    const query = `
+      SELECT * FROM appointments
+      WHERE tenant_id = $1
+      AND deleted_at IS NULL
+      AND appointment_date >= $2
+      AND status = 'scheduled'
+      ORDER BY appointment_date ASC, appointment_time ASC
+      LIMIT $3
+    `
+    const result = await sql.query(query, [tenantId, today, limit])
+    return result.rows as Appointment[]
+  } catch (error) {
+    console.error("Error getting upcoming appointments:", error)
+    throw error
+  }
+}
+
+export async function createAppointment(
+  data: Omit<Appointment, "id" | "tenant_id" | "created_at" | "updated_at" | "deleted_at">,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<Appointment | null> {
+  const appointmentData = {
     ...data,
-  };
-
-  appointments[appointmentIndex] = updatedAppointment;
-
-  // Log the activity
-  await logActivity({
-    activityType: 'appointment_updated',
-    description: `Updated appointment details`,
-    patientId: appointment.patient_id,
-    metadata: { 
-      appointmentId: id,
-      updatedFields: Object.keys(data)
-    }
-  })
-
-  return updatedAppointment;
-}
-
-async function cancelAppointment(id: string, data: CancellationData): Promise<void> {
-  const appointmentIndex = appointments.findIndex(appointment => appointment.id === id);
-
-  if (appointmentIndex === -1) {
-    return; // Appointment not found
+    id: uuidv4(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }
 
-  const appointment = appointments[appointmentIndex];
-  appointments.splice(appointmentIndex, 1);
-
-  // Log the activity
-  await logActivity({
-    activityType: 'appointment_cancelled',
-    description: `Cancelled appointment`,
-    patientId: appointment.patient_id,
-    metadata: { 
-      appointmentId: id,
-      reason: data.cancellation_reason
-    }
-  })
+  return insert<Appointment>("appointments", appointmentData, tenantId)
 }
 
-export { createAppointment, getAppointment, updateAppointment, cancelAppointment };
+export async function updateAppointment(
+  id: string,
+  data: Partial<Appointment>,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<Appointment | null> {
+  const updateData = {
+    ...data,
+    updated_at: new Date().toISOString(),
+  }
+
+  return update<Appointment>("appointments", id, updateData, tenantId)
+}
+
+export async function deleteAppointment(id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<boolean> {
+  return remove("appointments", id, tenantId, true)
+}
+
+export async function getAppointmentsByDateRange(
+  startDate: string,
+  endDate: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+): Promise<Appointment[]> {
+  try {
+    const query = `
+      SELECT * FROM appointments
+      WHERE tenant_id = $1
+      AND deleted_at IS NULL
+      AND appointment_date >= $2
+      AND appointment_date <= $3
+      ORDER BY appointment_date ASC, appointment_time ASC
+    `
+    const result = await sql.query(query, [tenantId, startDate, endDate])
+    return result.rows as Appointment[]
+  } catch (error) {
+    console.error("Error getting appointments by date range:", error)
+    throw error
+  }
+}
