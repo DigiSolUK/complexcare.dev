@@ -17,3 +17,12 @@ export const PERMISSIONS = {
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
+
+export enum UserRole {
+  SUPER_ADMIN = "super_admin",
+  TENANT_ADMIN = "tenant_admin",
+  CARE_PROFESSIONAL = "care_professional",
+  PATIENT = "patient",
+}
+
+export type Permissions = typeof PERMISSIONS
