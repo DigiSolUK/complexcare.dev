@@ -2,7 +2,7 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 
 let sqlClient: NeonQueryFunction<false, false>
 
-function getNeonSqlClient(): NeonQueryFunction<false, false> {
+export function getNeonSqlClient(): NeonQueryFunction<false, false> {
   if (sqlClient) {
     return sqlClient
   }

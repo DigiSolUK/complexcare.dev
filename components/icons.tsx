@@ -81,3 +81,10 @@ export function Info(props: LucideProps) {
     </svg>
   )
 }
+
+export const Icons = {
+  xCircle: XCircle,
+  checkCircle: CheckCircle,
+  alertCircle: AlertCircle,
+  info: Info,
+}
