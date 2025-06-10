@@ -1,132 +1,86 @@
 import { NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { TaskService } from "@/lib/services/task-service"
+import { getCurrentUser } from "@/lib/auth-utils"
+import { z } from "zod"
+
+const taskUpdateSchema = z.object({
+  title: z.string().min(1, "Title is required").optional(),
+  description: z.string().optional().nullable(),
+  dueDate: z.string().datetime().optional().nullable(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
+  status: z.enum(["pending", "in_progress", "completed", "overdue"]).optional(),
+  assignedToId: z.string().optional().nullable(),
+  patientId: z.string().optional().nullable(), // New: patientId
+})
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check for demo mode
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      // Return a demo task
-      return NextResponse.json({
-        id: params.id,
-        title: "Demo Task",
-        description: "This is a demo task",
-        status: "pending",
-        priority: "medium",
-        dueDate: new Date().toISOString(),
-        assigned_to: "Demo User",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        tenant_id: "demo-tenant",
-      })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    // Get tenant ID from request
-    const url = new URL(request.url)
-    const tenantId =
-      request.headers.get("x-tenant-id") || url.searchParams.get("tenantId") || process.env.DEFAULT_TENANT_ID
+    const taskService = await TaskService.create()
+    const task = await taskService.getTaskById(params.id)
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    if (!task) {
+      return NextResponse.json({ message: "Task not found" }, { status: 404 })
     }
 
-    // Get task ID from params
-    const taskId = params.id
-
-    // Query task using the new API
-    const task = await sql.query("SELECT * FROM tasks WHERE id = $1 AND tenant_id = $2", [taskId, tenantId])
-
-    if (!task || task.length === 0) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 })
-    }
-
-    return NextResponse.json(task[0])
+    return NextResponse.json(task)
   } catch (error) {
-    console.error("Error fetching task:", error)
-    return NextResponse.json({ error: "Failed to fetch task" }, { status: 500 })
+    console.error("Failed to fetch task:", error)
+    return NextResponse.json({ message: "Failed to fetch task" }, { status: 500 })
   }
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check for demo mode
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      return NextResponse.json({ success: true, message: "Task updated successfully" })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    // Get tenant ID from request
-    const url = new URL(request.url)
-    const tenantId =
-      request.headers.get("x-tenant-id") || url.searchParams.get("tenantId") || process.env.DEFAULT_TENANT_ID
+    const body = await request.json()
+    const validatedData = taskUpdateSchema.parse(body)
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    const taskService = await TaskService.create()
+    const updatedTask = await taskService.updateTask(params.id, {
+      ...validatedData,
+      dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined,
+    })
+
+    if (!updatedTask) {
+      return NextResponse.json({ message: "Task not found or update failed" }, { status: 404 })
     }
 
-    // Get task ID from params
-    const taskId = params.id
-
-    // Parse request body
-    const { title, description, status, priority, due_date, assigned_to } = await request.json()
-
-    // Update task using the new API
-    const result = await sql.query(
-      `UPDATE tasks
-      SET 
-        title = COALESCE($3, title),
-        description = COALESCE($4, description),
-        status = COALESCE($5, status),
-        priority = COALESCE($6, priority),
-        due_date = COALESCE($7, due_date),
-        assigned_to = COALESCE($8, assigned_to),
-        updated_at = NOW()
-      WHERE id = $1 AND tenant_id = $2
-      RETURNING *`,
-      [taskId, tenantId, title, description, status, priority, due_date, assigned_to],
-    )
-
-    if (!result || result.length === 0) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    return NextResponse.json(updatedTask)
+  } catch (error: any) {
+    console.error("Failed to update task:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Invalid input", errors: error.errors }, { status: 400 })
     }
-
-    return NextResponse.json(result[0])
-  } catch (error) {
-    console.error("Error updating task:", error)
-    return NextResponse.json({ error: "Failed to update task" }, { status: 500 })
+    return NextResponse.json({ message: "Failed to update task" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check for demo mode
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      return NextResponse.json({ success: true, message: "Task deleted successfully" })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    // Get tenant ID from request
-    const url = new URL(request.url)
-    const tenantId =
-      request.headers.get("x-tenant-id") || url.searchParams.get("tenantId") || process.env.DEFAULT_TENANT_ID
+    const taskService = await TaskService.create()
+    const success = await taskService.deleteTask(params.id)
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    if (!success) {
+      return NextResponse.json({ message: "Task not found or deletion failed" }, { status: 404 })
     }
 
-    // Get task ID from params
-    const taskId = params.id
-
-    // Delete task using the new API
-    const result = await sql.query("DELETE FROM tasks WHERE id = $1 AND tenant_id = $2 RETURNING id", [
-      taskId,
-      tenantId,
-    ])
-
-    if (!result || result.length === 0) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 })
-    }
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ message: "Task deleted successfully" }, { status: 200 })
   } catch (error) {
-    console.error("Error deleting task:", error)
-    return NextResponse.json({ error: "Failed to delete task" }, { status: 500 })
+    console.error("Failed to delete task:", error)
+    return NextResponse.json({ message: "Failed to delete task" }, { status: 500 })
   }
 }

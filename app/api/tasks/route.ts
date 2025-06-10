@@ -1,153 +1,63 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
-import { tenantQuery } from "@/lib/db-utils"
+import { NextResponse } from "next/server"
+import { TaskService } from "@/lib/services/task-service"
+import { getCurrentUser } from "@/lib/auth-utils"
+import { z } from "zod"
+import type { Task } from "@/lib/types"
 
-// Demo data for tasks
-const demoTasks = [
-  {
-    id: "1",
-    title: "Review medication for John Smith",
-    description: "Check for interactions with new prescription",
-    status: "pending",
-    priority: "high",
-    dueDate: new Date(Date.now() + 86400000).toISOString(),
-    assigned_to: "Dr. Johnson",
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-    tenant_id: "demo-tenant",
-  },
-  {
-    id: "2",
-    title: "Schedule follow-up appointment for Sarah Johnson",
-    description: "Need to check progress after therapy session",
-    status: "in-progress",
-    priority: "medium",
-    dueDate: new Date(Date.now() + 172800000).toISOString(),
-    assigned_to: "Nurse Williams",
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-    updated_at: new Date().toISOString(),
-    tenant_id: "demo-tenant",
-  },
-  {
-    id: "3",
-    title: "Update care plan for Michael Brown",
-    description: "Incorporate new physical therapy recommendations",
-    status: "completed",
-    priority: "medium",
-    dueDate: new Date(Date.now() - 86400000).toISOString(),
-    assigned_to: "Dr. Smith",
-    created_at: new Date(Date.now() - 259200000).toISOString(),
-    updated_at: new Date(Date.now() - 43200000).toISOString(),
-    tenant_id: "demo-tenant",
-  },
-  {
-    id: "4",
-    title: "Process insurance claim for Emily Wilson",
-    description: "Submit documentation for recent hospital stay",
-    status: "pending",
-    priority: "high",
-    dueDate: new Date(Date.now() + 43200000).toISOString(),
-    assigned_to: "Admin Staff",
-    created_at: new Date(Date.now() - 129600000).toISOString(),
-    updated_at: new Date().toISOString(),
-    tenant_id: "demo-tenant",
-  },
-  {
-    id: "5",
-    title: "Order medical supplies for David Taylor",
-    description: "Need new mobility aids and wound dressings",
-    status: "in-progress",
-    priority: "low",
-    dueDate: new Date(Date.now() + 259200000).toISOString(),
-    assigned_to: "Supply Manager",
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    updated_at: new Date(Date.now() - 43200000).toISOString(),
-    tenant_id: "demo-tenant",
-  },
-]
+const taskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional().nullable(),
+  dueDate: z.string().datetime().optional().nullable(),
+  priority: z.enum(["low", "medium", "high"]),
+  status: z.enum(["pending", "in_progress", "completed", "overdue"]),
+  assignedToId: z.string().optional().nullable(),
+  patientId: z.string().optional().nullable(), // New: patientId
+})
 
-const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
-
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const patientId = searchParams.get("patientId")
-
-    let query = `SELECT * FROM tasks WHERE tenant_id = $1`
-    const params = [DEFAULT_TENANT_ID]
-
-    // Filter by patient if patientId is provided
-    if (patientId) {
-      query += ` AND related_to_type = 'patient' AND related_to_id = $2`
-      params.push(patientId)
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    query += ` ORDER BY due_date ASC`
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get("status") as Task["status"] | undefined
+    const assignedToId = searchParams.get("assignedToId") || undefined
+    const patientId = searchParams.get("patientId") || undefined // New: patientId filter
 
-    const tasks = await tenantQuery(DEFAULT_TENANT_ID, query, params)
+    const taskService = await TaskService.create()
+    const tasks = await taskService.getTasks({ status, assignedToId, patientId })
 
     return NextResponse.json(tasks)
   } catch (error) {
-    console.error("Error fetching tasks:", error)
-    return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 })
+    console.error("Failed to fetch tasks:", error)
+    return NextResponse.json({ message: "Failed to fetch tasks" }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   try {
-    // Check for demo mode
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      return NextResponse.json({ success: true, message: "Task created successfully" })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    // Get tenant ID from request
-    const url = new URL(request.url)
-    const tenantId =
-      request.headers.get("x-tenant-id") || url.searchParams.get("tenantId") || process.env.DEFAULT_TENANT_ID
+    const body = await request.json()
+    const validatedData = taskSchema.parse(body)
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    const taskService = await TaskService.create()
+    const newTask = await taskService.createTask({
+      ...validatedData,
+      dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
+    })
+
+    return NextResponse.json(newTask, { status: 201 })
+  } catch (error: any) {
+    console.error("Failed to create task:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Invalid input", errors: error.errors }, { status: 400 })
     }
-
-    // Parse request body
-    const { title, description, status, priority, due_date, assigned_to } = await request.json()
-
-    // Validate required fields
-    if (!title) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 })
-    }
-
-    // Insert task using the new API
-    const result = await sql.query(
-      `INSERT INTO tasks (
-        title, 
-        description, 
-        status, 
-        priority, 
-        due_date, 
-        assigned_to, 
-        tenant_id, 
-        created_at, 
-        updated_at
-      )
-      VALUES (
-        $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
-      )
-      RETURNING *`,
-      [
-        title,
-        description || null,
-        status || "pending",
-        priority || "medium",
-        due_date || null,
-        assigned_to || null,
-        tenantId,
-      ],
-    )
-
-    return NextResponse.json(result[0], { status: 201 })
-  } catch (error) {
-    console.error("Error creating task:", error)
-    return NextResponse.json({ error: "Failed to create task" }, { status: 500 })
+    return NextResponse.json({ message: "Failed to create task" }, { status: 500 })
   }
 }
