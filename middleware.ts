@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { getServerSession } from "@/lib/auth/stack-auth-server" // Ensure this path is correct
+import { getServerSession } from "@/lib/auth/stack-auth-server"
 
 const PUBLIC_PATHS = [
   "/login",
-  "/signup", // New public path for signup page
+  "/signup",
   "/api/auth/stack/signin",
-  "/api/auth/stack/signup", // New public path for signup API
+  "/api/auth/stack/signup",
   "/api/auth/stack/session",
   "/",
   "/features",
@@ -18,7 +18,6 @@ const PUBLIC_PATHS = [
   "/blog",
   "/api/public",
   "/api/health",
-  // "/api/diagnostics/database", // Review if this should be public
 ]
 
 const AUTH_REDIRECT_PATH = "/login"
@@ -51,7 +50,6 @@ export async function middleware(request: NextRequest) {
   }
 
   const requestHeaders = new Headers(request.headers)
-  // Ensure tenantId comes from the validated session user payload
   const tenantId = session.user.tenantId || process.env.DEFAULT_TENANT_ID
 
   if (tenantId) {
@@ -62,6 +60,18 @@ export async function middleware(request: NextRequest) {
     )
   }
 
+  // --- RBAC Enforcement Example in Middleware ---
+  // This is a basic example. For complex RBAC, use `hasPermission` in API routes/Server Actions.
+  if (pathname.startsWith("/superadmin") && session.user.role !== "superadmin") {
+    console.warn(
+      `Access denied: User ${session.user.userId} with role '${session.user.role}' tried to access superadmin path.`,
+    )
+    return NextResponse.redirect(new URL("/unauthorized", request.url)) // Redirect to an unauthorized page
+  }
+  // Add more role-based checks as needed for other sensitive routes
+  // Example: if (pathname.startsWith("/admin") && !["admin", "superadmin"].includes(session.user.role)) { ... }
+  // --- End RBAC Enforcement Example ---
+
   return NextResponse.next({
     request: {
       headers: requestHeaders,
@@ -70,7 +80,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!api/auth/stack/signout|_next/static|_next/image|favicon.ico|.*\\..*).*)", // Exclude signout, static, images, files with extensions
-  ],
+  matcher: ["/((?!api/auth/stack/signout|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 }

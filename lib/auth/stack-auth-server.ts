@@ -23,7 +23,8 @@ interface UserPayload {
   userId: string
   email: string
   name?: string
-  tenantId: string // Ensure tenantId is part of the JWT payload
+  tenantId: string
+  role: string // Added role to the JWT payload
   // Add other relevant user fields to payload
 }
 
@@ -64,20 +65,18 @@ export async function getServerSession(
 
   let token: string | undefined
 
-  // Prefer Authorization header (Bearer token) for API requests
   const authHeader = req?.headers.get("Authorization")
   if (authHeader?.startsWith("Bearer ")) {
     token = authHeader.substring(7)
   }
 
-  // Fallback to cookie-based session for web requests
   if (!token) {
     const cookieStore = cookies()
-    token = cookieStore.get("auth_session_token")?.value // Use a consistent cookie name
+    token = cookieStore.get("auth_session_token")?.value
   }
 
   if (!token) {
-    return null // No token found
+    return null
   }
 
   const decodedPayload = verifyJwtToken(token)
@@ -92,7 +91,6 @@ export async function getServerSession(
   return { user: null, error: "Invalid or expired session token." }
 }
 
-// Utility to protect API routes or Server Actions
 export async function requireAuth(
   req?: NextRequest,
 ): Promise<{ user: UserPayload; tenantId: string } | { error: string; status: number }> {
@@ -101,7 +99,6 @@ export async function requireAuth(
     return { error: session?.error || "Unauthorized", status: 401 }
   }
   if (!session.user.tenantId) {
-    // Fallback to default tenant if not in token, though it should be.
     const defaultTenantId = process.env.DEFAULT_TENANT_ID
     if (!defaultTenantId) {
       return { error: "Tenant ID not found for user and no default configured.", status: 403 }
@@ -111,11 +108,11 @@ export async function requireAuth(
   return { user: session.user, tenantId: session.user.tenantId }
 }
 
-// Function to get user by email from Neon DB
+// Function to get user by email from Neon DB, now including role
 export async function getUserByEmail(email: string) {
   try {
     const result =
-      await sql`SELECT id, email, hashed_password, name, tenant_id, avatar_url FROM users WHERE email = ${email}`
+      await sql`SELECT id, email, hashed_password, name, tenant_id, role, avatar_url FROM users WHERE email = ${email}`
     return result.rows[0] || null
   } catch (error) {
     console.error("Error fetching user by email:", error)
@@ -123,10 +120,10 @@ export async function getUserByEmail(email: string) {
   }
 }
 
-// Function to get user by ID from Neon DB
+// Function to get user by ID from Neon DB, now including role
 export async function getUserById(userId: string) {
   try {
-    const result = await sql`SELECT id, email, name, tenant_id, avatar_url FROM users WHERE id = ${userId}`
+    const result = await sql`SELECT id, email, name, tenant_id, role, avatar_url FROM users WHERE id = ${userId}`
     return result.rows[0] || null
   } catch (error) {
     console.error("Error fetching user by ID:", error)

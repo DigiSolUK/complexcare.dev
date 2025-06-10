@@ -1,14 +1,14 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { getStackAuthClient } from "./auth/stack-auth-client"
 
 interface User {
-  id: string // Changed from userId to id to match the user object returned by API
+  id: string
   email: string
   name?: string
   tenantId: string
-  // Add other user properties from Stack Auth
+  role: string // Added role to the client-side User interface
 }
 
 interface AuthContextType {
@@ -30,7 +30,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export const AuthProvider = ({ children }: { ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(true)

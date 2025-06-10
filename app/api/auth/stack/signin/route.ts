@@ -24,8 +24,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (!user.tenant_id) {
-      // Handle case where tenant_id might be null, or assign a default if appropriate
-      // For now, we'll prevent login if tenant_id is missing, as it's crucial for multi-tenancy.
       console.error(`User ${user.id} is missing tenant_id.`)
       return NextResponse.json(
         { error: "User account configuration error. Missing tenant association." },
@@ -37,7 +35,8 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       email: user.email,
       name: user.name,
-      tenantId: user.tenant_id, // Ensure tenant_id is included
+      tenantId: user.tenant_id,
+      role: user.role || "user", // Include role, default to 'user' if not set
     }
 
     const token = generateJwtToken(userPayload)
@@ -53,7 +52,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      user: { id: user.id, email: user.email, name: user.name, tenantId: user.tenant_id },
+      user: { id: user.id, email: user.email, name: user.name, tenantId: user.tenant_id, role: user.role },
     })
   } catch (error) {
     console.error("Sign-in API error:", error)

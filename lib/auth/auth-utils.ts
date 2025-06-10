@@ -1,40 +1,64 @@
 import { getServerSession } from "@/lib/auth/stack-auth-server"
+import { neon } from "@neondatabase/serverless"
 import type { Permission } from "./permissions"
+
+const DATABASE_URL = process.env.DATABASE_URL
+if (!DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is not set for auth-utils.")
+}
+const sql = neon(DATABASE_URL)
 
 export async function getCurrentUserId(): Promise<string | null> {
   const session = await getServerSession()
-  return session?.user?.id ?? null
+  return session?.user?.userId || null
 }
 
-/**
- * Checks if the current user has a specific permission.
- * NOTE: This is a placeholder implementation. A real implementation would
- * check the user's role and the role's associated permissions from the database.
- */
-export async function hasPermission(permission: Permission): Promise<boolean> {
+export async function getCurrentTenantId(): Promise<string | null> {
   const session = await getServerSession()
-  if (!session?.user) {
+  return session?.user?.tenantId || process.env.DEFAULT_TENANT_ID || null
+}
+
+export async function getCurrentUserRole(): Promise<string | null> {
+  const session = await getServerSession()
+  return session?.user?.role || null
+}
+
+export async function hasPermission(
+  permissionToCheck: Permission,
+  userId?: string,
+  tenantId?: string,
+): Promise<boolean> {
+  const currentUserId = userId || (await getCurrentUserId())
+  const currentTenantId = tenantId || (await getCurrentTenantId())
+  const currentUserRole = await getCurrentUserRole() // Get role from session
+
+  if (!currentUserId || !currentTenantId || !currentUserRole) {
+    console.warn("hasPermission check: User ID, Tenant ID, or Role is missing.")
     return false
   }
 
-  // In a real app, you'd fetch user roles/permissions from your DB
-  // For now, we can use a simple logic, e.g., based on user's role from session
-  const userRole = session.user.role // Assuming role is part of the user session object
-
-  // Example logic:
-  if (userRole === "superadmin") {
+  // Direct role-based checks (simplified for common roles)
+  if (currentUserRole === "superadmin") {
     return true // Superadmin has all permissions
   }
 
-  if (userRole === "admin") {
-    // Admin has most permissions except superadmin ones
-    return !permission.startsWith("super:")
+  // For other roles, you'd typically query a `role_permissions` table.
+  // This is a placeholder for that logic.
+  try {
+    // Example: Fetch permissions associated with the user's current role
+    // This assumes a `roles` table and a `role_permissions` table
+    // roles (id UUID, name TEXT)
+    // role_permissions (role_id UUID, permission_name TEXT)
+    const permissionsResult = await sql`
+      SELECT rp.permission_name
+      FROM roles r
+      JOIN role_permissions rp ON r.id = rp.role_id
+      WHERE r.name = ${currentUserRole}
+        AND rp.permission_name = ${permissionToCheck}
+    `
+    return permissionsResult.rows.length > 0
+  } catch (dbError) {
+    console.error("Database error during permission check:", dbError)
+    return false
   }
-
-  if (userRole === "user") {
-    // Basic users might only have read permissions
-    return permission.endsWith(":read")
-  }
-
-  return false
 }
