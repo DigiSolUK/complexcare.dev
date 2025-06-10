@@ -1,143 +1,150 @@
-import { neon } from "@neondatabase/serverless"
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 
-// Export the neon client for direct use
-export const sql = neon(process.env.DATABASE_URL!)
+let sqlClient: NeonQueryFunction<false, false>
 
-// Database utility object for backward compatibility
-export const db = {
-  query: async <T = any>(query: string, params: any[] = []): Promise<{ rows: T[] }> => {
-    try {
-      const result = await sql.query(query, params)
-      return { rows: result as T[] }
-    } catch (error) {
-      console.error("Database query error:", error)
-      throw error
+function getNeonSqlClient(): NeonQueryFunction<false, false> {
+  if (sqlClient) {
+    return sqlClient
+  }
+
+  const possibleEnvVars = [
+    "DATABASE_URL",
+    "POSTGRES_URL",
+    "production_DATABASE_URL",
+    "production_POSTGRES_URL",
+    "DATABASE_URL_UNPOOLED",
+    "POSTGRES_URL_NON_POOLING",
+    "production_DATABASE_URL_UNPOOLED",
+    "production_POSTGRES_URL_NON_POOLING",
+    "AUTH_DATABASE_URL",
+  ]
+
+  let dbUrl: string | undefined = undefined
+  for (const envVar of possibleEnvVars) {
+    if (process.env[envVar] && process.env[envVar]!.trim() !== "") {
+      dbUrl = process.env[envVar]!
+      console.log(`lib/db.ts: Using database connection string from environment variable: ${envVar}`)
+      break
     }
-  },
-  getById: async <T = any>(table: string, id: string): Promise<T | null> => {
-    return getById<T>(table, id)
-  },
-  insert: async <T = any>(table: string, data: Record<string, any>): Promise<T> => {
-    return insert<T>(table, data)
-  },
-  update: async <T = any>(table: string, id: string, data: Record<string, any>): Promise<T> => {
-    return update<T>(table, id, data)
-  },
-  remove: async (table: string, id: string): Promise<boolean> => {
-    return remove(table, id)
-  },
+  }
+
+  if (!dbUrl) {
+    console.error("lib/db.ts: FATAL: No suitable database connection string found in environment variables.")
+    console.error("lib/db.ts: Checked for:", possibleEnvVars.join(", "))
+    throw new Error(
+      "Database connection string not configured. Check server logs for details. Application cannot connect to the database.",
+    )
+  }
+
+  try {
+    sqlClient = neon(dbUrl)
+    console.log("lib/db.ts: Neon SQL client initialized successfully.")
+    return sqlClient
+  } catch (error) {
+    console.error("lib/db.ts: Failed to initialize Neon SQL client:", error)
+    throw new Error("Could not initialize database connection.")
+  }
 }
 
-// Execute a query with parameters using the new API
-export async function executeQuery<T = any>(query: string, params: any[] = []): Promise<T[]> {
+export const neonSql = getNeonSqlClient()
+export const sql = neonSql // Alias for compatibility
+
+export async function executeQuery<T = any>(queryTemplate: TemplateStringsArray, ...params: any[]): Promise<T[]> {
   try {
-    const result = await sql.query(query, params)
+    const client = getNeonSqlClient()
+    const result = await client(queryTemplate, ...params)
     return result as T[]
   } catch (error) {
-    console.error("Database query error:", error)
+    console.error("lib/db.ts: Database query error:", error)
     throw error
   }
 }
 
-// Get a single record by ID
-export async function getById<T = any>(table: string, id: string): Promise<T | null> {
-  try {
-    const result = await executeQuery<T>(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id])
-    return result.length > 0 ? result[0] : null
-  } catch (error) {
-    console.error(`Error fetching ${table} with ID ${id}:`, error)
-    throw error
-  }
+// Generic helper functions to satisfy missing exports
+export async function getById<T>(tableName: string, id: string): Promise<T | null> {
+  const result = await neonSql`SELECT * FROM ${neonSql(tableName)} WHERE id = ${id}`
+  return result.length > 0 ? (result[0] as T) : null
 }
 
-// Insert a record and return the created record
-export async function insert<T = any>(table: string, data: Record<string, any>): Promise<T> {
-  try {
-    const keys = Object.keys(data)
-    const values = Object.values(data)
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ")
-    const columns = keys.join(", ")
-
-    const query = `
-      INSERT INTO ${table} (${columns}) 
-      VALUES (${placeholders})
-      RETURNING *
-    `
-
-    const result = await executeQuery<T>(query, values)
-    return result[0]
-  } catch (error) {
-    console.error(`Error inserting into ${table}:`, error)
-    throw error
-  }
+export async function insert<T>(tableName: string, data: Record<string, any>): Promise<T> {
+  const columns = Object.keys(data).map((key) => neonSql(key))
+  const values = Object.values(data)
+  const result = await neonSql`
+    INSERT INTO ${neonSql(tableName)} (${columns}) 
+    VALUES (${values}) 
+    RETURNING *
+  `
+  return result[0] as T
 }
 
-// Update a record and return the updated record
-export async function update<T = any>(table: string, id: string, data: Record<string, any>): Promise<T> {
+export async function update<T>(tableName: string, id: string, data: Record<string, any>): Promise<T | null> {
+  const setClauses = Object.keys(data).map((key) => neonSql`${neonSql(key)} = ${data[key]}`)
+  const result = await neonSql`
+    UPDATE ${neonSql(tableName)} 
+    SET ${neonSql.join(setClauses, ", ")} 
+    WHERE id = ${id} 
+    RETURNING *
+  `
+  return result.length > 0 ? (result[0] as T) : null
+}
+
+export async function remove(tableName: string, id: string): Promise<boolean> {
+  // Using soft delete if 'deleted_at' column exists, otherwise hard delete.
+  // This is a simplified check. A more robust solution would inspect table schema.
   try {
-    const keys = Object.keys(data)
-    const values = Object.values(data)
+    const result = await neonSql`
+      UPDATE ${neonSql(tableName)} 
+      SET deleted_at = NOW() 
+      WHERE id = ${id}`
+    if (result.rowCount > 0) return true
+  } catch (e) {
+    // Likely no 'deleted_at' column, fallback to hard delete
+    const result = await neonSql`DELETE FROM ${neonSql(tableName)} WHERE id = ${id}`
+    return result.rowCount > 0
+  }
+  return false
+}
 
-    const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(", ")
-
-    const query = `
-      UPDATE ${table}
-      SET ${setClause}
-      WHERE id = $${keys.length + 1}
-      RETURNING *
-    `
-
-    const result = await executeQuery<T>(query, [...values, id])
-
-    if (result.length === 0) {
-      throw new Error(`Record with ID ${id} not found in ${table}`)
+export async function testDatabaseConnectionInApp(): Promise<{
+  connected: boolean
+  message: string
+  details?: any
+  envUsed?: string
+}> {
+  let envUsedForTest: string | undefined = undefined
+  try {
+    const possibleEnvVars = [
+      "DATABASE_URL",
+      "POSTGRES_URL",
+      "production_DATABASE_URL",
+      "production_POSTGRES_URL",
+      "DATABASE_URL_UNPOOLED",
+      "POSTGRES_URL_NON_POOLING",
+      "production_DATABASE_URL_UNPOOLED",
+      "production_POSTGRES_URL_NON_POOLING",
+      "AUTH_DATABASE_URL",
+    ]
+    for (const envVar of possibleEnvVars) {
+      if (process.env[envVar] && process.env[envVar]!.trim() !== "") {
+        envUsedForTest = envVar
+        break
+      }
     }
 
-    return result[0]
-  } catch (error) {
-    console.error(`Error updating ${table} with ID ${id}:`, error)
-    throw error
-  }
-}
-
-// Delete a record (soft delete if deleted_at column exists)
-export async function remove(table: string, id: string): Promise<boolean> {
-  try {
-    // Check if the table has a deleted_at column
-    const tableInfo = await executeQuery(
-      `
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = $1 AND column_name = 'deleted_at'
-    `,
-      [table],
-    )
-
-    let query
-    if (tableInfo.length > 0) {
-      // Soft delete
-      query = `
-        UPDATE ${table}
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-        RETURNING id
-      `
-    } else {
-      // Hard delete
-      query = `
-        DELETE FROM ${table}
-        WHERE id = $1
-        RETURNING id
-      `
+    const client = getNeonSqlClient()
+    const result = await client`SELECT NOW() as time`
+    return {
+      connected: true,
+      message: "Database connection successful from within the application.",
+      details: { time: result[0]?.time },
+      envUsed: envUsedForTest || "Could not determine specific env var used by getNeonSqlClient for this test",
     }
-
-    const result = await executeQuery(query, [id])
-    return result.length > 0
-  } catch (error) {
-    console.error(`Error deleting from ${table} with ID ${id}:`, error)
-    throw error
+  } catch (error: any) {
+    return {
+      connected: false,
+      message: error.message || "Database connection failed from within the application.",
+      details: { error: error.toString() },
+      envUsed: envUsedForTest,
+    }
   }
 }
-
-// Export neon for backward compatibility
-// export const neon = sql

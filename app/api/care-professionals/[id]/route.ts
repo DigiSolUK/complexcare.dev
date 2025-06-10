@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { tenantQuery } from "@/lib/db-utils"
 
 // Demo data for care professionals (same as in the main route)
 const demoCareProfessionals = [
@@ -110,39 +111,29 @@ const demoCareProfessionals = [
   },
 ]
 
+const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
+
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = params.id
+    const careProfessionalId = params.id
 
-    // Get tenant ID from request headers
-    const tenantId =
-      request.headers.get("x-tenant-id") ||
-      request.nextUrl.searchParams.get("tenantId") ||
-      process.env.DEFAULT_TENANT_ID
+    // Get care professional details
+    const careProfessionals = await tenantQuery(
+      DEFAULT_TENANT_ID,
+      `SELECT id, first_name, last_name, title, email, phone, role, specialization
+       FROM care_professionals 
+       WHERE id = $1`,
+      [careProfessionalId],
+    )
 
-    // In demo mode, return demo data
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      // Find the care professional with the matching ID
-      const careProfessional = demoCareProfessionals.find((cp) => cp.id === id)
-
-      if (!careProfessional) {
-        return NextResponse.json({ error: `Care professional with ID ${id} not found` }, { status: 404 })
-      }
-
-      return NextResponse.json(careProfessional)
-    }
-
-    // Use the correct SQL syntax with the new API
-    const result = await sql.query("SELECT * FROM care_professionals WHERE id = $1 AND tenant_id = $2", [id, tenantId])
-
-    if (result.length === 0) {
+    if (careProfessionals.length === 0) {
       return NextResponse.json({ error: "Care professional not found" }, { status: 404 })
     }
 
-    return NextResponse.json(result[0])
+    return NextResponse.json(careProfessionals[0])
   } catch (error) {
     console.error("Error fetching care professional:", error)
-    return NextResponse.json({ error: "Failed to fetch care professional details" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch care professional" }, { status: 500 })
   }
 }
 

@@ -1,125 +1,61 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import type { Tenant } from "@/types"
+import { createContext, useContext, type ReactNode, useState, useEffect } from "react"
 
-interface TenantContextType {
-  currentTenant: Tenant | null
-  tenants: Tenant[]
-  isLoading: boolean
-  error: string | null
-  switchTenant: (tenantId: string) => Promise<void>
-  refreshTenants: () => Promise<void>
+// Define tenant type
+export type Tenant = {
+  id: string
+  name: string
+  branding?: {
+    logoUrl?: string
+    primaryColor?: string
+  }
 }
 
+// Create a demo tenant
+const demoTenant: Tenant = {
+  id: "ba367cfe-6de0-4180-9566-1002b75cf82c",
+  name: "ComplexCare UK",
+  branding: {
+    logoUrl: "/intertwined-circles.png",
+    primaryColor: "#4f46e5",
+  },
+}
+
+// Define the tenant context type
+type TenantContextType = {
+  currentTenant: Tenant | null
+  isLoading: boolean
+  error: Error | null
+}
+
+// Create the tenant context with default values
 const TenantContext = createContext<TenantContextType>({
   currentTenant: null,
-  tenants: [],
   isLoading: true,
   error: null,
-  switchTenant: async () => {},
-  refreshTenants: async () => {},
 })
 
-export const useTenant = () => useContext(TenantContext)
-
-export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null)
-  const [tenants, setTenants] = useState<Tenant[]>([])
+// Tenant provider component
+export function TenantProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchTenants = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Fetch user's tenants
-      const response = await fetch("/api/user/tenants")
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch tenants")
-      }
-
-      const tenantsData = await response.json()
-      setTenants(tenantsData)
-
-      // Fetch primary tenant
-      const primaryResponse = await fetch("/api/user/tenants/primary")
-
-      if (primaryResponse.ok) {
-        const primaryTenant = await primaryResponse.json()
-        setCurrentTenant(primaryTenant)
-      } else if (tenantsData.length > 0) {
-        // If no primary tenant is set but user has tenants, use the first one
-        setCurrentTenant(tenantsData[0])
-      }
-    } catch (err) {
-      console.error("Error fetching tenants:", err)
-      setError("Failed to load tenants. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const switchTenant = async (tenantId: string) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Find the tenant in the list
-      const tenant = tenants.find((t) => t.id === tenantId)
-
-      if (!tenant) {
-        throw new Error("Tenant not found")
-      }
-
-      // Set as primary tenant
-      const response = await fetch("/api/user/tenants/primary", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ tenantId }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to switch tenant")
-      }
-
-      setCurrentTenant(tenant)
-
-      // Reload the page to refresh data for the new tenant
-      window.location.reload()
-    } catch (err) {
-      console.error("Error switching tenant:", err)
-      setError("Failed to switch tenant. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const refreshTenants = async () => {
-    await fetchTenants()
-  }
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null)
+  const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
-    fetchTenants()
+    // Simulate loading the tenant
+    const timer = setTimeout(() => {
+      setCurrentTenant(demoTenant)
+      setIsLoading(false)
+    }, 500)
+
+    return () => clearTimeout(timer)
   }, [])
 
-  return (
-    <TenantContext.Provider
-      value={{
-        currentTenant,
-        tenants,
-        isLoading,
-        error,
-        switchTenant,
-        refreshTenants,
-      }}
-    >
-      {children}
-    </TenantContext.Provider>
-  )
+  return <TenantContext.Provider value={{ currentTenant, isLoading, error }}>{children}</TenantContext.Provider>
+}
+
+// Hook to use the tenant context
+export function useTenant() {
+  return useContext(TenantContext)
 }

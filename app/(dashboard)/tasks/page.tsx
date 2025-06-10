@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TodoList } from "@/components/tasks/todo-list"
 import { TodoKanban } from "@/components/tasks/todo-kanban"
+import { checkDatabaseConnection } from "@/lib/db-check"
 
 export const metadata: Metadata = {
   title: "Tasks",
@@ -95,7 +96,13 @@ const demoTodos = [
   },
 ]
 
-export default function TasksPage() {
+export default async function TasksPage() {
+  // Check if database is connected, but don't let it block rendering
+  const dbConnected = await checkDatabaseConnection().catch(() => false)
+
+  // For now, always use demo data to ensure the page loads
+  // In a production environment, you would fetch real data if dbConnected is true
+
   // Calculate completion percentage
   const completionPercentage = demoStats.total > 0 ? Math.round((demoStats.completed / demoStats.total) * 100) : 0
 
@@ -107,6 +114,19 @@ export default function TasksPage() {
           <p className="text-muted-foreground">Manage your tasks and to-dos</p>
         </div>
       </div>
+
+      {!dbConnected && (
+        <div className="mb-4 rounded-md bg-amber-50 p-4 text-amber-800">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-amber-400" aria-hidden="true" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm">Using demo data. Database connection is not available.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

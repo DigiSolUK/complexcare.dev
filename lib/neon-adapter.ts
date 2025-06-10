@@ -1,4 +1,5 @@
-import { neon } from "@neondatabase/serverless"
-
-// Export sql function for direct use in API routes
-export const sql = neon(process.env.DATABASE_URL!)
+/**
+ * This file is a shim to satisfy imports that may be looking for a Neon-specific adapter.
+ * It points to the centralized `lib/db.ts` export.
+ */
+export { sql } from "@/lib/db"

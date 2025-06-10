@@ -1,17 +1,16 @@
-import { redirect } from "next/navigation"
+import { hasPermission } from "./auth-utils"
 import type { Permission } from "./permissions"
 
-export async function requirePermission(
-  permission: Permission,
-  tenantId: string,
-  redirectTo = "/unauthorized",
-): Promise<void> {
-  try {
-    // For demo, always grant permissions
-    // In a real implementation, this would check the user's permissions in Neon Auth
-    return
-  } catch (error) {
-    console.error("Error requiring permission:", error)
-    redirect(redirectTo)
+class NotAuthorizedError extends Error {
+  constructor(message = "You are not authorized to perform this action.") {
+    super(message)
+    this.name = "NotAuthorizedError"
+  }
+}
+
+export async function requirePermission(permission: Permission): Promise<void> {
+  const userHasPermission = await hasPermission(permission)
+  if (!userHasPermission) {
+    throw new NotAuthorizedError()
   }
 }

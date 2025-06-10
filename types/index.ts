@@ -1,15 +1,92 @@
-export type Tenant = {
+// Core entity types
+export interface Tenant {
   id: string
   name: string
   slug: string
-  domain: string | null
   status: string
-  subscription_tier: string
-  settings: any
-  branding: any
-  created_at: Date
-  updated_at: Date
-  deleted_at: Date | null
+  plan: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  settings: TenantSettings
+}
+
+export interface TenantSettings {
+  theme?: string
+  logo_url?: string
+  primary_color?: string
+  secondary_color?: string
+  features?: {
+    appointments?: boolean
+    billing?: boolean
+    messaging?: boolean
+    reports?: boolean
+  }
+  [key: string]: any
+}
+
+export interface User {
+  id: string
+  email: string
+  first_name: string
+  last_name: string
+  role: string
+  status: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  tenant_memberships?: TenantMembership[]
+}
+
+export interface TenantMembership {
+  user_id: string
+  tenant_id: string
+  role: string
+  is_primary: boolean
+  created_at: string
+  updated_at: string
+}
+
+// API response types
+export interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  meta: {
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+  }
+}
+
+// Form and validation types
+export interface FormErrors {
+  [key: string]: string
+}
+
+// Dashboard types
+export interface DashboardStats {
+  patientCount: number
+  appointmentsToday: number
+  tasksOverdue: number
+  recentActivity: ActivityItem[]
+}
+
+export interface ActivityItem {
+  id: string
+  type: string
+  description: string
+  timestamp: string
+  user_id?: string
+  user_name?: string
+  entity_id?: string
+  entity_type?: string
 }
 
 export type TenantUser = {
@@ -36,22 +113,6 @@ export type TenantInvitation = {
   created_at: Date
   updated_at: Date
   accepted_at: Date | null
-}
-
-export type User = {
-  id: string
-  tenant_id: string
-  email: string
-  name: string
-  role: string
-  image: string | null
-  phone: string | null
-  address: string | null
-  city: string | null
-  postcode: string | null
-  created_at: Date
-  updated_at: Date
-  deleted_at: string | null
 }
 
 export interface Patient {

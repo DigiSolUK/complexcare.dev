@@ -1,28 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { markErrorAsResolved } from "@/lib/services/error-logging-service"
 import { getSession } from "@/lib/auth"
+import { resolveError } from "@/lib/services/error-logging-service"
+import { createApiHandler, AppError, validateUUID } from "@/lib/error-handler"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const session = await getSession()
+export const POST = createApiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+  const session = await getSession()
 
-    // Only allow admin users
-    if (!session?.user || !session.user.roles?.includes("admin")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { notes } = await request.json()
-    const errorId = params.id
-
-    const result = await markErrorAsResolved(errorId, notes)
-
-    if (result.success) {
-      return NextResponse.json({ success: true })
-    } else {
-      return NextResponse.json({ error: "Failed to resolve error" }, { status: 500 })
-    }
-  } catch (error) {
-    console.error("Error in resolve error API:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  if (!session?.user) {
+    throw new AppError("Unauthorized", 401, true, "low")
   }
-}
+
+  // Check if user has admin permissions
+  if (session.user.role !== "admin" && session.user.role !== "superadmin") {
+    throw new AppError("Forbidden - Admin access required", 403, true, "low")
+  }
+
+  // Validate error ID
+  validateUUID(params.id)
+
+  const success = await resolveError(params.id, session.user.id, session.user.tenant_id)
+
+  if (!success) {
+    throw new AppError("Failed to resolve error", 500, true, "medium")
+  }
+
+  return NextResponse.json({ success: true })
+})
