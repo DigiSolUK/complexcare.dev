@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "predev": "tsx scripts/startup-check.ts",
-    "prebuild": "tsx scripts/startup-check.ts"
+    "predev": "tsx scripts/startup-check.js",
+    "prebuild": "tsx scripts/startup-check.js"
   },
   "dependencies": {
     "@ai-sdk/groq": "latest",
