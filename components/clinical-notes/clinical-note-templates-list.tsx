@@ -43,7 +43,7 @@ interface ClinicalNoteTemplatesListProps {
   onTemplatesUpdated: () => void
 }
 
-export function ClinicalNoteTemplatesList({ onTemplatesUpdated }: ClinicalNoteTemplatesListProps) {
+export default function ClinicalNoteTemplatesList({ onTemplatesUpdated }: ClinicalNoteTemplatesListProps) {
   const { toast } = useToast()
   const [templates, setTemplates] = useState<ClinicalNoteTemplate[]>([])
   const [categories, setCategories] = useState<ClinicalNoteCategory[]>([])

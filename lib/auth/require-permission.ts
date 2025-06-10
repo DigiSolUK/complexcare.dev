@@ -1,16 +1,27 @@
-import { hasPermission } from "./auth-utils"
-import type { Permission } from "./permissions"
+import { type UserRole, PERMISSIONS } from "@/lib/auth/permissions"
+import type { NextApiRequest, NextApiResponse } from "next"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
-class NotAuthorizedError extends Error {
-  constructor(message = "You are not authorized to perform this action.") {
-    super(message)
-    this.name = "NotAuthorizedError"
-  }
-}
+type Permission = keyof typeof PERMISSIONS
 
-export async function requirePermission(permission: Permission): Promise<void> {
-  const userHasPermission = await hasPermission(permission)
-  if (!userHasPermission) {
-    throw new NotAuthorizedError()
+export const requirePermission = (
+  permission: Permission,
+  handler: (req: NextApiRequest, res: NextApiResponse) => Promise<void>,
+) => {
+  return async (req: NextApiRequest, res: NextApiResponse) => {
+    const session = await getServerSession(req, res, authOptions)
+
+    if (!session || !session.user || !session.user.role) {
+      return res.status(401).json({ message: "Unauthorized" })
+    }
+
+    const userRole = session.user.role as UserRole
+
+    if (!PERMISSIONS[permission].includes(userRole)) {
+      return res.status(403).json({ message: "Forbidden" })
+    }
+
+    return handler(req, res)
   }
 }

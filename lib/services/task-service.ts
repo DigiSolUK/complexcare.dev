@@ -123,6 +123,62 @@ export class TaskService {
     }))
   }
 
+  async getTasksByAssignee(
+    assigneeId: string,
+    filters?: { status?: Task["status"]; patientId?: string },
+  ): Promise<Task[]> {
+    let query = `
+      SELECT
+        t.id,
+        t.title,
+        t.description,
+        t.due_date,
+        t.priority,
+        t.status,
+        t.assigned_to_id,
+        t.patient_id,
+        t.tenant_id,
+        t.created_at,
+        t.updated_at,
+        cp.first_name || ' ' || cp.last_name AS assigned_to_name,
+        p.first_name || ' ' || p.last_name AS patient_name
+      FROM tasks t
+      LEFT JOIN care_professionals cp ON t.assigned_to_id = cp.id
+      LEFT JOIN patients p ON t.patient_id = p.id
+      WHERE t.tenant_id = ${this.tenantId} AND t.assigned_to_id = $1
+    `
+    const params: any[] = [assigneeId]
+
+    if (filters?.status) {
+      query += ` AND t.status = $${params.length + 1}`
+      params.push(filters.status)
+    }
+    if (filters?.patientId) {
+      query += ` AND t.patient_id = $${params.length + 1}`
+      params.push(filters.patientId)
+    }
+
+    query += ` ORDER BY t.due_date ASC, t.priority DESC`
+
+    const result = await this.sql.unsafe(query, params)
+
+    return result.map((task) => ({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      dueDate: task.due_date ? new Date(task.due_date) : null,
+      priority: task.priority,
+      status: task.status,
+      assignedToId: task.assigned_to_id,
+      patientId: task.patient_id,
+      tenantId: task.tenant_id,
+      createdAt: new Date(task.created_at),
+      updatedAt: new Date(task.updated_at),
+      assignedToName: task.assigned_to_name,
+      patientName: task.patient_name,
+    }))
+  }
+
   async createTask(data: TaskCreateInput): Promise<Task> {
     const result = await this.sql`
       INSERT INTO tasks (

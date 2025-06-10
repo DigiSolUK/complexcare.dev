@@ -37,7 +37,7 @@ interface ClinicalNoteCategoriesListProps {
   onCategoriesUpdated: () => void
 }
 
-export function ClinicalNoteCategoriesList({ onCategoriesUpdated }: ClinicalNoteCategoriesListProps) {
+export default function ClinicalNoteCategoriesList({ onCategoriesUpdated }: ClinicalNoteCategoriesListProps) {
   const { toast } = useToast()
   const [categories, setCategories] = useState<ClinicalNoteCategory[]>([])
   const [loading, setLoading] = useState(true)

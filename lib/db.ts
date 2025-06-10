@@ -1,56 +1,49 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 
-let sqlClient: NeonQueryFunction<false, false> | null = null
+let sqlClient: NeonQueryFunction<false, false>
 
 export function getNeonSqlClient(): NeonQueryFunction<false, false> {
-  if (!sqlClient) {
-    if (!process.env.DATABASE_URL) {
-      const possibleEnvVars = [
-        "DATABASE_URL",
-        "POSTGRES_URL",
-        "production_DATABASE_URL",
-        "production_POSTGRES_URL",
-        "DATABASE_URL_UNPOOLED",
-        "POSTGRES_URL_NON_POOLING",
-        "production_DATABASE_URL_UNPOOLED",
-        "production_POSTGRES_URL_NON_POOLING",
-        "AUTH_DATABASE_URL",
-      ]
-
-      let dbUrl: string | undefined = undefined
-      for (const envVar of possibleEnvVars) {
-        if (process.env[envVar] && process.env[envVar]!.trim() !== "") {
-          dbUrl = process.env[envVar]!
-          console.log(`lib/db.ts: Using database connection string from environment variable: ${envVar}`)
-          break
-        }
-      }
-
-      if (!dbUrl) {
-        console.error("lib/db.ts: FATAL: No suitable database connection string found in environment variables.")
-        console.error("lib/db.ts: Checked for:", possibleEnvVars.join(", "))
-        throw new Error(
-          "Database connection string not configured. Check server logs for details. Application cannot connect to the database.",
-        )
-      }
-      sqlClient = neon(dbUrl)
-    } else {
-      sqlClient = neon(process.env.DATABASE_URL)
-    }
-    // Immediately test the connection to ensure it's valid
-    // This runs asynchronously but will log/throw if connection fails
-    ;(async () => {
-      try {
-        await sqlClient`SELECT 1`
-        console.log("Neon database client connected successfully during initialization.")
-      } catch (e) {
-        console.error("Failed to connect to Neon database during initialization:", e)
-        // Re-throw to ensure the process fails if the database connection is critical
-        throw new Error("Database connection failed during application startup.")
-      }
-    })()
+  if (sqlClient) {
+    return sqlClient
   }
-  return sqlClient
+
+  const possibleEnvVars = [
+    "DATABASE_URL",
+    "POSTGRES_URL",
+    "production_DATABASE_URL",
+    "production_POSTGRES_URL",
+    "DATABASE_URL_UNPOOLED",
+    "POSTGRES_URL_NON_POOLING",
+    "production_DATABASE_URL_UNPOOLED",
+    "production_POSTGRES_URL_NON_POOLING",
+    "AUTH_DATABASE_URL",
+  ]
+
+  let dbUrl: string | undefined = undefined
+  for (const envVar of possibleEnvVars) {
+    if (process.env[envVar] && process.env[envVar]!.trim() !== "") {
+      dbUrl = process.env[envVar]!
+      console.log(`lib/db.ts: Using database connection string from environment variable: ${envVar}`)
+      break
+    }
+  }
+
+  if (!dbUrl) {
+    console.error("lib/db.ts: FATAL: No suitable database connection string found in environment variables.")
+    console.error("lib/db.ts: Checked for:", possibleEnvVars.join(", "))
+    throw new Error(
+      "Database connection string not configured. Check server logs for details. Application cannot connect to the database.",
+    )
+  }
+
+  try {
+    sqlClient = neon(dbUrl)
+    console.log("lib/db.ts: Neon SQL client initialized successfully.")
+    return sqlClient
+  } catch (error) {
+    console.error("lib/db.ts: Failed to initialize Neon SQL client:", error)
+    throw new Error("Could not initialize database connection.")
+  }
 }
 
 export const neonSql = getNeonSqlClient()
