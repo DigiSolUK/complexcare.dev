@@ -1,12 +1,12 @@
 -- Seed comprehensive patient data
 INSERT INTO patients (
-  id, 
+  id,
   tenant_id,
-  first_name, 
-  last_name, 
-  date_of_birth, 
-  nhs_number, 
-  gender, 
+  first_name,
+  last_name,
+  date_of_birth,
+  nhs_number,
+  gender,
   status,
   address,
   contact,
@@ -43,4 +43,5 @@ VALUES
   '{"phone": "07700900234", "email": "sarah.johnson@example.com", "emergency_contact_name": "David Johnson", "emergency_contact_phone": "07700900567", "emergency_contact_relationship": "Husband"}',
   '{"primary_care_provider": "Dr. Michael Chen", "primary_care_provider_contact": "0161 234 5678", "primary_condition": "Rheumatoid arthritis, Asthma", "allergies": ["Aspirin", "Dust mites"], "blood_type": "O-", "height": 165, "weight": 62, "bmi": 22.8, "smoking_status": "Never smoked", "alcohol_consumption": "Rare"}',
   NOW() - INTERVAL '18 months',
-  NOW() - INTERVAL '1
+  NOW() - INTERVAL '1 month'
+);

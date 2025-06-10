@@ -1,7 +1,7 @@
 -- Seed wearable integration settings for a demo tenant
-INSERT INTO wearable_integration_settings 
+INSERT INTO wearable_integration_settings
 (tenant_id, provider, is_enabled, api_key, api_secret, additional_settings)
-VALUES 
+VALUES
 ('00000000-0000-0000-0000-000000000001', 'fitbit', true, 'demo_fitbit_api_key', 'demo_fitbit_api_secret', '{"webhook_url": "https://complexcare.dev/api/webhooks/fitbit"}'),
 ('00000000-0000-0000-0000-000000000001', 'apple_health', false, null, null, null),
 ('00000000-0000-0000-0000-000000000001', 'google_fit', false, null, null, null),
@@ -9,9 +9,9 @@ VALUES
 ON CONFLICT (tenant_id, provider) DO NOTHING;
 
 -- Seed some demo wearable devices
-INSERT INTO wearable_devices 
+INSERT INTO wearable_devices
 (tenant_id, patient_id, device_type, device_id, manufacturer, model, status, last_sync, connection_details)
-VALUES 
+VALUES
 ('00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'fitness_tracker', 'FB12345678', 'Fitbit', 'Charge 5', 'active', NOW() - INTERVAL '2 hours', '{"oauth_token": "demo_token", "oauth_refresh_token": "demo_refresh_token"}'),
 ('00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'smart_watch', 'AW98765432', 'Apple', 'Watch Series 7', 'active', NOW() - INTERVAL '1 day', '{}'),
 ('00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003', 'blood_pressure_monitor', 'OM12345678', 'Omron', 'M7 Intelli IT', 'inactive', NOW() - INTERVAL '5 days', '{}'),
@@ -19,9 +19,9 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Seed some demo wearable readings
-INSERT INTO wearable_readings 
+INSERT INTO wearable_readings
 (tenant_id, patient_id, device_id, reading_type, reading_value, reading_unit, timestamp, metadata)
-VALUES 
+VALUES
 -- Heart rate readings for patient 1
 ('00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'FB12345678', 'heart_rate', 72, 'bpm', NOW() - INTERVAL '2 hours', '{}'),
 ('00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'FB12345678', 'heart_rate', 75, 'bpm', NOW() - INTERVAL '3 hours', '{}'),

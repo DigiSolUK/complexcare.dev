@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL,
   patient_id UUID NOT NULL,
-  provider_id UUID NOT NULL,
+  provider_id UUID NOT NULL, -- Ensure this column is explicitly defined
   title VARCHAR(255) NOT NULL,
   start_time TIMESTAMP WITH TIME ZONE NOT NULL,
   end_time TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   deleted_at TIMESTAMP WITH TIME ZONE,
-  
+
   CONSTRAINT fk_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
   CONSTRAINT fk_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
   CONSTRAINT fk_provider FOREIGN KEY (provider_id) REFERENCES users(id)
@@ -32,15 +32,15 @@ CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
 
 -- Add sample data if needed
 INSERT INTO appointments (
-  tenant_id, 
-  patient_id, 
-  provider_id, 
-  title, 
-  start_time, 
-  end_time, 
-  status, 
-  type, 
-  notes, 
+  tenant_id,
+  patient_id,
+  provider_id,
+  title,
+  start_time,
+  end_time,
+  status,
+  type,
+  notes,
   location
 )
 SELECT
