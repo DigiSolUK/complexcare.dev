@@ -45,23 +45,28 @@ import {
 } from "lucide-react"
 import { PatientForm } from "@/components/patients/patient-form"
 import { getPatient, deletePatient } from "@/lib/actions/patient-actions"
-import { TaskService } from "@/lib/services/task-service" // Import TaskService
-import type { Task } from "@/types" // Import Task type
-import { TaskTable } from "@/components/tasks/task-table" // Re-use TaskTable
-import { CreateTodoDialog } from "@/components/tasks/create-todo-dialog" // Import CreateTodoDialog
+import { TaskService } from "@/lib/services/task-service"
+import type { Task, ClinicalNote } from "@/types"
+import { TaskTable } from "@/components/tasks/task-table"
+import { CreateTodoDialog } from "@/components/tasks/create-todo-dialog"
+import { ClinicalNotesList } from "@/components/clinical-notes/clinical-notes-list" // Import ClinicalNotesList
+import { CreateClinicalNoteDialog } from "@/components/clinical-notes/create-clinical-note-dialog" // Import CreateClinicalNoteDialog
+import { ClinicalNotesService } from "@/lib/services/clinical-notes-service" // Import ClinicalNotesService
 
 export default function ComprehensivePatientDetail({ patientId }: { patientId: string }) {
   const router = useRouter()
   const [patient, setPatient] = useState<any>(null)
-  const [tasks, setTasks] = useState<Task[]>([]) // State for patient-specific tasks
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [clinicalNotes, setClinicalNotes] = useState<ClinicalNote[]>([]) // State for patient-specific clinical notes
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false)
+  const [isCreateClinicalNoteDialogOpen, setIsCreateClinicalNoteDialogOpen] = useState(false) // New state for clinical note dialog
 
-  const fetchPatientAndTasks = useCallback(async () => {
+  const fetchPatientAndRelatedData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -76,8 +81,13 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
       const taskService = await TaskService.create()
       const patientTasks = await taskService.getTasks({ patientId: patientId })
       setTasks(patientTasks)
+
+      // Fetch clinical notes for this patient
+      const clinicalNotesService = await ClinicalNotesService.create()
+      const patientClinicalNotes = await clinicalNotesService.getNotes(patientId)
+      setClinicalNotes(patientClinicalNotes)
     } catch (err: any) {
-      console.error("Error fetching patient or tasks:", err)
+      console.error("Error fetching patient or related data:", err)
       setError(err.message || "Failed to load patient information. Please try again later.")
       toast({
         variant: "destructive",
@@ -90,8 +100,8 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
   }, [patientId])
 
   useEffect(() => {
-    fetchPatientAndTasks()
-  }, [fetchPatientAndTasks])
+    fetchPatientAndRelatedData()
+  }, [fetchPatientAndRelatedData])
 
   const handleEditSuccess = (updatedPatient: any) => {
     setPatient(updatedPatient)
@@ -100,7 +110,7 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
       title: "Patient updated",
       description: "Patient information has been updated successfully.",
     })
-    fetchPatientAndTasks() // Re-fetch to ensure all related data is fresh
+    fetchPatientAndRelatedData() // Re-fetch to ensure all related data is fresh
   }
 
   const handleDeletePatient = async () => {
@@ -132,7 +142,12 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
 
   const handleTaskCreated = () => {
     setIsCreateTaskDialogOpen(false)
-    fetchPatientAndTasks() // Re-fetch tasks after a new one is created
+    fetchPatientAndRelatedData() // Re-fetch tasks after a new one is created
+  }
+
+  const handleClinicalNoteCreated = () => {
+    setIsCreateClinicalNoteDialogOpen(false)
+    fetchPatientAndRelatedData() // Re-fetch clinical notes after a new one is created
   }
 
   const getInitials = (firstName: string, lastName: string) => {
@@ -293,13 +308,15 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
 
         <div className="md:col-span-3">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-5 mb-4">
+            <TabsList className="grid grid-cols-6 mb-4">
+              {" "}
+              {/* Adjusted grid-cols for new tab */}
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
               <TabsTrigger value="medications">Medications</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
               <TabsTrigger value="care-plans">Care Plans</TabsTrigger>
-              <TabsTrigger value="tasks">Tasks</TabsTrigger> {/* New Tab Trigger */}
+              <TabsTrigger value="tasks">Tasks</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
@@ -460,20 +477,30 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
                     <CardTitle>Clinical Notes</CardTitle>
                     <CardDescription>Manage patient clinical notes</CardDescription>
                   </div>
-                  <Button>
+                  <Button onClick={() => setIsCreateClinicalNoteDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Note
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-8">
-                    <h3 className="text-lg font-medium">No notes found</h3>
-                    <p className="text-muted-foreground mt-1">This patient has no clinical notes.</p>
-                    <Button className="mt-4">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Note
-                    </Button>
-                  </div>
+                  {clinicalNotes.length === 0 ? (
+                    <div className="text-center py-8">
+                      <h3 className="text-lg font-medium">No notes found</h3>
+                      <p className="text-muted-foreground mt-1">This patient has no clinical notes.</p>
+                      <Button className="mt-4" onClick={() => setIsCreateClinicalNoteDialogOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Note for {patient.first_name}
+                      </Button>
+                    </div>
+                  ) : (
+                    <ClinicalNotesList
+                      initialNotes={clinicalNotes}
+                      onNotesUpdated={fetchPatientAndRelatedData}
+                      patientId={patient.id}
+                      defaultPatientId={patient.id}
+                      defaultPatientName={`${patient.first_name} ${patient.last_name}`}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -503,7 +530,7 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
               </Card>
             </TabsContent>
 
-            {/* New Tasks Tab Content */}
+            {/* Tasks Tab Content */}
             <TabsContent value="tasks">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -529,7 +556,7 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
                       </Button>
                     </div>
                   ) : (
-                    <TaskTable data={tasks} onTaskUpdated={fetchPatientAndTasks} />
+                    <TaskTable data={tasks} onTaskUpdated={fetchPatientAndRelatedData} />
                   )}
                 </CardContent>
               </Card>
@@ -595,6 +622,15 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
         open={isCreateTaskDialogOpen}
         onOpenChange={setIsCreateTaskDialogOpen}
         onTaskCreated={handleTaskCreated}
+        defaultPatientId={patient.id}
+        defaultPatientName={`${patient.first_name} ${patient.last_name}`}
+      />
+
+      {/* Create Clinical Note Dialog (for patient-specific notes) */}
+      <CreateClinicalNoteDialog
+        open={isCreateClinicalNoteDialogOpen}
+        onOpenChange={setIsCreateClinicalNoteDialogOpen}
+        onNoteCreated={handleClinicalNoteCreated}
         defaultPatientId={patient.id}
         defaultPatientName={`${patient.first_name} ${patient.last_name}`}
       />

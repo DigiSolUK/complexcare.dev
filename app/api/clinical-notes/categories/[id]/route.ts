@@ -1,82 +1,78 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
+import { NextResponse } from "next/server"
+import { ClinicalNotesService } from "@/lib/services/clinical-notes-service"
+import { getCurrentUser } from "@/lib/auth-utils"
+import { z } from "zod"
 
-const db = neon(process.env.DATABASE_URL!)
+const categoryUpdateSchema = z.object({
+  name: z.string().min(1, "Category name is required").optional(),
+  description: z.string().optional().nullable(),
+})
 
-// PUT to update a clinical note category
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const id = params.id
-    const tenantId = session.user.tenantId
-    const body = await request.json()
-    const { name, description, color } = body
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const category = await clinicalNotesService.getCategoryById(params.id)
 
-    // Check if category exists and belongs to the tenant
-    const [existingCategory] = await db`
-      SELECT * FROM clinical_notes_categories 
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-    `
-
-    if (!existingCategory) {
-      return NextResponse.json({ error: "Category not found" }, { status: 404 })
+    if (!category) {
+      return NextResponse.json({ message: "Clinical note category not found" }, { status: 404 })
     }
 
-    // Update the category
-    const [updatedCategory] = await db`
-      UPDATE clinical_notes_categories
-      SET 
-        name = ${name || existingCategory.name},
-        description = ${description !== undefined ? description : existingCategory.description},
-        color = ${color || existingCategory.color},
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-      RETURNING *
-    `
-
-    return NextResponse.json(updatedCategory)
+    return NextResponse.json(category)
   } catch (error) {
-    console.error("Error updating clinical note category:", error)
-    return NextResponse.json({ error: "Failed to update category" }, { status: 500 })
+    console.error("Failed to fetch clinical note category:", error)
+    return NextResponse.json({ message: "Failed to fetch clinical note category" }, { status: 500 })
   }
 }
 
-// DELETE a clinical note category
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const id = params.id
-    const tenantId = session.user.tenantId
+    const body = await request.json()
+    const validatedData = categoryUpdateSchema.parse(body)
 
-    // Check if category exists and belongs to the tenant
-    const [existingCategory] = await db`
-      SELECT * FROM clinical_notes_categories 
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-    `
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const updatedCategory = await clinicalNotesService.updateCategory(params.id, validatedData)
 
-    if (!existingCategory) {
-      return NextResponse.json({ error: "Category not found" }, { status: 404 })
+    if (!updatedCategory) {
+      return NextResponse.json({ message: "Clinical note category not found or update failed" }, { status: 404 })
     }
 
-    // Delete the category
-    await db`
-      DELETE FROM clinical_notes_categories
-      WHERE id = ${id}
-    `
+    return NextResponse.json(updatedCategory)
+  } catch (error: any) {
+    console.error("Failed to update clinical note category:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Invalid input", errors: error.errors }, { status: 400 })
+    }
+    return NextResponse.json({ message: "Failed to update clinical note category" }, { status: 500 })
+  }
+}
 
-    return NextResponse.json({ message: "Category deleted successfully" })
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const success = await clinicalNotesService.deleteCategory(params.id)
+
+    if (!success) {
+      return NextResponse.json({ message: "Clinical note category not found or deletion failed" }, { status: 404 })
+    }
+
+    return NextResponse.json({ message: "Clinical note category deleted successfully" }, { status: 200 })
   } catch (error) {
-    console.error("Error deleting clinical note category:", error)
-    return NextResponse.json({ error: "Failed to delete category" }, { status: 500 })
+    console.error("Failed to delete clinical note category:", error)
+    return NextResponse.json({ message: "Failed to delete clinical note category" }, { status: 500 })
   }
 }

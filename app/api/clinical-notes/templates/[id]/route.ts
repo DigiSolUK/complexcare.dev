@@ -1,109 +1,79 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
+import { NextResponse } from "next/server"
+import { ClinicalNotesService } from "@/lib/services/clinical-notes-service"
+import { getCurrentUser } from "@/lib/auth-utils"
+import { z } from "zod"
 
-const db = neon(process.env.DATABASE_URL!)
+const templateUpdateSchema = z.object({
+  categoryId: z.string().uuid("Invalid category ID").optional(),
+  name: z.string().min(1, "Template name is required").optional(),
+  content: z.string().min(1, "Template content is required").optional(),
+})
 
-// GET a specific clinical note template
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const id = params.id
-    const tenantId = session.user.tenantId
-
-    const [template] = await db`
-      SELECT * FROM clinical_notes_templates
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-    `
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const template = await clinicalNotesService.getTemplateById(params.id)
 
     if (!template) {
-      return NextResponse.json({ error: "Template not found" }, { status: 404 })
+      return NextResponse.json({ message: "Clinical note template not found" }, { status: 404 })
     }
 
     return NextResponse.json(template)
   } catch (error) {
-    console.error("Error fetching clinical note template:", error)
-    return NextResponse.json({ error: "Failed to fetch template" }, { status: 500 })
+    console.error("Failed to fetch clinical note template:", error)
+    return NextResponse.json({ message: "Failed to fetch clinical note template" }, { status: 500 })
   }
 }
 
-// PUT to update a clinical note template
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const id = params.id
-    const tenantId = session.user.tenantId
     const body = await request.json()
-    const { name, content, noteType } = body
+    const validatedData = templateUpdateSchema.parse(body)
 
-    // Check if template exists and belongs to the tenant
-    const [existingTemplate] = await db`
-      SELECT * FROM clinical_notes_templates 
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-    `
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const updatedTemplate = await clinicalNotesService.updateTemplate(params.id, validatedData)
 
-    if (!existingTemplate) {
-      return NextResponse.json({ error: "Template not found" }, { status: 404 })
+    if (!updatedTemplate) {
+      return NextResponse.json({ message: "Clinical note template not found or update failed" }, { status: 404 })
     }
-
-    // Update the template
-    const [updatedTemplate] = await db`
-      UPDATE clinical_notes_templates
-      SET 
-        name = ${name || existingTemplate.name},
-        content = ${content || existingTemplate.content},
-        note_type = ${noteType || existingTemplate.note_type},
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-      RETURNING *
-    `
 
     return NextResponse.json(updatedTemplate)
-  } catch (error) {
-    console.error("Error updating clinical note template:", error)
-    return NextResponse.json({ error: "Failed to update template" }, { status: 500 })
+  } catch (error: any) {
+    console.error("Failed to update clinical note template:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Invalid input", errors: error.errors }, { status: 400 })
+    }
+    return NextResponse.json({ message: "Failed to update clinical note template" }, { status: 500 })
   }
 }
 
-// DELETE a clinical note template
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const id = params.id
-    const tenantId = session.user.tenantId
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const success = await clinicalNotesService.deleteTemplate(params.id)
 
-    // Check if template exists and belongs to the tenant
-    const [existingTemplate] = await db`
-      SELECT * FROM clinical_notes_templates 
-      WHERE id = ${id} AND tenant_id = ${tenantId}
-    `
-
-    if (!existingTemplate) {
-      return NextResponse.json({ error: "Template not found" }, { status: 404 })
+    if (!success) {
+      return NextResponse.json({ message: "Clinical note template not found or deletion failed" }, { status: 404 })
     }
 
-    // Delete the template
-    await db`
-      DELETE FROM clinical_notes_templates
-      WHERE id = ${id}
-    `
-
-    return NextResponse.json({ message: "Template deleted successfully" })
+    return NextResponse.json({ message: "Clinical note template deleted successfully" }, { status: 200 })
   } catch (error) {
-    console.error("Error deleting clinical note template:", error)
-    return NextResponse.json({ error: "Failed to delete template" }, { status: 500 })
+    console.error("Failed to delete clinical note template:", error)
+    return NextResponse.json({ message: "Failed to delete clinical note template" }, { status: 500 })
   }
 }

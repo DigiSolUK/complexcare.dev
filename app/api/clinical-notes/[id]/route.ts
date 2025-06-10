@@ -1,82 +1,86 @@
-import { type NextRequest, NextResponse } from "next/server"
-import clinicalNotesService from "@/lib/services/clinical-notes-service"
-import { getCurrentTenant } from "@/lib/tenant-utils"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
+import { NextResponse } from "next/server"
+import { ClinicalNotesService } from "@/lib/services/clinical-notes-service"
+import { getCurrentUser } from "@/lib/auth-utils"
+import { z } from "zod"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+const clinicalNoteUpdateSchema = z.object({
+  patientId: z.string().uuid("Invalid patient ID").optional(),
+  careProfessionalId: z.string().uuid("Invalid care professional ID").optional(),
+  categoryId: z.string().uuid("Invalid category ID").optional(),
+  templateId: z.string().uuid("Invalid template ID").optional().nullable(),
+  title: z.string().min(1, "Title is required").optional(),
+  content: z.string().min(1, "Content is required").optional(),
+  noteDate: z.string().datetime("Invalid date format").optional(),
+})
+
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
-    }
-
-    const noteId = params.id
-    const notes = await clinicalNotesService.getNotes(tenant.id)
-    const note = notes.find((n) => n.id === noteId)
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const note = await clinicalNotesService.getNoteById(params.id)
 
     if (!note) {
-      return NextResponse.json({ error: "Clinical note not found" }, { status: 404 })
+      return NextResponse.json({ message: "Clinical note not found" }, { status: 404 })
     }
 
     return NextResponse.json(note)
   } catch (error) {
-    console.error("Error fetching clinical note:", error)
-    return NextResponse.json({ error: "Failed to fetch clinical note" }, { status: 500 })
+    console.error("Failed to fetch clinical note:", error)
+    return NextResponse.json({ message: "Failed to fetch clinical note" }, { status: 500 })
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+    const body = await request.json()
+    const validatedData = clinicalNoteUpdateSchema.parse(body)
+
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const updatedNote = await clinicalNotesService.updateNote(params.id, {
+      ...validatedData,
+      noteDate: validatedData.noteDate ? new Date(validatedData.noteDate) : undefined,
+    })
+
+    if (!updatedNote) {
+      return NextResponse.json({ message: "Clinical note not found or update failed" }, { status: 404 })
     }
-
-    const noteId = params.id
-    const data = await request.json()
-
-    const updatedNote = await clinicalNotesService.updateNote(tenant.id, noteId, data)
 
     return NextResponse.json(updatedNote)
-  } catch (error) {
-    console.error("Error updating clinical note:", error)
-    return NextResponse.json({ error: "Failed to update clinical note" }, { status: 500 })
+  } catch (error: any) {
+    console.error("Failed to update clinical note:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Invalid input", errors: error.errors }, { status: 400 })
+    }
+    return NextResponse.json({ message: "Failed to update clinical note" }, { status: 500 })
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
-    }
-
-    const noteId = params.id
-    const success = await clinicalNotesService.deleteNote(tenant.id, noteId)
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const success = await clinicalNotesService.deleteNote(params.id)
 
     if (!success) {
-      return NextResponse.json({ error: "Clinical note not found" }, { status: 404 })
+      return NextResponse.json({ message: "Clinical note not found or deletion failed" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ message: "Clinical note deleted successfully" }, { status: 200 })
   } catch (error) {
-    console.error("Error deleting clinical note:", error)
-    return NextResponse.json({ error: "Failed to delete clinical note" }, { status: 500 })
+    console.error("Failed to delete clinical note:", error)
+    return NextResponse.json({ message: "Failed to delete clinical note" }, { status: 500 })
   }
 }

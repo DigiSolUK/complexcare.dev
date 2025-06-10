@@ -1,160 +1,210 @@
 import type { UserRole } from "@/lib/auth/permissions"
 
-// Base types
-export type User = {
-  id: string
-  name?: string | null
-  email: string
-  image?: string | null
-  role: UserRole
-  tenantId?: string | null
-}
-
-export type Tenant = {
+// Core entity types
+export interface Tenant {
   id: string
   name: string
   slug: string
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-  features: string[]
+  status: string
+  plan: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  settings: TenantSettings
 }
 
-export type ApiKey = {
-  id: string
-  key: string
-  name: string
-  createdAt: Date
-  expiresAt?: Date | null
-  tenantId: string
+export interface TenantSettings {
+  theme?: string
+  logo_url?: string
+  primary_color?: string
+  secondary_color?: string
+  features?: {
+    appointments?: boolean
+    billing?: boolean
+    messaging?: boolean
+    reports?: boolean
+  }
+  [key: string]: any
 }
 
-export type Credential = {
+export interface User {
   id: string
-  type: string // e.g., "NMC PIN", "DBS Certificate"
-  value: string // The actual credential number/ID
-  issueDate?: Date | null
-  expiryDate?: Date | null
-  verified: boolean
-  careProfessionalId: string
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
+  email: string
+  first_name: string
+  last_name: string
+  role: UserRole
+  status: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  tenant_memberships?: TenantMembership[]
+  name?: string | null // Added for convenience, derived from first_name, last_name
+  image?: string | null // Added for convenience
+  tenantId?: string | null // Added for convenience
 }
 
-export type PayrollProvider = {
-  id: string
-  name: string
-  contactEmail?: string | null
-  contactPhone?: string | null
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
+export interface TenantMembership {
+  user_id: string
+  tenant_id: string
+  role: string
+  is_primary: boolean
+  created_at: string
+  updated_at: string
 }
 
-export type PayrollSubmission = {
-  id: string
-  payrollProviderId: string
-  submissionDate: Date
-  periodStart: Date
-  periodEnd: Date
-  totalAmount: number
-  status: "pending" | "submitted" | "paid" | "failed"
-  notes?: string | null
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
+// API response types
+export interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
 }
 
-export type Invoice = {
-  id: string
-  patientId: string
-  invoiceNumber: string
-  issueDate: Date
-  dueDate: Date
-  totalAmount: number
-  status: "pending" | "paid" | "overdue" | "cancelled"
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
-  patientName?: string // Optional, for display purposes
+export interface PaginatedResponse<T> {
+  data: T[]
+  meta: {
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+  }
 }
 
-export type InvoiceItem = {
+// Form and validation types
+export interface FormErrors {
+  [key: string]: string
+}
+
+// Dashboard types
+export interface DashboardStats {
+  patientCount: number
+  appointmentsToday: number
+  tasksOverdue: number
+  recentActivity: ActivityItem[]
+}
+
+export interface ActivityItem {
   id: string
-  invoiceId: string
+  type: string
   description: string
-  quantity: number
-  unitPrice: number
-  total: number
-  createdAt: Date
-  updatedAt: Date
+  timestamp: string
+  user_id?: string
+  user_name?: string
+  entity_id?: string
+  entity_type?: string
 }
 
-export type Patient = {
+export type TenantUser = {
   id: string
-  firstName: string
-  lastName: string
-  dateOfBirth: Date
-  gender: "Male" | "Female" | "Other"
-  address: string
-  phone: string
+  tenant_id: string
+  user_id: string
+  role: string
+  is_primary: boolean
+  created_at: Date
+  updated_at: Date
+  deleted_at: Date | null
+  // Joined fields
+  email?: string
+  name?: string
+}
+
+export type TenantInvitation = {
+  id: string
+  tenant_id: string
   email: string
-  nhsNumber?: string | null
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
+  role: string
+  token: string
+  expires_at: Date
+  created_at: Date
+  updated_at: Date
+  accepted_at: Date | null
+}
+
+export interface Patient {
+  id: string
+  tenant_id: string
+  first_name: string
+  last_name: string
+  date_of_birth: string | Date
+  gender?: string
+  contact_number?: string
+  email?: string
+  address?: string
+  medical_record_number?: string
+  primary_care_provider?: string
+  created_at: string | Date
+  updated_at: string | Date
+  avatar_url?: string
+  nhs_number?: string
+  primary_condition?: string
+  notes?: string
   fullName: string // Derived property for convenience
 }
 
-export type CareProfessional = {
+export interface CareProfessional {
   id: string
-  firstName: string
-  lastName: string
+  first_name: string
+  last_name: string
+  title?: string
   email: string
-  phone: string
-  specialty: string
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
+  phone?: string
+  role: string
+  specialization?: string
+  qualification?: string
+  license_number?: string
+  employment_status?: string
+  start_date?: string | Date
+  is_active?: boolean
+  status?: string
+  tenantId?: string
+  tenant_id?: string
+  created_at?: string | Date
+  updated_at?: string | Date
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  created_by?: string
+  updated_by?: string
+  address?: string
+  notes?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  avatar_url?: string
   fullName: string // Derived property for convenience
 }
 
-export type ClinicalNote = {
+export type CarePlan = {
   id: string
-  patientId: string
-  careProfessionalId: string
-  categoryId: string
-  templateId?: string | null
+  tenant_id: string
+  patient_id: string
   title: string
-  content: string
-  noteDate: Date
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
-  patientName?: string // Optional, for display
-  careProfessionalName?: string // Optional, for display
-  categoryName?: string // Optional, for display
+  description: string | null
+  status: string
+  start_date: Date
+  end_date: Date | null
+  review_date: string | null
+  assigned_to: string | null
+  created_at: Date
+  updated_at: Date
+  created_by: string
+  updated_by: string | null
 }
 
-export type ClinicalNoteCategory = {
+export type Appointment = {
   id: string
-  name: string
-  description?: string | null
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-export type ClinicalNoteTemplate = {
-  id: string
-  categoryId: string
-  name: string
-  content: string
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
-  categoryName?: string // Optional, for display
+  tenant_id: string
+  patient_id: string
+  care_professional_id: string
+  appointment_date: Date
+  appointment_time: string
+  duration_minutes: number
+  appointment_type: string
+  location: string | null
+  status: string
+  notes: string | null
+  created_at: Date
+  updated_at: Date
+  created_by: string
+  updated_by: string | null
 }
 
 export type Task = {
@@ -175,16 +225,145 @@ export type Task = {
 
 export type Timesheet = {
   id: string
-  careProfessionalId: string
-  startDate: Date
-  endDate: Date
-  hoursWorked: number
-  status: "pending" | "approved" | "rejected"
-  notes?: string | null
-  tenantId: string
-  createdAt: Date
-  updatedAt: Date
-  careProfessionalName?: string // Optional, for display
+  tenant_id: string
+  user_id: string
+  userName?: string
+  date: string
+  startTime: string
+  endTime: string
+  breakDurationMinutes: number
+  totalHours: number
+  status: string
+  notes?: string
+  approvedBy?: string
+  approverName?: string
+  approvedAt?: string
+  createdAt: string
+  updatedAt: string
+  userOnly?: boolean
+}
+
+export type Payroll = {
+  id: string
+  tenant_id: string
+  user_id: string
+  pay_period_start: string
+  pay_period_end: string
+  basic_hours: number
+  overtime_hours: number
+  holiday_hours: number
+  sick_hours: number
+  basic_pay: number
+  overtime_pay: number
+  holiday_pay: number
+  sick_pay: number
+  bonus: number
+  deductions: number
+  total_pay: number
+  payment_date: string | null
+  payment_reference: string | null
+  status: "draft" | "processed" | "paid"
+  notes: string | null
+  created_at: Date
+  updated_at: Date
+  user_name?: string
+}
+
+export interface ProfessionalCredential {
+  id: string
+  tenant_id: string
+  user_id: string
+  user_name?: string
+  credential_type: string
+  credential_number: string
+  issue_date: string
+  expiry_date?: string
+  verification_status: string
+  verified_by?: string
+  verifier_name?: string
+  verification_date?: string
+  verification_notes?: string
+  document_url?: string
+  created_at: string
+  updated_at: string
+  reminders?: CredentialReminder[]
+}
+
+export interface CredentialReminder {
+  id: string
+  tenant_id: string
+  credential_id: string
+  reminder_date: string
+  reminder_sent: boolean
+  sent_at?: string
+  created_at: string
+  updated_at: string
+}
+
+// New types for invoicing
+
+export interface Invoice {
+  id: string
+  tenant_id: string
+  patient_id: string
+  patient_name?: string
+  amount: number
+  due_date: string
+  paid_date?: string
+  invoice_number: string
+  description?: string
+  status: string
+  created_at: string
+  updated_at: string
+  items?: InvoiceItem[]
+}
+
+export interface InvoiceItem {
+  id: string
+  tenant_id: string
+  invoice_id: string
+  description: string
+  quantity: number
+  unit_price: number
+  tax_rate: number
+  tax_amount: number
+  discount_amount: number
+  total_amount: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiKey {
+  id: string
+  tenant_id: string
+  name: string
+  key: string
+  scopes: string[]
+  expires_at?: string
+  last_used_at?: string
+  created_by: string
+  created_by_name?: string
+  created_at: string
+  updated_at: string
+}
+
+export type TenantFeature = {
+  id: string
+  tenant_id: string
+  feature_key: string
+  is_enabled: boolean
+  config: any
+  created_at: Date
+  updated_at: Date
+}
+
+export type TenantSetting = {
+  id: string
+  tenant_id: string
+  key: string
+  value: string
+  created_at: Date
+  updated_at: Date
 }
 
 export type ErrorLog = {
@@ -197,4 +376,43 @@ export type ErrorLog = {
   tenantId?: string | null
   resolved: boolean
   context?: Record<string, any> | null
+}
+
+// Clinical Notes Module Types
+export interface ClinicalNote {
+  id: string
+  tenantId: string
+  patientId: string
+  careProfessionalId: string
+  categoryId: string
+  templateId?: string | null
+  title: string
+  content: string
+  noteDate: Date
+  createdAt: Date
+  updatedAt: Date
+  patientName?: string // For display
+  careProfessionalName?: string // For display
+  categoryName?: string // For display
+  templateName?: string // For display
+}
+
+export interface ClinicalNoteCategory {
+  id: string
+  tenantId: string
+  name: string
+  description?: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface ClinicalNoteTemplate {
+  id: string
+  tenantId: string
+  categoryId: string
+  name: string
+  content: string
+  createdAt: Date
+  updatedAt: Date
+  categoryName?: string // For display
 }

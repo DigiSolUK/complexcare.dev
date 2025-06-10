@@ -1,46 +1,57 @@
 "use client"
 
 import { format } from "date-fns"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import type { ClinicalNote } from "@/lib/services/clinical-notes-service"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
+import type { ClinicalNote } from "@/types"
 
 interface ViewClinicalNoteDialogProps {
-  note: ClinicalNote
   open: boolean
   onOpenChange: (open: boolean) => void
+  note: ClinicalNote
 }
 
-export default function ViewClinicalNoteDialog({ note, open, onOpenChange }: ViewClinicalNoteDialogProps) {
+export function ViewClinicalNoteDialog({ open, onOpenChange, note }: ViewClinicalNoteDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl">{note.title}</DialogTitle>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {note.category_name && (
-              <Badge variant="outline" style={{ color: note.category_color || undefined }}>
-                {note.category_name}
-              </Badge>
-            )}
-            {note.is_private && <Badge variant="secondary">Private</Badge>}
-            {note.is_important && <Badge variant="destructive">Important</Badge>}
-          </div>
-          <div className="text-sm text-muted-foreground mt-2">
-            {note.created_at && <span>Created: {format(new Date(note.created_at), "PPP p")}</span>}
-            {note.created_by_name && <span> by {note.created_by_name}</span>}
-          </div>
+          <DialogTitle>{note.title}</DialogTitle>
+          <DialogDescription>Note recorded on {format(new Date(note.noteDate), "PPP 'at' p")}</DialogDescription>
         </DialogHeader>
-
-        <ScrollArea className="max-h-[400px] mt-2">
-          <div className="whitespace-pre-wrap">{note.content}</div>
-        </ScrollArea>
-
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>Close</Button>
-        </DialogFooter>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <span className="text-sm font-medium text-muted-foreground">Patient:</span>
+            <span className="col-span-3 text-sm">{note.patientName || "N/A"}</span>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <span className="text-sm font-medium text-muted-foreground">Care Professional:</span>
+            <span className="col-span-3 text-sm">{note.careProfessionalName || "N/A"}</span>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <span className="text-sm font-medium text-muted-foreground">Category:</span>
+            <span className="col-span-3 text-sm">{note.categoryName || "N/A"}</span>
+          </div>
+          {note.templateName && (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <span className="text-sm font-medium text-muted-foreground">Template Used:</span>
+              <span className="col-span-3 text-sm">{note.templateName}</span>
+            </div>
+          )}
+          <Separator />
+          <div>
+            <h3 className="text-base font-semibold mb-2">Note Content:</h3>
+            <div
+              className="prose prose-sm max-w-none text-gray-800 dark:text-gray-200"
+              dangerouslySetInnerHTML={{ __html: note.content.replace(/\n/g, "<br />") }}
+            />
+          </div>
+          <Separator />
+          <div className="text-xs text-muted-foreground">
+            Created: {format(new Date(note.createdAt), "PPP p")} | Last Updated:{" "}
+            {format(new Date(note.updatedAt), "PPP p")}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

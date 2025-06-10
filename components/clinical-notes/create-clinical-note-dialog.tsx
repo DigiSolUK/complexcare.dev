@@ -1,190 +1,387 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { format } from "date-fns"
+import { CalendarIcon, Loader2 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { Calendar } from "@/components/ui/calendar"
 import { useToast } from "@/components/ui/use-toast"
+import { PatientService } from "@/lib/services/patient-service"
+import { CareProfessionalService } from "@/lib/services/care-professional-service"
 import {
+  getClinicalNoteCategories,
+  getClinicalNoteTemplates,
   createClinicalNote,
-  type ClinicalNoteCategory,
-  type ClinicalNoteTemplate,
-} from "@/lib/services/clinical-notes-service"
+} from "@/lib/actions/clinical-notes-actions"
+import type { Patient, CareProfessional, ClinicalNoteCategory, ClinicalNoteTemplate } from "@/types"
+import { getCurrentUser } from "@/lib/auth-utils" // To get current user's ID for careProfessionalId
+
+const formSchema = z.object({
+  patientId: z.string().uuid("Please select a patient."),
+  careProfessionalId: z.string().uuid("Please select a care professional."),
+  categoryId: z.string().uuid("Please select a category."),
+  templateId: z.string().uuid("Invalid template ID").optional().nullable(),
+  title: z.string().min(1, "Title is required."),
+  content: z.string().min(1, "Content is required."),
+  noteDate: z.date({ required_error: "Note date is required." }),
+})
 
 interface CreateClinicalNoteDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onNoteCreated: (note: any) => void
-  categories: ClinicalNoteCategory[]
-  templates: ClinicalNoteTemplate[]
-  patientId?: string | null
+  onNoteCreated: () => void
+  defaultPatientId?: string
+  defaultPatientName?: string
 }
 
-export default function CreateClinicalNoteDialog({
+export function CreateClinicalNoteDialog({
   open,
   onOpenChange,
   onNoteCreated,
-  categories,
-  templates,
-  patientId,
+  defaultPatientId,
+  defaultPatientName,
 }: CreateClinicalNoteDialogProps) {
   const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    patient_id: patientId || "",
-    category_id: "",
-    title: "",
-    content: "",
-    is_private: false,
-    is_important: false,
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [careProfessionals, setCareProfessionals] = useState<CareProfessional[]>([])
+  const [categories, setCategories] = useState<ClinicalNoteCategory[]>([])
+  const [templates, setTemplates] = useState<ClinicalNoteTemplate[]>([])
+  const [currentUserCareProfessionalId, setCurrentUserCareProfessionalId] = useState<string | null>(null)
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      patientId: defaultPatientId || "",
+      careProfessionalId: "", // Will be set by useEffect
+      categoryId: "",
+      templateId: null,
+      title: "",
+      content: "",
+      noteDate: new Date(),
+    },
   })
-  const [selectedTemplate, setSelectedTemplate] = useState("")
 
   useEffect(() => {
-    if (selectedTemplate) {
-      const template = templates.find((t) => t.id === selectedTemplate)
-      if (template) {
-        setFormData((prev) => ({
-          ...prev,
-          content: template.content,
-          category_id: template.category_id || prev.category_id,
-        }))
+    async function fetchData() {
+      try {
+        const patientService = await PatientService.create()
+        const fetchedPatients = await patientService.getPatients()
+        setPatients(fetchedPatients)
+
+        const careProfessionalService = await CareProfessionalService.create()
+        const fetchedCareProfessionals = await careProfessionalService.getCareProfessionals()
+        setCareProfessionals(fetchedCareProfessionals)
+
+        const categoriesResult = await getClinicalNoteCategories()
+        if (categoriesResult.success && categoriesResult.data) {
+          setCategories(categoriesResult.data)
+        }
+
+        // Attempt to set current user as default care professional
+        const currentUser = await getCurrentUser()
+        if (currentUser?.id) {
+          const matchingCp = fetchedCareProfessionals.find((cp) => cp.email === currentUser.email)
+          if (matchingCp) {
+            setCurrentUserCareProfessionalId(matchingCp.id)
+            form.setValue("careProfessionalId", matchingCp.id)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch data for clinical note dialog:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load necessary data for clinical note form.",
+          variant: "destructive",
+        })
       }
     }
-  }, [selectedTemplate, templates])
+    if (open) {
+      fetchData()
+    }
+  }, [open, toast, form])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleCheckboxChange = (name: string, checked: boolean) => {
-    setFormData((prev) => ({ ...prev, [name]: checked }))
-  }
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      if (!formData.patient_id) {
-        throw new Error("Patient ID is required")
-      }
-
-      const newNote = await createClinicalNote(formData)
-      toast({
-        title: "Note created",
-        description: "The clinical note has been created successfully.",
+  // Effect to load templates when category changes
+  useEffect(() => {
+    const selectedCategoryId = form.watch("categoryId")
+    if (selectedCategoryId) {
+      getClinicalNoteTemplates(selectedCategoryId).then((result) => {
+        if (result.success && result.data) {
+          setTemplates(result.data)
+          form.setValue("templateId", null) // Reset template when category changes
+        } else {
+          setTemplates([])
+        }
       })
-      onNoteCreated(newNote)
-    } catch (error: any) {
-      console.error("Error creating note:", error)
+    } else {
+      setTemplates([])
+    }
+  }, [form.watch("categoryId")])
+
+  // Update form default patient if defaultPatientId changes
+  useEffect(() => {
+    if (defaultPatientId) {
+      form.setValue("patientId", defaultPatientId)
+    }
+  }, [defaultPatientId, form])
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true)
+    try {
+      const result = await createClinicalNote({
+        patientId: values.patientId,
+        careProfessionalId: values.careProfessionalId,
+        categoryId: values.categoryId,
+        templateId: values.templateId,
+        title: values.title,
+        content: values.content,
+        noteDate: values.noteDate,
+      })
+
+      if (result.success) {
+        toast({
+          title: "Clinical Note Created",
+          description: "The clinical note has been added successfully.",
+        })
+        form.reset({
+          patientId: defaultPatientId || "", // Reset to default patient if provided
+          careProfessionalId: currentUserCareProfessionalId || "",
+          categoryId: "",
+          templateId: null,
+          title: "",
+          content: "",
+          noteDate: new Date(),
+        })
+        onNoteCreated()
+        onOpenChange(false)
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create clinical note.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error creating clinical note:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to create the clinical note. Please try again.",
+        description: "An unexpected error occurred while creating the clinical note.",
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleTemplateChange = (templateId: string) => {
+    const selectedTemplate = templates.find((t) => t.id === templateId)
+    if (selectedTemplate) {
+      form.setValue("content", selectedTemplate.content)
+      form.setValue("templateId", templateId)
+    } else {
+      form.setValue("content", "")
+      form.setValue("templateId", null)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Clinical Note</DialogTitle>
+          <DialogDescription>Fill in the details for the new clinical note.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input id="title" name="title" value={formData.title} onChange={handleChange} required />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="category_id">Category</Label>
-              <Select value={formData.category_id} onValueChange={(value) => handleSelectChange("category_id", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="template">Template</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
-            <Textarea
-              id="content"
-              name="content"
-              value={formData.content}
-              onChange={handleChange}
-              className="min-h-[200px]"
-              required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <FormField
+              control={form.control}
+              name="patientId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Patient</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!!defaultPatientId}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={defaultPatientName || "Select a patient"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {patients.map((patient) => (
+                        <SelectItem key={patient.id} value={patient.id}>
+                          {patient.fullName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-
-          <div className="flex space-x-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is_private"
-                checked={formData.is_private}
-                onCheckedChange={(checked) => handleCheckboxChange("is_private", !!checked)}
+            <FormField
+              control={form.control}
+              name="careProfessionalId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Care Professional</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select care professional" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {careProfessionals.map((cp) => (
+                        <SelectItem key={cp.id} value={cp.id}>
+                          {cp.fullName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="categoryId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <Label htmlFor="is_private">Private</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="is_important"
-                checked={formData.is_important}
-                onCheckedChange={(checked) => handleCheckboxChange("is_important", !!checked)}
+              <FormField
+                control={form.control}
+                name="templateId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Template (Optional)</FormLabel>
+                    <Select onValueChange={handleTemplateChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger disabled={templates.length === 0}>
+                          <SelectValue placeholder="Select template" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="no_template">No Template</SelectItem>
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <Label htmlFor="is_important">Important</Label>
             </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create Note"}
-            </Button>
-          </DialogFooter>
-        </form>
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Daily Progress Note" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="content"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Content</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Write your clinical note here..." rows={8} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="noteDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Note Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-[240px] pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground",
+                          )}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value || undefined}
+                        onSelect={field.onChange}
+                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Note
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

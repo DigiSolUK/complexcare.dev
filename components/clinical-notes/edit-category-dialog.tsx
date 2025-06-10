@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -19,56 +19,64 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
-import { createClinicalNoteCategory } from "@/lib/actions/clinical-notes-actions"
+import { updateClinicalNoteCategory } from "@/lib/actions/clinical-notes-actions"
+import type { ClinicalNoteCategory } from "@/types"
 
 const formSchema = z.object({
   name: z.string().min(1, "Category name is required."),
   description: z.string().optional().nullable(),
 })
 
-interface CreateCategoryDialogProps {
+interface EditCategoryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCategoryCreated: () => void
+  onCategoryUpdated: () => void
+  category: ClinicalNoteCategory
 }
 
-export function CreateCategoryDialog({ open, onOpenChange, onCategoryCreated }: CreateCategoryDialogProps) {
+export function EditCategoryDialog({ open, onOpenChange, onCategoryUpdated, category }: EditCategoryDialogProps) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      description: "",
+      name: category.name,
+      description: category.description || "",
     },
   })
+
+  useEffect(() => {
+    form.reset({
+      name: category.name,
+      description: category.description || "",
+    })
+  }, [category, form])
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true)
     try {
-      const result = await createClinicalNoteCategory(values)
+      const result = await updateClinicalNoteCategory(category.id, values)
 
       if (result.success) {
         toast({
-          title: "Category Created",
-          description: "The new clinical note category has been added successfully.",
+          title: "Category Updated",
+          description: "The clinical note category has been updated successfully.",
         })
-        form.reset()
-        onCategoryCreated()
+        onCategoryUpdated()
         onOpenChange(false)
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to create category.",
+          description: result.error || "Failed to update category.",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error creating category:", error)
+      console.error("Error updating category:", error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred while creating the category.",
+        description: "An unexpected error occurred while updating the category.",
         variant: "destructive",
       })
     } finally {
@@ -80,8 +88,8 @@ export function CreateCategoryDialog({ open, onOpenChange, onCategoryCreated }: 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Create New Category</DialogTitle>
-          <DialogDescription>Add a new category for clinical notes.</DialogDescription>
+          <DialogTitle>Edit Category</DialogTitle>
+          <DialogDescription>Update the details for this clinical note category.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
@@ -117,7 +125,7 @@ export function CreateCategoryDialog({ open, onOpenChange, onCategoryCreated }: 
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Category
+                Save Changes
               </Button>
             </DialogFooter>
           </form>

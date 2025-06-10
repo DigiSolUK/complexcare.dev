@@ -1,50 +1,53 @@
-import { type NextRequest, NextResponse } from "next/server"
-import clinicalNotesService from "@/lib/services/clinical-notes-service"
-import { getCurrentTenant } from "@/lib/tenant-utils"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
+import { NextResponse } from "next/server"
+import { ClinicalNotesService } from "@/lib/services/clinical-notes-service"
+import { getCurrentUser } from "@/lib/auth-utils"
+import { z } from "zod"
 
-export async function GET(request: NextRequest) {
+const templateSchema = z.object({
+  categoryId: z.string().uuid("Invalid category ID"),
+  name: z.string().min(1, "Template name is required"),
+  content: z.string().min(1, "Template content is required"),
+})
+
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
-    }
+    const { searchParams } = new URL(request.url)
+    const categoryId = searchParams.get("categoryId") || undefined
 
-    const templates = await clinicalNotesService.getTemplates(tenant.id)
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const templates = await clinicalNotesService.getTemplates(categoryId)
 
     return NextResponse.json(templates)
   } catch (error) {
-    console.error("Error fetching clinical note templates:", error)
-    return NextResponse.json({ error: "Failed to fetch clinical note templates" }, { status: 500 })
+    console.error("Failed to fetch clinical note templates:", error)
+    return NextResponse.json({ message: "Failed to fetch clinical note templates" }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+    const body = await request.json()
+    const validatedData = templateSchema.parse(body)
+
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const newTemplate = await clinicalNotesService.createTemplate(validatedData)
+
+    return NextResponse.json(newTemplate, { status: 201 })
+  } catch (error: any) {
+    console.error("Failed to create clinical note template:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Invalid input", errors: error.errors }, { status: 400 })
     }
-
-    const data = await request.json()
-    const userId = session.user.id
-
-    const template = await clinicalNotesService.createTemplate(tenant.id, userId, data)
-
-    return NextResponse.json(template, { status: 201 })
-  } catch (error) {
-    console.error("Error creating clinical note template:", error)
-    return NextResponse.json({ error: "Failed to create clinical note template" }, { status: 500 })
+    return NextResponse.json({ message: "Failed to create clinical note template" }, { status: 500 })
   }
 }

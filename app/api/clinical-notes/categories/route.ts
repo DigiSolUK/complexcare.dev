@@ -1,49 +1,49 @@
-import { type NextRequest, NextResponse } from "next/server"
-import clinicalNotesService from "@/lib/services/clinical-notes-service"
-import { getCurrentTenant } from "@/lib/tenant-utils"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-config"
+import { NextResponse } from "next/server"
+import { ClinicalNotesService } from "@/lib/services/clinical-notes-service"
+import { getCurrentUser } from "@/lib/auth-utils"
+import { z } from "zod"
 
-export async function GET(request: NextRequest) {
+const categorySchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+  description: z.string().optional().nullable(),
+})
+
+export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
-    }
-
-    const categories = await clinicalNotesService.getCategories(tenant.id)
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const categories = await clinicalNotesService.getCategories()
 
     return NextResponse.json(categories)
   } catch (error) {
-    console.error("Error fetching clinical note categories:", error)
-    return NextResponse.json({ error: "Failed to fetch clinical note categories" }, { status: 500 })
+    console.error("Failed to fetch clinical note categories:", error)
+    return NextResponse.json({ message: "Failed to fetch clinical note categories" }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user || !user.tenantId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
 
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+    const body = await request.json()
+    const validatedData = categorySchema.parse(body)
+
+    const clinicalNotesService = await ClinicalNotesService.create()
+    const newCategory = await clinicalNotesService.createCategory(validatedData)
+
+    return NextResponse.json(newCategory, { status: 201 })
+  } catch (error: any) {
+    console.error("Failed to create clinical note category:", error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ message: "Invalid input", errors: error.errors }, { status: 400 })
     }
-
-    const data = await request.json()
-
-    const category = await clinicalNotesService.createCategory(tenant.id, data)
-
-    return NextResponse.json(category, { status: 201 })
-  } catch (error) {
-    console.error("Error creating clinical note category:", error)
-    return NextResponse.json({ error: "Failed to create clinical note category" }, { status: 500 })
+    return NextResponse.json({ message: "Failed to create clinical note category" }, { status: 500 })
   }
 }
