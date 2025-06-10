@@ -13,7 +13,6 @@
   "dependencies": {
     "@ai-sdk/groq": "latest",
     "@auth/core": "latest",
-    "@auth0/nextjs-auth0": "latest",
     "@aws-sdk/client-rds-data": "latest",
     "@cloudflare/workers-types": "latest",
     "@electric-sql/pglite": "latest",

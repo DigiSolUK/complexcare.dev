@@ -1,21 +1,19 @@
 // app/api/auth/stack/session/route.ts
-import { getSession } from "@auth0/nextjs-auth0"
-import { type NextRequest, NextResponse } from "next/server"
+// This route can be called by the client to get the current session state
+import { NextResponse, type NextRequest } from "next/server"
+import { getServerSession } from "@/lib/auth/stack-auth-server" // Correct import
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getSession(req)
+    const session = await getServerSession(req)
 
-    if (!session) {
-      return NextResponse.json({ user: null, isLoggedIn: false })
+    if (session && session.user && !session.error) {
+      return NextResponse.json({ isAuthenticated: true, user: session.user, tenantId: session.tenantId })
+    } else {
+      return NextResponse.json({ isAuthenticated: false, user: null, error: session?.error })
     }
-
-    return NextResponse.json({
-      user: session.user,
-      isLoggedIn: true,
-    })
   } catch (error) {
-    console.error("Error getting session:", error)
-    return NextResponse.json({ user: null, isLoggedIn: false })
+    console.error("Stack Session API error:", error)
+    return NextResponse.json({ isAuthenticated: false, user: null, error: "Internal server error" }, { status: 500 })
   }
 }

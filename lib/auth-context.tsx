@@ -1,145 +1,94 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
-import { getStackAuthClient } from "./auth/stack-auth-client" // Using the client-side SDK
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { usePathname, useRouter } from "next/navigation"
 
 interface User {
   id: string
   email: string
   name?: string
-  // Add other user properties from Stack Auth
+  role?: string
 }
 
 interface AuthContextType {
-  user: User | null
   isAuthenticated: boolean
+  user: User | null
+  tenantId: string | null
   isLoading: boolean
-  signIn: (credentials: { email: string; password?: string; provider?: string }) => Promise<{
-    success: boolean
-    error?: string
-  }>
-  signOut: () => Promise<{ success: boolean; error?: string }>
-  // Add other methods like signUp, etc.
+  error: string | null
+  signIn: () => void
+  signOut: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [user, setUser] = useState<User | null>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-  const stackAuth = getStackAuthClient()
+  const [tenantId, setTenantId] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+  const pathname = usePathname()
 
-  const checkSession = useCallback(async () => {
+  const fetchSession = async () => {
     setIsLoading(true)
-    if (stackAuth) {
-      try {
-        // Attempt to get session from client SDK (e.g., from localStorage or by pinging an endpoint)
-        const sessionData = await stackAuth.getSession() // Assumes SDK has getSession()
-        if (sessionData?.isAuthenticated && sessionData.user) {
-          setUser(sessionData.user)
-          setIsAuthenticated(true)
-        } else {
-          // Optionally, verify with a backend endpoint if client SDK doesn't provide robust session check
-          const res = await fetch("/api/auth/stack/session")
-          if (res.ok) {
-            const serverSession = await res.json()
-            if (serverSession.isAuthenticated && serverSession.user) {
-              setUser(serverSession.user)
-              setIsAuthenticated(true)
-            } else {
-              setUser(null)
-              setIsAuthenticated(false)
-            }
-          } else {
-            setUser(null)
-            setIsAuthenticated(false)
-          }
-        }
-      } catch (error) {
-        console.error("Error checking session:", error)
-        setUser(null)
-        setIsAuthenticated(false)
-      }
-    } else {
-      // If stackAuth client isn't available (e.g. env vars missing)
-      setUser(null)
-      setIsAuthenticated(false)
-    }
-    setIsLoading(false)
-  }, [stackAuth])
-
-  useEffect(() => {
-    checkSession()
-    // Listen to storage events to update session on signIn/signOut from other tabs
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === "stack_auth_token" || event.key === "stack_user") {
-        checkSession()
-      }
-    }
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
-  }, [checkSession])
-
-  const signIn = async (credentials: { email: string; password?: string; provider?: string }) => {
-    if (!stackAuth) return { success: false, error: "Auth client not initialized" }
-    setIsLoading(true)
+    setError(null)
     try {
-      // Use client-side API route for sign-in which then calls server-side Stack Auth
-      const response = await fetch("/api/auth/stack/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      })
+      const response = await fetch("/api/auth/stack/session")
       const data = await response.json()
 
-      if (data.success && data.user) {
-        setUser(data.user)
+      if (data.isAuthenticated) {
         setIsAuthenticated(true)
-        // The API route should set the cookie, client SDK might update localStorage
-        await stackAuth.getSession() // Refresh client SDK state if needed
-        return { success: true }
+        setUser(data.user)
+        setTenantId(data.tenantId || null)
       } else {
-        return { success: false, error: data.error || "Sign-in failed" }
+        setIsAuthenticated(false)
+        setUser(null)
+        setTenantId(null)
+        setError(data.error || "Authentication failed")
       }
-    } catch (error: any) {
-      return { success: false, error: error.message || "An unexpected error occurred" }
+    } catch (err) {
+      console.error("Failed to fetch session:", err)
+      setIsAuthenticated(false)
+      setUser(null)
+      setTenantId(null)
+      setError("Failed to connect to authentication service.")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const signOut = async () => {
-    if (!stackAuth) return { success: false, error: "Auth client not initialized" }
-    setIsLoading(true)
-    try {
-      // Use client-side API route for sign-out
-      const response = await fetch("/api/auth/stack/signout", { method: "POST" })
-      const data = await response.json()
+  useEffect(() => {
+    fetchSession()
+  }, [])
 
-      if (data.success) {
-        setUser(null)
-        setIsAuthenticated(false)
-        await stackAuth.signOut() // Clear client SDK state
-        return { success: true }
-      } else {
-        return { success: false, error: data.error || "Sign-out failed" }
-      }
-    } catch (error: any) {
-      return { success: false, error: error.message || "An unexpected error occurred" }
-    } finally {
-      setIsLoading(false)
+  const signIn = () => {
+    // Redirect to login page or trigger Stack Auth login flow
+    router.push(`/login?callbackUrl=${encodeURIComponent(pathname)}`)
+  }
+
+  const signOut = async () => {
+    try {
+      await fetch("/api/auth/stack/signout", { method: "POST" })
+      setIsAuthenticated(false)
+      setUser(null)
+      setTenantId(null)
+      router.push("/login") // Redirect to login after sign out
+    } catch (err) {
+      console.error("Failed to sign out:", err)
+      setError("Failed to sign out.")
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, tenantId, isLoading, error, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
-export const useAuth = (): AuthContextType => {
+export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")

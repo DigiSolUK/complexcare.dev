@@ -1,22 +1,16 @@
 "use client"
+import { ThemeProvider as NextThemesProvider } from "next-themes"
+import type { ThemeProviderProps } from "next-themes"
+import { AuthProvider } from "@/lib/auth-context" // Correct import
 
-import type { ReactNode } from "react"
-import { AuthProvider } from "@/lib/auth-context" // Updated path
-import { TenantProvider } from "@/components/providers/tenant-provider" // Assuming this is still needed
-import { ThemeProvider } from "@/components/theme-provider" // Assuming shadcn/ui theme provider
-import { Toaster } from "@/components/ui/toaster" // For notifications
-
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children, ...props }: ThemeProviderProps) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <NextThemesProvider {...props}>
       <AuthProvider>
-        <TenantProvider>
-          {" "}
-          {/* TenantProvider might need to use useAuth to get tenantId */}
-          {children}
-          <Toaster />
-        </TenantProvider>
+        {" "}
+        {/* Wrap with AuthProvider */}
+        {children}
       </AuthProvider>
-    </ThemeProvider>
+    </NextThemesProvider>
   )
 }
