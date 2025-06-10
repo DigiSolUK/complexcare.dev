@@ -1,110 +1,167 @@
 import type { Metadata } from "next"
 import { CheckCircle, Clock, AlertTriangle, ListChecks } from "lucide-react"
+import { Suspense } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TodoList } from "@/components/tasks/todo-list"
-import { TodoKanban } from "@/components/tasks/todo-kanban"
+import { TodoKanban } from "@/components/tasks/todo-kanban" // Assuming TodoKanban will be updated to use TaskTable
 import { checkDatabaseConnection } from "@/lib/db-check"
+import { TaskTable } from "@/components/tasks/task-table"
+import { TaskService } from "@/lib/services/task-service"
+import { PatientService } from "@/lib/services/patient-service"
+import type { Patient } from "@/types"
+import { TaskFilterControls } from "@/components/tasks/task-filter-controls" // New component for filters
 
 export const metadata: Metadata = {
   title: "Tasks",
   description: "Manage your tasks and to-dos",
 }
 
-// Demo data for tasks
-const demoStats = {
-  total: 42,
-  completed: 18,
-  pending: 24,
-  overdue: 5,
-  highPriority: 8,
-}
-
-const demoTodos = [
-  {
-    id: "1",
-    title: "Complete patient assessment for John Smith",
-    description: "Conduct full assessment and update care plan",
-    status: "todo",
-    priority: "high",
-    dueDate: "2023-05-15",
-    assignedTo: "Sarah Johnson",
-  },
-  {
-    id: "2",
-    title: "Review medication plan for Emily Wilson",
-    description: "Check for interactions and update as needed",
-    status: "in-progress",
-    priority: "medium",
-    dueDate: "2023-05-16",
-    assignedTo: "Dr. Michael Brown",
-  },
-  {
-    id: "3",
-    title: "Schedule follow-up appointment for David Taylor",
-    description: "Coordinate with family members for transportation",
-    status: "todo",
-    priority: "low",
-    dueDate: "2023-05-18",
-    assignedTo: "Jessica Lee",
-  },
-  {
-    id: "4",
-    title: "Update risk assessment for Robert Martin",
-    description: "Include recent fall incident in assessment",
-    status: "todo",
-    priority: "high",
-    dueDate: "2023-05-14",
-    assignedTo: "Sarah Johnson",
-  },
-  {
-    id: "5",
-    title: "Complete training module on new medication protocol",
-    description: "Required for all clinical staff",
-    status: "done",
-    priority: "medium",
-    dueDate: "2023-05-10",
-    assignedTo: "All Staff",
-  },
-  {
-    id: "6",
-    title: "Review and approve care plan changes",
-    description: "Changes submitted by care team for three patients",
-    status: "in-progress",
-    priority: "high",
-    dueDate: "2023-05-15",
-    assignedTo: "Dr. Michael Brown",
-  },
-  {
-    id: "7",
-    title: "Prepare monthly compliance report",
-    description: "Include all training completions and policy updates",
-    status: "todo",
-    priority: "medium",
-    dueDate: "2023-05-20",
-    assignedTo: "Jessica Lee",
-  },
-  {
-    id: "8",
-    title: "Follow up on equipment request for patient P003",
-    description: "Check status with procurement team",
-    status: "done",
-    priority: "low",
-    dueDate: "2023-05-12",
-    assignedTo: "Robert Martin",
-  },
-]
-
-export default async function TasksPage() {
-  // Check if database is connected, but don't let it block rendering
+// This component will fetch data and render the main tasks page
+async function TasksPageContent({
+  searchParams,
+}: {
+  searchParams: { patientId?: string; status?: string }
+}) {
   const dbConnected = await checkDatabaseConnection().catch(() => false)
 
-  // For now, always use demo data to ensure the page loads
-  // In a production environment, you would fetch real data if dbConnected is true
+  // Fetch real data if connected, otherwise use demo data (for development/fallback)
+  let tasks = []
+  let patients: Patient[] = []
+  let totalTasks = 0
+  let completedTasks = 0
+  let pendingTasks = 0
+  let overdueTasks = 0
+  let highPriorityTasks = 0
 
-  // Calculate completion percentage
-  const completionPercentage = demoStats.total > 0 ? Math.round((demoStats.completed / demoStats.total) * 100) : 0
+  if (dbConnected) {
+    try {
+      const taskService = await TaskService.create()
+      const patientService = await PatientService.create()
+
+      const allTasks = await taskService.getTasks({
+        patientId: searchParams.patientId,
+        status: searchParams.status as any, // Cast to Task["status"]
+      })
+      tasks = allTasks
+
+      patients = await patientService.getPatients()
+
+      totalTasks = tasks.length
+      completedTasks = tasks.filter((task) => task.status === "completed").length
+      pendingTasks = tasks.filter((task) => task.status === "pending" || task.status === "in_progress").length
+      overdueTasks = tasks.filter((task) => task.status === "overdue").length
+      highPriorityTasks = tasks.filter((task) => task.priority === "high").length
+    } catch (error) {
+      console.error("Failed to fetch real task data:", error)
+      // Fallback to demo data if fetching fails
+      // For production, you might want a more robust error handling or display
+    }
+  }
+
+  // Fallback to demo data if no real data or DB not connected
+  if (tasks.length === 0 && !dbConnected) {
+    // Demo data for tasks (adjust as needed for patient association)
+    tasks = [
+      {
+        id: "T001",
+        title: "Review medication plan",
+        description: "Review and update the medication plan for John Doe",
+        status: "pending",
+        priority: "high",
+        dueDate: new Date("2023-06-15"),
+        assignedToId: "cp_sarah_johnson",
+        patientId: "patient_john_doe",
+        tenantId: "tenant_id_1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        assignedToName: "Dr. Sarah Johnson",
+        patientName: "John Doe",
+      },
+      {
+        id: "T002",
+        title: "Schedule follow-up appointment",
+        description: "Schedule a follow-up appointment for Jane Smith",
+        status: "completed",
+        priority: "medium",
+        dueDate: new Date("2023-06-10"),
+        assignedToId: "cp_nurse_williams",
+        patientId: "patient_jane_smith",
+        tenantId: "tenant_id_1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        assignedToName: "Nurse Williams",
+        patientName: "Jane Smith",
+      },
+      {
+        id: "T003",
+        title: "Update DBS check",
+        description: "Ensure DBS check is up to date for staff member",
+        status: "in_progress",
+        priority: "medium",
+        dueDate: new Date("2023-06-20"),
+        assignedToId: "cp_hr_manager",
+        patientId: null, // Not patient-related
+        tenantId: "tenant_id_1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        assignedToName: "HR Manager",
+        patientName: null,
+      },
+      {
+        id: "T004",
+        title: "Prepare monthly report",
+        description: "Prepare the monthly patient outcome report",
+        status: "overdue",
+        priority: "high",
+        dueDate: new Date("2023-06-05"),
+        assignedToId: "cp_admin_user",
+        patientId: null, // Not patient-related
+        tenantId: "tenant_id_1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        assignedToName: "Admin User",
+        patientName: null,
+      },
+    ]
+    patients = [
+      {
+        id: "patient_john_doe",
+        firstName: "John",
+        lastName: "Doe",
+        dateOfBirth: new Date("1970-01-01"),
+        gender: "Male",
+        address: "123 Main St",
+        phone: "555-1234",
+        email: "john.doe@example.com",
+        tenantId: "tenant_id_1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        fullName: "John Doe",
+      },
+      {
+        id: "patient_jane_smith",
+        firstName: "Jane",
+        lastName: "Smith",
+        dateOfBirth: new Date("1985-05-10"),
+        gender: "Female",
+        address: "456 Oak Ave",
+        phone: "555-5678",
+        email: "jane.smith@example.com",
+        tenantId: "tenant_id_1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        fullName: "Jane Smith",
+      },
+    ]
+    totalTasks = tasks.length
+    completedTasks = tasks.filter((task) => task.status === "completed").length
+    pendingTasks = tasks.filter((task) => task.status === "pending" || task.status === "in_progress").length
+    overdueTasks = tasks.filter((task) => task.status === "overdue").length
+    highPriorityTasks = tasks.filter((task) => task.priority === "high").length
+  }
+
+  const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   return (
     <div className="flex flex-col gap-4">
@@ -135,7 +192,7 @@ export default async function TasksPage() {
             <ListChecks className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{demoStats.total}</div>
+            <div className="text-2xl font-bold">{totalTasks}</div>
             <p className="text-xs text-muted-foreground">{completionPercentage}% completion rate</p>
           </CardContent>
         </Card>
@@ -145,8 +202,8 @@ export default async function TasksPage() {
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{demoStats.pending}</div>
-            <p className="text-xs text-muted-foreground">{demoStats.highPriority} high priority</p>
+            <div className="text-2xl font-bold">{pendingTasks}</div>
+            <p className="text-xs text-muted-foreground">{highPriorityTasks} high priority</p>
           </CardContent>
         </Card>
         <Card>
@@ -155,7 +212,7 @@ export default async function TasksPage() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{demoStats.completed}</div>
+            <div className="text-2xl font-bold">{completedTasks}</div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
@@ -165,11 +222,13 @@ export default async function TasksPage() {
             <AlertTriangle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{demoStats.overdue}</div>
+            <div className="text-2xl font-bold">{overdueTasks}</div>
             <p className="text-xs text-muted-foreground">Require immediate attention</p>
           </CardContent>
         </Card>
       </div>
+
+      <TaskFilterControls patients={patients} />
 
       <Tabs defaultValue="list" className="space-y-4">
         <TabsList>
@@ -177,12 +236,29 @@ export default async function TasksPage() {
           <TabsTrigger value="kanban">Kanban Board</TabsTrigger>
         </TabsList>
         <TabsContent value="list">
-          <TodoList todos={demoTodos} />
+          <TaskTable
+            data={tasks}
+            onTaskUpdated={async () => {
+              "use server"
+            }}
+          />
         </TabsContent>
         <TabsContent value="kanban">
-          <TodoKanban todos={demoTodos} />
+          <TodoKanban todos={tasks} />
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default async function TasksPageWrapper({
+  searchParams,
+}: {
+  searchParams: { patientId?: string; status?: string }
+}) {
+  return (
+    <Suspense fallback={<div>Loading tasks...</div>}>
+      <TasksPageContent searchParams={searchParams} />
+    </Suspense>
   )
 }
