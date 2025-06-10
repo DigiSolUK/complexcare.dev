@@ -1,34 +1,22 @@
--- Create error_logs table for tracking application errors
+-- Create Error Logs table (for application errors)
 CREATE TABLE IF NOT EXISTS error_logs (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  tenant_id UUID NOT NULL,
-  user_id UUID,
-  message TEXT NOT NULL,
-  stack TEXT,
-  component_path VARCHAR(500),
-  component_stack TEXT,
-  severity VARCHAR(20) DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
-  status VARCHAR(20) DEFAULT 'new' CHECK (status IN ('new', 'investigating', 'resolved')),
-  browser_info JSONB,
-  url TEXT,
-  method VARCHAR(10),
-  level VARCHAR(20),
-  occurrence_count INTEGER DEFAULT 1,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL, -- Optional, if error is tenant-specific
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- Optional, if error is user-specific
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  source VARCHAR(255), -- e.g., 'API:/api/patients', 'Frontend:PatientPage', 'BackgroundJob:InvoiceProcessing'
+  error_message TEXT NOT NULL,
+  stack_trace TEXT,
+  request_details JSONB, -- URL, method, headers, body snippet
+  severity VARCHAR(50) NOT NULL, -- e.g., 'Info', 'Warning', 'Error', 'Critical'
+  status VARCHAR(50) DEFAULT 'Unresolved', -- e.g., 'Unresolved', 'Investigating', 'Resolved', 'Ignored'
   resolved_at TIMESTAMP WITH TIME ZONE,
-  resolved_by UUID,
-  FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-  FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+  resolved_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_error_logs_tenant_id ON error_logs(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_error_logs_severity ON error_logs(severity);
-CREATE INDEX IF NOT EXISTS idx_error_logs_status ON error_logs(status);
-CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at);
-CREATE INDEX IF NOT EXISTS idx_error_logs_component_path ON error_logs(component_path);
+-- Add index for performance on error_logs
+CREATE INDEX IF NOT EXISTS idx_error_logs_tenant_id_timestamp ON error_logs(tenant_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_error_logs_severity_status ON error_logs(severity, status);
 
 -- Create a function to automatically update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_error_logs_updated_at()
