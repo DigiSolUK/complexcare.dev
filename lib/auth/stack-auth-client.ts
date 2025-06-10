@@ -36,12 +36,26 @@ export function initStackAuthClient() {
         console.log("Mock StackAuth signIn:", credentials)
         if (credentials.email === "test@example.com" && credentials.password === "password") {
           localStorage.setItem("stack_auth_token", "mock-jwt-token")
-          localStorage.setItem(
-            "stack_user",
-            JSON.stringify({ id: "user-123", email: "test@example.com", name: "Test User" }),
-          )
-          window.dispatchEvent(new Event("storage")) // Notify listeners of storage change
-          return { success: true, user: { id: "user-123", email: "test@example.com", name: "Test User" } }
+          const user = { id: "user-123", email: "test@example.com", name: "Test User", role: "user" } // Added role
+          localStorage.setItem("stack_user", JSON.stringify(user))
+          window.dispatchEvent(new Event("storage"))
+          return { success: true, user }
+        }
+        // Add mock for admin login
+        if (credentials.email === "admin@example.com" && credentials.password === "password") {
+          localStorage.setItem("stack_auth_token", "mock-admin-token")
+          const user = { id: "admin-789", email: "admin@example.com", name: "Tenant Admin", role: "tenant_admin" }
+          localStorage.setItem("stack_user", JSON.stringify(user))
+          window.dispatchEvent(new Event("storage"))
+          return { success: true, user }
+        }
+        // Add mock for superadmin login
+        if (credentials.email === "super@example.com" && credentials.password === "password") {
+          localStorage.setItem("stack_auth_token", "mock-superadmin-token")
+          const user = { id: "superadmin-001", email: "super@example.com", name: "Super Admin", role: "superadmin" }
+          localStorage.setItem("stack_user", JSON.stringify(user))
+          window.dispatchEvent(new Event("storage"))
+          return { success: true, user }
         }
         return { success: false, error: "Invalid credentials" }
       },
@@ -56,7 +70,8 @@ export function initStackAuthClient() {
         const token = localStorage.getItem("stack_auth_token")
         const userStr = localStorage.getItem("stack_user")
         if (token && userStr) {
-          return { isAuthenticated: true, user: JSON.parse(userStr), token }
+          const user = JSON.parse(userStr) // User object now includes role
+          return { isAuthenticated: true, user, token }
         }
         return { isAuthenticated: false, user: null, token: null }
       },

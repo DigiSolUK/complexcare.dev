@@ -35,8 +35,29 @@ function getStackAuthServer() {
             userId: "user-123",
             email: "test@example.com",
             name: "Test User",
+            role: "user", // Added role
+            tenantId: "ba367cfe-6de0-4180-9566-1002b75cf82c", // Default tenant for mock
+          }
+        }
+        if (token === "mock-admin-token") { // For testing admin roles
+          return {
+            valid: true,
+            userId: "admin-789",
+            email: "admin@example.com",
+            name: "Tenant Admin",
+            role: "tenant_admin",
             tenantId: "ba367cfe-6de0-4180-9566-1002b75cf82c",
-          } // Include tenantId if available in token
+          };
+        }
+        if (token === "mock-superadmin-token") { // For testing superadmin roles
+          return {
+            valid: true,
+            userId: "superadmin-001",
+            email: "super@example.com",
+            name: "Super Admin",
+            role: "superadmin",
+            // Superadmin might not have a specific tenantId or a global one
+          };
         }
         return { valid: false, error: "Invalid token" }
       },
@@ -64,7 +85,7 @@ export async function getServerSession(
     const verificationResult = await serverAuth.verifyToken(token)
     if (verificationResult.valid) {
       return {
-        user: { id: verificationResult.userId, email: verificationResult.email, name: verificationResult.name },
+        user: { id: verificationResult.userId, email: verificationResult.email, name: verificationResult.name, role: verificationResult.role },
         tenantId: verificationResult.tenantId,
       }
     }
@@ -78,7 +99,7 @@ export async function getServerSession(
     const verificationResult = await serverAuth.verifyToken(sessionCookie.value)
     if (verificationResult.valid) {
       return {
-        user: { id: verificationResult.userId, email: verificationResult.email, name: verificationResult.name },
+        user: { id: verificationResult.userId, email: verificationResult.email, name: verificationResult.name, role: verificationResult.role },
         tenantId: verificationResult.tenantId,
       }
     }
