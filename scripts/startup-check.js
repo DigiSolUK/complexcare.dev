@@ -1,155 +1,96 @@
-import { neon } from "@neondatabase/serverless"
-import * as dotenv from "dotenv"
+import { getNeonSqlClient } from "../lib/db"
 
-// Load environment variables
-dotenv.config()
+async function checkTableExists(tableName) {
+  const sql = getNeonSqlClient()
+  try {
+    const result = await sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = ${tableName}
+      ) as exists_alias;
+    `
 
-async function runStartupChecks() {
-  console.log("🚀 Running startup checks...\n")
+    // Log the raw result for debugging
+    console.log(`DEBUG: Raw result for table ${tableName}:`, JSON.stringify(result))
 
-  const checks = [] // Array to store check results
-
-  // Check environment variables
-  console.log("📋 Checking environment variables...")
-  const requiredEnvVars = ["DATABASE_URL", "NEXTAUTH_SECRET", "NEXTAUTH_URL", "DEFAULT_TENANT_ID"]
-
-  for (const envVar of requiredEnvVars) {
-    if (process.env[envVar]) {
-      checks.push({
-        name: `Environment: ${envVar}`,
-        status: "pass",
-      })
-    } else {
-      checks.push({
-        name: `Environment: ${envVar}`,
-        status: "fail",
-        message: `Missing required environment variable: ${envVar}`,
-      })
+    // Explicitly check if result is null or undefined before anything else
+    if (result === null || typeof result === "undefined") {
+      console.error(`Error checking table ${tableName}: Query result is null or undefined.`)
+      return false
     }
-  }
 
-  // Check database connection
-  console.log("\n🗄️  Checking database connection...")
-  const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL // Use production_DATABASE_URL if available
-
-  if (!databaseUrl) {
-    checks.push({
-      name: "Database Connection",
-      status: "fail",
-      message: "DATABASE_URL environment variable not set.",
-    })
-  } else {
-    try {
-      const sql = neon(databaseUrl)
-      const versionResult = await sql`SELECT version()`
-      if (versionResult && versionResult.length > 0 && versionResult[0].version) {
-        checks.push({
-          name: "Database Connection",
-          status: "pass",
-          message: `Connected to ${versionResult[0].version}`,
-        })
-      } else {
-        checks.push({
-          name: "Database Connection",
-          status: "fail",
-          message: "Failed to retrieve database version or empty result.",
-        })
-      }
-
-      // Check required tables
-      const tables = [
-        "tenants",
-        "users",
-        "patients",
-        "appointments",
-        "tasks",
-        "care_professionals",
-        "medications",
-        "care_plans",
-        "clinical_notes",
-        "error_logs",
-        "wearable_devices",
-        "wearable_readings",
-        "wearable_integration_settings",
-        "office365_integration_settings",
-        "office365_user_connections",
-        "office365_email_sync",
-        "office365_calendar_sync",
-        "provider_availability",
-        "time_off_requests",
-      ]
-
-      for (const table of tables) {
-        try {
-          const tableExistsResult = await sql.query(`
-            SELECT EXISTS (
-              SELECT FROM information_schema.tables
-              WHERE table_schema = 'public'
-              AND table_name = '${table}'
-            );
-          `)
-          if (
-            tableExistsResult &&
-            tableExistsResult.rows &&
-            tableExistsResult.rows.length > 0 &&
-            tableExistsResult.rows[0].exists
-          ) {
-            checks.push({
-              name: `Table: ${table}`,
-              status: "pass",
-            })
-          } else {
-            checks.push({
-              name: `Table: ${table}`,
-              status: "fail",
-              message: "Table does not exist or query returned no rows.",
-            })
-          }
-        } catch (error) {
-          checks.push({
-            name: `Table: ${table}`,
-            status: "fail",
-            message: `Error checking table: ${error.message}`,
-          })
-        }
-      }
-    } catch (error) {
-      checks.push({
-        name: "Database Connection",
-        status: "fail",
-        message: `Failed to connect to database: ${error instanceof Error ? error.message : String(error)}`,
-      })
+    // Ensure result is an array and has at least one element
+    if (!Array.isArray(result) || result.length === 0) {
+      console.error(`Error checking table ${tableName}: Query returned no rows or invalid result type. Result:`, result)
+      return false
     }
-  }
 
-  // Print results
-  console.log("\n📊 Startup Check Results:\n")
-
-  let hasFailures = false
-
-  for (const check of checks) {
-    const icon = check.status === "pass" ? "✅" : "❌"
-    console.log(`${icon} ${check.name}`)
-    if (check.message) {
-      console.log(`   ${check.message}`)
+    // Ensure the first element exists and has the 'exists_alias' property
+    if (typeof result[0].exists_alias === "undefined") {
+      console.error(
+        `Error checking table ${tableName}: 'exists_alias' property not found in result[0]. Result[0]:`,
+        result[0],
+      )
+      return false
     }
-    if (check.status === "fail") {
-      hasFailures = true
-    }
-  }
 
-  console.log("\n" + "=".repeat(50))
-
-  if (hasFailures) {
-    console.log("❌ Startup checks failed! Please fix the issues above.")
-    process.exit(1)
-  } else {
-    console.log("✅ All startup checks passed! Ready to start the application.")
+    return result[0].exists_alias
+  } catch (error) {
+    console.error(`Error checking table ${tableName}: ${error.message}`)
+    return false
   }
 }
 
-// Run the checks
-runStartupChecks().catch((error) => {
-  console.error("Fatal error during startup checks:", error)
-  process.exit(1)
-})
+async function runStartupChecks() {
+  console.log("Running database startup checks...")
+
+  const requiredTables = [
+    "users",
+    "accounts",
+    "sessions",
+    "verification_tokens",
+    "tenants",
+    "tenant_users",
+    "patients",
+    "care_professionals",
+    "medications",
+    "documents",
+    "invoices",
+    "invoice_items",
+    "payroll_providers",
+    "payroll_submissions",
+    "credentials",
+    "care_plans",
+    "appointments",
+    "availability",
+    "time_off_requests",
+    "error_logs",
+    "clinical_notes",
+    "clinical_note_categories",
+    "clinical_note_templates",
+    "wearable_devices",
+    "wearable_readings",
+    "timesheets",
+  ]
+
+  let allTablesExist = true
+  for (const table of requiredTables) {
+    const exists = await checkTableExists(table)
+    if (!exists) {
+      console.error(`❌ Table: ${table}`)
+      allTablesExist = false
+    } else {
+      console.log(`✅ Table: ${table}`)
+    }
+  }
+
+  if (!allTablesExist) {
+    console.error("Database startup check failed: Not all required tables exist.")
+    process.exit(1)
+  } else {
+    console.log("Database startup check passed: All required tables exist.")
+  }
+}
+
+runStartupChecks()
