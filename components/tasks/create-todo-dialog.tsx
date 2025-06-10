@@ -1,6 +1,12 @@
 "use client"
 
-import { useState, useTransition, useEffect } from "react"
+import { useState, useEffect } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { format } from "date-fns"
+import { CalendarIcon, Loader2 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -10,233 +16,313 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, Loader2 } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format } from "date-fns"
-import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
-import type { Task, Patient, CareProfessional } from "@/types"
-import { createTask } from "@/lib/actions/task-actions" // Assuming this action exists or will be created
+import { Calendar } from "@/components/ui/calendar"
+import { createTask } from "@/lib/actions/task-actions"
 import { useToast } from "@/components/ui/use-toast"
-import { PatientService } from "@/lib/services/patient-service" // Import PatientService
-import { CareProfessionalService } from "@/lib/services/care-professional-service" // Import CareProfessionalService
+import { PatientService } from "@/lib/services/patient-service"
+import { CareProfessionalService } from "@/lib/services/care-professional-service"
+import type { Patient, CareProfessional } from "@/types"
+
+const formSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional().nullable(),
+  dueDate: z.date().optional().nullable(),
+  priority: z.enum(["low", "medium", "high"]),
+  status: z.enum(["pending", "in_progress", "completed", "overdue"]),
+  assignedToId: z.string().optional().nullable(),
+  patientId: z.string().optional().nullable(),
+})
 
 interface CreateTodoDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onTaskCreated: () => void
+  defaultPatientId?: string
+  defaultPatientName?: string
 }
 
-export function CreateTodoDialog({ open, onOpenChange, onTaskCreated }: CreateTodoDialogProps) {
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
-  const [priority, setPriority] = useState<Task["priority"]>("medium")
-  const [assignedToId, setAssignedToId] = useState<string | undefined>(undefined)
-  const [patientId, setPatientId] = useState<string | undefined>(undefined) // New state for patient
-  const [isPending, startTransition] = useTransition()
+export function CreateTodoDialog({
+  open,
+  onOpenChange,
+  onTaskCreated,
+  defaultPatientId,
+  defaultPatientName,
+}: CreateTodoDialogProps) {
   const { toast } = useToast()
-
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [patients, setPatients] = useState<Patient[]>([])
   const [careProfessionals, setCareProfessionals] = useState<CareProfessional[]>([])
-  const [isLoadingPatients, setIsLoadingPatients] = useState(true)
-  const [isLoadingCareProfessionals, setIsLoadingCareProfessionals] = useState(true)
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      dueDate: undefined,
+      priority: "medium",
+      status: "pending",
+      assignedToId: undefined,
+      patientId: defaultPatientId || undefined, // Set default patient ID
+    },
+  })
 
   useEffect(() => {
-    const fetchPatientsAndCareProfessionals = async () => {
+    async function fetchData() {
       try {
         const patientService = await PatientService.create()
         const fetchedPatients = await patientService.getPatients()
         setPatients(fetchedPatients)
-      } catch (error) {
-        console.error("Failed to fetch patients:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load patients.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingPatients(false)
-      }
 
-      try {
         const careProfessionalService = await CareProfessionalService.create()
         const fetchedCareProfessionals = await careProfessionalService.getCareProfessionals()
         setCareProfessionals(fetchedCareProfessionals)
       } catch (error) {
-        console.error("Failed to fetch care professionals:", error)
+        console.error("Failed to fetch data for task dialog:", error)
         toast({
           title: "Error",
-          description: "Failed to load care professionals.",
+          description: "Failed to load patient and care professional data.",
           variant: "destructive",
         })
-      } finally {
-        setIsLoadingCareProfessionals(false)
       }
     }
+    fetchData()
+  }, [toast])
 
-    if (open) {
-      fetchPatientsAndCareProfessionals()
+  // Update form default value if defaultPatientId changes
+  useEffect(() => {
+    if (defaultPatientId) {
+      form.setValue("patientId", defaultPatientId)
+    } else {
+      form.setValue("patientId", undefined)
     }
-  }, [open, toast])
+  }, [defaultPatientId, form])
 
-  const handleSubmit = async () => {
-    startTransition(async () => {
-      try {
-        const newTaskData: Omit<
-          Task,
-          "id" | "createdAt" | "updatedAt" | "tenantId" | "assignedToName" | "patientName"
-        > = {
-          title,
-          description: description || null,
-          dueDate: dueDate || null,
-          priority,
-          status: "pending", // Default status for new tasks
-          assignedToId: assignedToId || null,
-          patientId: patientId || null, // Include patientId
-        }
-        await createTask(newTaskData)
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true)
+    try {
+      const result = await createTask({
+        title: values.title,
+        description: values.description,
+        dueDate: values.dueDate,
+        priority: values.priority,
+        status: values.status,
+        assignedToId: values.assignedToId,
+        patientId: values.patientId,
+      })
+
+      if (result.success) {
         toast({
-          title: "Success",
-          description: "Task created successfully.",
+          title: "Task created",
+          description: "Your new task has been added successfully.",
         })
+        form.reset()
         onTaskCreated()
         onOpenChange(false)
-        // Reset form fields
-        setTitle("")
-        setDescription("")
-        setDueDate(undefined)
-        setPriority("medium")
-        setAssignedToId(undefined)
-        setPatientId(undefined)
-      } catch (error: any) {
-        console.error("Failed to create task:", error)
+      } else {
         toast({
           title: "Error",
-          description: error.message || "Failed to create task.",
+          description: result.error || "Failed to create task.",
           variant: "destructive",
         })
       }
-    })
+    } catch (error) {
+      console.error("Error creating task:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while creating the task.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
-          <DialogDescription>Fill in the details for the new task. Click save when you're done.</DialogDescription>
+          <DialogDescription>Fill in the details for your new task.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="title" className="text-right">
-              Title
-            </Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="col-span-3"
-              required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Review patient care plan" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="col-span-3"
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Add more details about the task..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="dueDate" className="text-right">
-              Due Date
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn("col-span-3 justify-start text-left font-normal", !dueDate && "text-muted-foreground")}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={dueDate} onSelect={setDueDate} initialFocus />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="priority" className="text-right">
-              Priority
-            </Label>
-            <Select value={priority} onValueChange={(value: Task["priority"]) => setPriority(value)}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="assignedTo" className="text-right">
-              Assigned To
-            </Label>
-            <Select value={assignedToId} onValueChange={setAssignedToId} disabled={isLoadingCareProfessionals}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue
-                  placeholder={
-                    isLoadingCareProfessionals ? "Loading care professionals..." : "Select care professional"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {careProfessionals.map((cp) => (
-                  <SelectItem key={cp.id} value={cp.id}>
-                    {cp.fullName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="patient" className="text-right">
-              Patient
-            </Label>
-            <Select value={patientId} onValueChange={setPatientId} disabled={isLoadingPatients}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder={isLoadingPatients ? "Loading patients..." : "Select patient"} />
-              </SelectTrigger>
-              <SelectContent>
-                {patients.map((patient) => (
-                  <SelectItem key={patient.id} value={patient.id}>
-                    {patient.fullName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)} variant="outline">
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isPending || !title}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Task
-          </Button>
-        </DialogFooter>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priority</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="assignedToId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assigned To (Care Professional)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select care professional" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {careProfessionals.map((cp) => (
+                          <SelectItem key={cp.id} value={cp.id}>
+                            {cp.fullName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="patientId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Related Patient (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select patient" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="no_patient">No Patient</SelectItem>
+                        {patients.map((patient) => (
+                          <SelectItem key={patient.id} value={patient.id}>
+                            {patient.fullName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Due Date (Optional)</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-[240px] pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground",
+                          )}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value || undefined}
+                        onSelect={field.onChange}
+                        disabled={(date) => date < new Date("1900-01-01")}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Task
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

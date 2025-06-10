@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -30,47 +30,68 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Calendar, Clock, Edit, FileText, MoreHorizontal, Phone, Pill, Plus, Trash2, User } from "lucide-react"
+import {
+  Calendar,
+  Clock,
+  Edit,
+  FileText,
+  MoreHorizontal,
+  Phone,
+  Pill,
+  Plus,
+  Trash2,
+  User,
+  ListChecks,
+} from "lucide-react"
 import { PatientForm } from "@/components/patients/patient-form"
 import { getPatient, deletePatient } from "@/lib/actions/patient-actions"
+import { TaskService } from "@/lib/services/task-service" // Import TaskService
+import type { Task } from "@/types" // Import Task type
+import { TaskTable } from "@/components/tasks/task-table" // Re-use TaskTable
+import { CreateTodoDialog } from "@/components/tasks/create-todo-dialog" // Import CreateTodoDialog
 
 export default function ComprehensivePatientDetail({ patientId }: { patientId: string }) {
   const router = useRouter()
   const [patient, setPatient] = useState<any>(null)
+  const [tasks, setTasks] = useState<Task[]>([]) // State for patient-specific tasks
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false)
+
+  const fetchPatientAndTasks = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const patientResult = await getPatient(patientId)
+      if (!patientResult.success) {
+        throw new Error(patientResult.error || "Failed to fetch patient")
+      }
+      setPatient(patientResult.data)
+
+      // Fetch tasks for this patient
+      const taskService = await TaskService.create()
+      const patientTasks = await taskService.getTasks({ patientId: patientId })
+      setTasks(patientTasks)
+    } catch (err: any) {
+      console.error("Error fetching patient or tasks:", err)
+      setError(err.message || "Failed to load patient information. Please try again later.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err.message || "Failed to load patient information. Please try again later.",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [patientId])
 
   useEffect(() => {
-    async function fetchPatient() {
-      try {
-        setLoading(true)
-        setError(null)
-
-        const result = await getPatient(patientId)
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch patient")
-        }
-
-        setPatient(result.data)
-      } catch (err: any) {
-        console.error("Error fetching patient:", err)
-        setError(err.message || "Failed to load patient. Please try again later.")
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: err.message || "Failed to load patient. Please try again later.",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchPatient()
-  }, [patientId])
+    fetchPatientAndTasks()
+  }, [fetchPatientAndTasks])
 
   const handleEditSuccess = (updatedPatient: any) => {
     setPatient(updatedPatient)
@@ -79,6 +100,7 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
       title: "Patient updated",
       description: "Patient information has been updated successfully.",
     })
+    fetchPatientAndTasks() // Re-fetch to ensure all related data is fresh
   }
 
   const handleDeletePatient = async () => {
@@ -108,6 +130,11 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
     }
   }
 
+  const handleTaskCreated = () => {
+    setIsCreateTaskDialogOpen(false)
+    fetchPatientAndTasks() // Re-fetch tasks after a new one is created
+  }
+
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
   }
@@ -127,11 +154,11 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
     }
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | Date) => {
     try {
       return format(new Date(dateString), "PPP")
     } catch (e) {
-      return dateString
+      return String(dateString)
     }
   }
 
@@ -255,6 +282,10 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
                   <Clock className="h-4 w-4 mr-2" />
                   Care Plans
                 </Button>
+                <Button variant="outline" className="w-full" onClick={() => setActiveTab("tasks")}>
+                  <ListChecks className="h-4 w-4 mr-2" />
+                  Tasks
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -268,6 +299,7 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
               <TabsTrigger value="medications">Medications</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
               <TabsTrigger value="care-plans">Care Plans</TabsTrigger>
+              <TabsTrigger value="tasks">Tasks</TabsTrigger> {/* New Tab Trigger */}
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
@@ -470,6 +502,38 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* New Tasks Tab Content */}
+            <TabsContent value="tasks">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Patient Tasks</CardTitle>
+                    <CardDescription>
+                      Tasks related to {patient.first_name} {patient.last_name}
+                    </CardDescription>
+                  </div>
+                  <Button onClick={() => setIsCreateTaskDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Task
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {tasks.length === 0 ? (
+                    <div className="text-center py-8">
+                      <h3 className="text-lg font-medium">No tasks found</h3>
+                      <p className="text-muted-foreground mt-1">This patient has no associated tasks.</p>
+                      <Button className="mt-4" onClick={() => setIsCreateTaskDialogOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Task for {patient.first_name}
+                      </Button>
+                    </div>
+                  ) : (
+                    <TaskTable data={tasks} onTaskUpdated={fetchPatientAndTasks} />
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
@@ -525,6 +589,15 @@ export default function ComprehensivePatientDetail({ patientId }: { patientId: s
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create Task Dialog (for patient-specific tasks) */}
+      <CreateTodoDialog
+        open={isCreateTaskDialogOpen}
+        onOpenChange={setIsCreateTaskDialogOpen}
+        onTaskCreated={handleTaskCreated}
+        defaultPatientId={patient.id}
+        defaultPatientName={`${patient.first_name} ${patient.last_name}`}
+      />
     </div>
   )
 }
