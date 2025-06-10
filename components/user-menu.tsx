@@ -11,9 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/lib/auth-context" // Use the new AuthContext
+import { useAuth } from "@/lib/auth-context"
 import { getInitials } from "@/lib/utils"
-import { CreditCard, LayoutDashboard, LogOut, Settings, User } from "lucide-react"
+import { LayoutDashboard, LogOut, Settings, UserIcon } from "lucide-react" // Renamed User to UserIcon
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -24,7 +24,7 @@ export function UserMenu() {
   const handleSignOut = async () => {
     await signOut()
     router.push("/login") // Redirect to login after sign out
-    router.refresh()
+    router.refresh() // Important to re-fetch server components
   }
 
   if (isLoading) {
@@ -39,13 +39,18 @@ export function UserMenu() {
     )
   }
 
+  // Assuming user object from context has: userId, email, name, tenantId
+  // And avatar_url might be part of your user table in Neon
+  const displayName = user.name || user.email
+  const userAvatarUrl = (user as any).avatar_url || "" // Cast if avatar_url is not in User interface yet
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.avatar_url || ""} alt={user.name || user.email} />
-            <AvatarFallback>{getInitials(user.name || user.email)}</AvatarFallback>
+            <AvatarImage src={userAvatarUrl || "/placeholder.svg"} alt={displayName} />
+            <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
@@ -66,25 +71,22 @@ export function UserMenu() {
           </Link>
           <Link href="/profile">
             <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
+              <UserIcon className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>
           </Link>
-          {/* Add other links like Billing, Settings as needed */}
           <Link href="/settings">
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
             </DropdownMenuItem>
           </Link>
-          <Link href="/billing">
-            <DropdownMenuItem disabled>
-              {" "}
-              {/* Example: disabled item */}
-              <CreditCard className="mr-2 h-4 w-4" />
-              <span>Billing</span>
-            </DropdownMenuItem>
-          </Link>
+          {/* <Link href="/billing">
+        <DropdownMenuItem disabled>
+          <CreditCard className="mr-2 h-4 w-4" />
+          <span>Billing</span>
+        </DropdownMenuItem>
+      </Link> */}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>

@@ -1,103 +1,102 @@
-"use client"
+// lib/auth/stack-auth-client.ts (Client-side utilities for Neon Auth)
+// This file will primarily interact with your API endpoints.
 
-// lib/auth/stack-auth-client.ts (Client-side utilities)
-// Placeholder for Stack Auth SDK initialization and client-side methods
+interface User {
+  id: string
+  email: string
+  name?: string
+  tenantId: string
+  // Add other user properties
+}
 
-// Presumed Stack Auth SDK import - replace with actual
-// import { StackAuth } from 'stack-auth-sdk'; // Or whatever the SDK is called
+interface SessionData {
+  isAuthenticated: boolean
+  user: User | null
+  tenantId?: string
+  token?: string // Token might not be exposed directly to client from getSession
+  error?: string
+}
 
-let stackAuthClient: any // Replace 'any' with actual SDK client type
+// This client doesn't need direct SDK initialization like a third-party service.
+// It's a wrapper around fetch calls to your backend.
 
-export function initStackAuthClient() {
-  if (typeof window === "undefined") {
-    // Don't run on server
-    return
-  }
-  if (stackAuthClient) {
-    return stackAuthClient
-  }
-
-  const projectId = process.env.NEXT_PUBLIC_STACK_PROJECT_ID
-  const publishableKey = process.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY
-
-  if (!projectId || !publishableKey) {
-    console.warn("Stack Auth client-side environment variables not set. Authentication will not work.")
-    return null
-  }
-
-  try {
-    // Placeholder: Initialize Stack Auth SDK
-    // stackAuthClient = new StackAuth({ projectId, publishableKey });
-    // console.log("Stack Auth client initialized.");
-
-    // Mock implementation for now
-    stackAuthClient = {
-      signIn: async (credentials: { email: string; password?: string; provider?: string }) => {
-        console.log("Mock StackAuth signIn:", credentials)
-        if (credentials.email === "test@example.com" && credentials.password === "password") {
-          localStorage.setItem("stack_auth_token", "mock-jwt-token")
-          localStorage.setItem(
-            "stack_user",
-            JSON.stringify({ id: "user-123", email: "test@example.com", name: "Test User" }),
-          )
-          window.dispatchEvent(new Event("storage")) // Notify listeners of storage change
-          return { success: true, user: { id: "user-123", email: "test@example.com", name: "Test User" } }
-        }
-        return { success: false, error: "Invalid credentials" }
-      },
-      signOut: async () => {
-        console.log("Mock StackAuth signOut")
-        localStorage.removeItem("stack_auth_token")
-        localStorage.removeItem("stack_user")
-        window.dispatchEvent(new Event("storage"))
-        return { success: true }
-      },
-      getSession: async () => {
-        const token = localStorage.getItem("stack_auth_token")
-        const userStr = localStorage.getItem("stack_user")
-        if (token && userStr) {
-          return { isAuthenticated: true, user: JSON.parse(userStr), token }
-        }
-        return { isAuthenticated: false, user: null, token: null }
-      },
-      // Add other methods like signUp, resetPassword, etc.
+export const stackAuthClient = {
+  signIn: async (credentials: { email: string; password?: string; provider?: string }) => {
+    // Provider-based sign-in is not implemented here, focus on email/password
+    if (!credentials.email || !credentials.password) {
+      return { success: false, error: "Email and password are required." }
     }
-    return stackAuthClient
-  } catch (error) {
-    console.error("Failed to initialize Stack Auth client:", error)
-    return null
-  }
+    try {
+      const response = await fetch("/api/auth/stack/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+      })
+      const data = await response.json()
+      if (response.ok && data.success) {
+        // Trigger a session refresh or notify listeners if needed
+        window.dispatchEvent(new CustomEvent("authChanged"))
+        return { success: true, user: data.user as User }
+      }
+      return { success: false, error: data.error || "Sign-in failed" }
+    } catch (error: any) {
+      console.error("Client signIn error:", error)
+      return { success: false, error: error.message || "An unexpected error occurred" }
+    }
+  },
+
+  signOut: async () => {
+    try {
+      const response = await fetch("/api/auth/stack/signout", { method: "POST" })
+      const data = await response.json()
+      if (response.ok && data.success) {
+        window.dispatchEvent(new CustomEvent("authChanged"))
+        return { success: true }
+      }
+      return { success: false, error: data.error || "Sign-out failed" }
+    } catch (error: any) {
+      console.error("Client signOut error:", error)
+      return { success: false, error: error.message || "An unexpected error occurred" }
+    }
+  },
+
+  signUp: async (credentials: { email: string; password: string; name?: string }) => {
+    if (!credentials.email || !credentials.password) {
+      return { success: false, error: "Email and password are required." }
+    }
+    try {
+      const response = await fetch("/api/auth/stack/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      })
+      const data = await response.json()
+      if (response.ok && data.success) {
+        window.dispatchEvent(new CustomEvent("authChanged"))
+        return { success: true, user: data.user as User }
+      }
+      return { success: false, error: data.error || "Signup failed" }
+    } catch (error: any) {
+      console.error("Client signUp error:", error)
+      return { success: false, error: error.message || "An unexpected error occurred" }
+    }
+  },
+
+  getSession: async (): Promise<SessionData> => {
+    try {
+      const response = await fetch("/api/auth/stack/session")
+      const data = await response.json()
+      if (response.ok) {
+        return data as SessionData
+      }
+      return { isAuthenticated: false, user: null, error: data.error || "Failed to fetch session" }
+    } catch (error: any) {
+      console.error("Client getSession error:", error)
+      return { isAuthenticated: false, user: null, error: error.message || "An unexpected error occurred" }
+    }
+  },
 }
 
 export function getStackAuthClient() {
-  if (!stackAuthClient) {
-    return initStackAuthClient()
-  }
   return stackAuthClient
 }
-
-// Example client-side hook
-// import { useState, useEffect } from 'react';
-// export function useStackAuth() {
-//   const [session, setSession] = useState<{ isAuthenticated: boolean; user: any; token: string | null } | null>(null);
-//   const [loading, setLoading] = useState(true);
-//   const client = getStackAuthClient();
-
-//   useEffect(() => {
-//     async function checkSession() {
-//       if (client) {
-//         const currentSession = await client.getSession();
-//         setSession(currentSession);
-//       }
-//       setLoading(false);
-//     }
-//     checkSession();
-
-//     // Listen to storage events to update session on signIn/signOut from other tabs
-//     const handleStorageChange = () => checkSession();
-//     window.addEventListener('storage', handleStorageChange);
-//     return () => window.removeEventListener('storage', handleStorageChange);
-//   }, [client]);
-
-//   return { session, loading, client };
-// }
