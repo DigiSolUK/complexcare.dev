@@ -1,23 +1,40 @@
+import { LoginForm } from "@/components/auth/login-form"
+import type { Metadata } from "next"
+import Image from "next/image"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+
+export const metadata: Metadata = {
+  title: "Login",
+  description: "Login to your ComplexCareCRM account.",
+}
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Welcome to ComplexCare CRM</h2>
-        <p className="mt-2 text-center text-sm text-gray-600">Demo Mode - No Login Required</p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
-          <div className="flex flex-col space-y-4">
-            <Link href="/dashboard" className="w-full">
-              <Button className="w-full">Enter Demo Mode</Button>
+    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
+      <div className="flex items-center justify-center py-12">
+        <div className="mx-auto grid w-[350px] gap-6">
+          <div className="grid gap-2 text-center">
+            <h1 className="text-3xl font-bold">Login</h1>
+            <p className="text-balance text-muted-foreground">Enter your email below to login to your account</p>
+          </div>
+          <LoginForm />
+          <div className="mt-4 text-center text-sm">
+            Don&apos;t have an account?{" "}
+            <Link href="/register" className="underline">
+              Sign up
             </Link>
-            <p className="text-center text-sm text-gray-500">No authentication required in demo mode</p>
           </div>
         </div>
+      </div>
+      <div className="hidden bg-muted lg:block">
+        <Image
+          src="/placeholder.svg?height=1080&width=1920"
+          alt="Abstract background"
+          width="1920"
+          height="1080"
+          className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+          priority
+        />
       </div>
     </div>
   )

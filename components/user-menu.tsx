@@ -11,9 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/lib/auth-context" // Use the new AuthContext
+import { useAuth } from "@/lib/auth-context"
 import { getInitials } from "@/lib/utils"
-import { CreditCard, LayoutDashboard, LogOut, Settings, User } from "lucide-react"
+import { CreditCard, LayoutDashboard, LogOut, Settings, User, Users } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -23,7 +23,7 @@ export function UserMenu() {
 
   const handleSignOut = async () => {
     await signOut()
-    router.push("/login") // Redirect to login after sign out
+    router.push("/login")
     router.refresh()
   }
 
@@ -38,6 +38,9 @@ export function UserMenu() {
       </Link>
     )
   }
+
+  // A simple check for superadmin role, you might have a more robust system
+  const isSuperAdmin = user.role === "superadmin"
 
   return (
     <DropdownMenu>
@@ -70,7 +73,6 @@ export function UserMenu() {
               <span>Profile</span>
             </DropdownMenuItem>
           </Link>
-          {/* Add other links like Billing, Settings as needed */}
           <Link href="/settings">
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />
@@ -79,13 +81,25 @@ export function UserMenu() {
           </Link>
           <Link href="/billing">
             <DropdownMenuItem disabled>
-              {" "}
-              {/* Example: disabled item */}
               <CreditCard className="mr-2 h-4 w-4" />
               <span>Billing</span>
             </DropdownMenuItem>
           </Link>
         </DropdownMenuGroup>
+        {isSuperAdmin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Super Admin</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <Link href="/superadmin/tenants">
+                <DropdownMenuItem>
+                  <Users className="mr-2 h-4 w-4" />
+                  <span>Manage Tenants</span>
+                </DropdownMenuItem>
+              </Link>
+            </DropdownMenuGroup>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
