@@ -1,272 +1,102 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type SortingState,
-  type ColumnFiltersState,
-} from "@tanstack/react-table"
-import { ArrowUpDown, PlusCircle, MoreHorizontal, FileEdit, Trash2 } from "lucide-react"
-import { format } from "date-fns"
-
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { useToast } from "@/components/ui/use-toast"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { CreateCategoryDialog } from "./create-category-dialog"
-import { EditCategoryDialog } from "./edit-category-dialog"
-import { getClinicalNoteCategories, deleteClinicalNoteCategory } from "@/lib/actions/clinical-notes-actions"
+import { useState } from "react"
 import type { ClinicalNoteCategory } from "@/types"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Edit, Trash } from "lucide-react"
+import { EditCategoryDialog } from "./edit-category-dialog"
+import { DeleteConfirmationDialog } from "@/components/data-management/delete-confirmation-dialog"
+import { deleteClinicalNoteCategory } from "@/lib/actions/clinical-notes-actions"
+import { useToast } from "@/components/ui/use-toast"
 
-interface ClinicalNoteCategoriesListProps {
-  onCategoriesUpdated: () => void
-}
-
-export function ClinicalNoteCategoriesList({ onCategoriesUpdated }: ClinicalNoteCategoriesListProps) {
+export function ClinicalNoteCategoriesList({
+  categories,
+  onCategoryUpdated,
+  onCategoryDeleted,
+}: { categories: ClinicalNoteCategory[]; onCategoryUpdated: () => void; onCategoryDeleted: () => void }) {
+  const [editCategory, setEditCategory] = useState<ClinicalNoteCategory | null>(null)
+  const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null)
   const { toast } = useToast()
-  const [categories, setCategories] = useState<ClinicalNoteCategory[]>([])
-  const [loading, setLoading] = useState(true)
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [globalFilter, setGlobalFilter] = useState("")
 
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<ClinicalNoteCategory | null>(null)
-  const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] = useState(false)
-  const [categoryToDeleteId, setCategoryToDeleteId] = useState<string | null>(null)
-
-  const fetchCategories = async () => {
-    setLoading(true)
-    try {
-      const result = await getClinicalNoteCategories()
-      if (result.success && result.data) {
-        setCategories(result.data)
-      } else {
+  const handleDelete = async () => {
+    if (deleteCategoryId) {
+      try {
+        const result = await deleteClinicalNoteCategory(deleteCategoryId)
+        if (result.success) {
+          toast({
+            title: "Success",
+            description: "Category deleted successfully.",
+          })
+          onCategoryDeleted()
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to delete category.",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Error deleting category:", error)
         toast({
           title: "Error",
-          description: result.error || "Failed to load categories.",
+          description: "An unexpected error occurred.",
           variant: "destructive",
         })
+      } finally {
+        setDeleteCategoryId(null)
       }
-    } catch (error) {
-      console.error("Error fetching categories:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while loading categories.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchCategories()
-  }, [])
-
-  const columns: ColumnDef<ClinicalNoteCategory>[] = useMemo(
-    () => [
-      {
-        accessorKey: "name",
-        header: ({ column }) => (
-          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-            Name
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        ),
-        cell: ({ row }) => <div className="font-medium">{row.getValue("name")}</div>,
-      },
-      {
-        accessorKey: "description",
-        header: "Description",
-        cell: ({ row }) => <div className="text-muted-foreground">{row.getValue("description") || "N/A"}</div>,
-      },
-      {
-        accessorKey: "createdAt",
-        header: ({ column }) => (
-          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-            Created At
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        ),
-        cell: ({ row }) => format(new Date(row.original.createdAt), "PPP"),
-        sortingFn: (rowA, rowB, columnId) => {
-          const dateA = new Date(rowA.original.createdAt).getTime()
-          const dateB = new Date(rowB.original.createdAt).getTime()
-          return dateA - dateB
-        },
-      },
-      {
-        id: "actions",
-        enableHiding: false,
-        cell: ({ row }) => {
-          const category = row.original
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSelectedCategory(category)
-                    setIsEditDialogOpen(true)
-                  }}
-                >
-                  <FileEdit className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    setCategoryToDeleteId(category.id)
-                    setIsConfirmDeleteDialogOpen(true)
-                  }}
-                  className="text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )
-        },
-      },
-    ],
-    [],
-  )
-
-  const table = useReactTable({
-    data: categories,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
-    onGlobalFilterChange: setGlobalFilter,
-    state: {
-      sorting,
-      columnFilters,
-      globalFilter,
-    },
-  })
-
-  const handleCategoryDeleted = async () => {
-    const result = await deleteClinicalNoteCategory(categoryToDeleteId!)
-    if (result.success) {
-      toast({ title: "Success", description: "Category deleted successfully." })
-      fetchCategories()
-      onCategoriesUpdated()
-    } else {
-      toast({ title: "Error", description: result.error || "Failed to delete category.", variant: "destructive" })
-    }
-    setIsConfirmDeleteDialogOpen(false)
-    setCategoryToDeleteId(null)
+  if (categories.length === 0) {
+    return <p className="text-center text-muted-foreground">No categories found.</p>
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Input
-          placeholder="Search categories..."
-          value={globalFilter}
-          onChange={(event) => setGlobalFilter(event.target.value)}
-          className="max-w-sm"
-        />
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Category
-        </Button>
-      </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  Loading categories...
-                </TableCell>
-              </TableRow>
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No categories found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-          Previous
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-          Next
-        </Button>
-      </div>
+    <div className="grid gap-4">
+      {categories.map((category) => (
+        <Card key={category.id}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium">{category.name}</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="icon" onClick={() => setEditCategory(category)}>
+                <Edit className="h-4 w-4" />
+                <span className="sr-only">Edit category</span>
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setDeleteCategoryId(category.id)}>
+                <Trash className="h-4 w-4 text-red-500" />
+                <span className="sr-only">Delete category</span>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{category.description || "No description provided."}</p>
+          </CardContent>
+        </Card>
+      ))}
 
-      <CreateCategoryDialog
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-        onCategoryCreated={fetchCategories}
-      />
-      {selectedCategory && (
+      {editCategory && (
         <EditCategoryDialog
-          open={isEditDialogOpen}
-          onOpenChange={setIsEditDialogOpen}
-          onCategoryUpdated={fetchCategories}
-          category={selectedCategory}
+          open={!!editCategory}
+          onOpenChange={() => setEditCategory(null)}
+          category={editCategory}
+          onCategoryUpdated={() => {
+            onCategoryUpdated()
+            setEditCategory(null) // Close dialog after update
+          }}
         />
       )}
-      <ConfirmDialog
-        open={isConfirmDeleteDialogOpen}
-        onOpenChange={setIsConfirmDeleteDialogOpen}
-        title="Confirm Deletion"
-        description="Are you sure you want to delete this category? This will also affect any templates linked to it. This action cannot be undone."
-        onConfirm={handleCategoryDeleted}
-      />
+
+      {deleteCategoryId && (
+        <DeleteConfirmationDialog
+          open={!!deleteCategoryId}
+          onOpenChange={() => setDeleteCategoryId(null)}
+          onConfirm={handleDelete}
+          title="Confirm Deletion"
+          description="Are you sure you want to delete this category? This action cannot be undone."
+        />
+      )}
     </div>
   )
 }

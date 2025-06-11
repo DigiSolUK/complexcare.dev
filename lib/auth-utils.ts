@@ -1,9 +1,8 @@
 import { UserRole, PERMISSIONS } from "@/lib/auth/permissions"
-import { getServerSession } from "next-auth" // Assuming NextAuth is used for session management
-import { authOptions } from "@/lib/auth" // Assuming you have authOptions defined here
+import { getServerSession } from "@/lib/auth/stack-auth-server" // Use Stack Auth's getServerSession
 
 export async function getCurrentUser() {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession() // Call getServerSession without request object if it's a server component/action
   return session?.user || null
 }
 
