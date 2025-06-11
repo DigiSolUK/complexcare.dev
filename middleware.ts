@@ -37,7 +37,11 @@ export async function middleware(request: NextRequest) {
   ]
 
   // Check if the current path is a public path
+  // IMPORTANT: Allow access to public paths immediately without session checks
   const isPublicPath = publicPaths.some((path) => (path.endsWith("/") ? pathname.startsWith(path) : pathname === path))
+  if (isPublicPath) {
+    return NextResponse.next()
+  }
 
   // Get the session using the server-side utility
   const session = await getServerSession(request)
@@ -63,9 +67,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // Allow access to public paths without authentication
-  if (isPublicPath) {
-    return NextResponse.next()
-  }
+  // if (isPublicPath) {
+  //   return NextResponse.next()
+  // }
 
   // For any other path not explicitly handled, require authentication
   if (!isAuthenticated) {
