@@ -20,8 +20,8 @@ import { createClinicalNote } from "@/lib/actions/clinical-notes-actions"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { ClinicalNoteCategory } from "@/types"
 
-export default function CreateClinicalNoteDialog({
-  // Changed to default export
+export function CreateClinicalNoteDialog({
+  // Changed to named export
   open,
   onOpenChange,
   onNoteCreated,
