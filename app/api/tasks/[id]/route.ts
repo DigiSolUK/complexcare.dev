@@ -1,36 +1,26 @@
 import { NextResponse } from "next/server"
-import { TaskService } from "@/lib/services/task-service"
+import { getTaskById, updateTask, deleteTask } from "@/lib/services/task-service"
 import { getCurrentUser } from "@/lib/auth-utils"
-import { z } from "zod"
-
-const taskUpdateSchema = z.object({
-  title: z.string().min(1, "Title is required").optional(),
-  description: z.string().optional().nullable(),
-  dueDate: z.string().datetime().optional().nullable(),
-  priority: z.enum(["low", "medium", "high"]).optional(),
-  status: z.enum(["pending", "in_progress", "completed", "overdue"]).optional(),
-  assignedToId: z.string().optional().nullable(),
-  patientId: z.string().optional().nullable(), // New: patientId
-})
+import { AppError } from "@/lib/error-handler"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const user = await getCurrentUser()
     if (!user || !user.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+      throw new AppError("Unauthorized", 401)
     }
 
-    const taskService = await TaskService.create()
-    const task = await taskService.getTaskById(params.id)
+    const { id } = params
+    const task = await getTaskById(id)
 
-    if (!task) {
-      return NextResponse.json({ message: "Task not found" }, { status: 404 })
+    if (!task || task.tenantId !== user.tenantId) {
+      throw new AppError("Task not found or unauthorized access", 404)
     }
 
-    return NextResponse.json(task)
+    return NextResponse.json({ success: true, data: task })
   } catch (error) {
-    console.error("Failed to fetch task:", error)
-    return NextResponse.json({ message: "Failed to fetch task" }, { status: 500 })
+    const appError = AppError.fromError(error)
+    return NextResponse.json({ success: false, error: appError.message }, { status: appError.statusCode })
   }
 }
 
@@ -38,29 +28,31 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   try {
     const user = await getCurrentUser()
     if (!user || !user.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+      throw new AppError("Unauthorized", 401)
     }
 
+    const { id } = params
     const body = await request.json()
-    const validatedData = taskUpdateSchema.parse(body)
+    const { title, description, dueDate, priority, status, assignedToId, patientId } = body // Include patientId
 
-    const taskService = await TaskService.create()
-    const updatedTask = await taskService.updateTask(params.id, {
-      ...validatedData,
-      dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined,
+    const updatedTask = await updateTask(id, {
+      title,
+      description,
+      due_date: dueDate ? new Date(dueDate) : null,
+      priority,
+      status,
+      assigned_to_id: assignedToId,
+      patient_id: patientId, // Pass patientId to service
     })
 
-    if (!updatedTask) {
-      return NextResponse.json({ message: "Task not found or update failed" }, { status: 404 })
+    if (!updatedTask || updatedTask.tenantId !== user.tenantId) {
+      throw new AppError("Task not found or unauthorized to update", 404)
     }
 
-    return NextResponse.json(updatedTask)
-  } catch (error: any) {
-    console.error("Failed to update task:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: "Invalid input", errors: error.errors }, { status: 400 })
-    }
-    return NextResponse.json({ message: "Failed to update task" }, { status: 500 })
+    return NextResponse.json({ success: true, data: updatedTask })
+  } catch (error) {
+    const appError = AppError.fromError(error)
+    return NextResponse.json({ success: false, error: appError.message }, { status: appError.statusCode })
   }
 }
 
@@ -68,19 +60,25 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   try {
     const user = await getCurrentUser()
     if (!user || !user.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+      throw new AppError("Unauthorized", 401)
     }
 
-    const taskService = await TaskService.create()
-    const success = await taskService.deleteTask(params.id)
+    const { id } = params
+    const task = await getTaskById(id) // Check ownership before deleting
+
+    if (!task || task.tenantId !== user.tenantId) {
+      throw new AppError("Task not found or unauthorized to delete", 404)
+    }
+
+    const success = await deleteTask(id)
 
     if (!success) {
-      return NextResponse.json({ message: "Task not found or deletion failed" }, { status: 404 })
+      throw new AppError("Failed to delete task", 500)
     }
 
-    return NextResponse.json({ message: "Task deleted successfully" }, { status: 200 })
+    return NextResponse.json({ success: true, message: "Task deleted successfully" })
   } catch (error) {
-    console.error("Failed to delete task:", error)
-    return NextResponse.json({ message: "Failed to delete task" }, { status: 500 })
+    const appError = AppError.fromError(error)
+    return NextResponse.json({ success: false, error: appError.message }, { status: appError.statusCode })
   }
 }

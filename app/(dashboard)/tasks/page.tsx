@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import { CheckCircle, Clock, AlertTriangle, ListChecks } from "lucide-react"
-import { Suspense } from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -11,6 +10,9 @@ import { TaskService } from "@/lib/services/task-service"
 import { PatientService } from "@/lib/services/patient-service"
 import type { Patient } from "@/types"
 import { TaskFilterControls } from "@/components/tasks/task-filter-controls" // New component for filters
+import { getTasksAction } from "@/lib/actions/task-actions"
+import { AppError } from "@/lib/error-handler"
+import { CardDescription, CardHeader as CardHeader2 } from "@/components/ui/card"
 
 export const metadata: Metadata = {
   title: "Tasks",
@@ -33,6 +35,7 @@ async function TasksPageContent({
   let pendingTasks = 0
   let overdueTasks = 0
   let highPriorityTasks = 0
+  const error: string | null = null
 
   if (dbConnected) {
     try {
@@ -251,14 +254,44 @@ async function TasksPageContent({
   )
 }
 
-export default async function TasksPageWrapper({
-  searchParams,
-}: {
-  searchParams: { patientId?: string; status?: string }
-}) {
+export default async function TasksPage() {
+  let tasks = []
+  let error: string | null = null
+
+  try {
+    const result = await getTasksAction()
+    if (result.success) {
+      tasks = result.data || []
+    } else {
+      error = result.error || "Failed to load tasks."
+    }
+  } catch (err) {
+    const appError = AppError.fromError(err)
+    error = appError.message
+  }
+
   return (
-    <Suspense fallback={<div>Loading tasks...</div>}>
-      <TasksPageContent searchParams={searchParams} />
-    </Suspense>
+    <div className="flex flex-col gap-4 p-4 md:p-6">
+      <Card>
+        <CardHeader2>
+          <CardTitle>Tasks Management</CardTitle>
+          <CardDescription>Manage all tasks across your organization.</CardDescription>
+        </CardHeader2>
+        <CardContent>
+          {error ? (
+            <div className="text-red-500 text-center">{error}</div>
+          ) : (
+            <TaskTable
+              initialTasks={tasks}
+              onTasksUpdated={() => {
+                // This function will trigger a re-render of the page to fetch updated tasks
+                // In a real app, you might use SWR/React Query for more granular revalidation
+                // For now, revalidatePath will handle it on the server side.
+              }}
+            />
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -27,31 +27,6 @@ export interface TenantSettings {
   [key: string]: any
 }
 
-export interface User {
-  id: string
-  email: string
-  first_name: string
-  last_name: string
-  role: UserRole
-  status: string
-  created_at: string
-  updated_at: string
-  deleted_at: string | null
-  tenant_memberships?: TenantMembership[]
-  name?: string | null // Added for convenience, derived from first_name, last_name
-  image?: string | null // Added for convenience
-  tenantId?: string | null // Added for convenience
-}
-
-export interface TenantMembership {
-  user_id: string
-  tenant_id: string
-  role: string
-  is_primary: boolean
-  created_at: string
-  updated_at: string
-}
-
 // API response types
 export interface ApiResponse<T> {
   success: boolean
@@ -120,107 +95,264 @@ export type TenantInvitation = {
   accepted_at: Date | null
 }
 
-export interface Patient {
+// Existing types (assuming they are correct)
+export type User = {
   id: string
-  tenant_id: string
-  first_name: string
-  last_name: string
-  date_of_birth: string | Date
-  gender?: string
-  contact_number?: string
-  email?: string
-  address?: string
-  medical_record_number?: string
-  primary_care_provider?: string
-  created_at: string | Date
-  updated_at: string | Date
-  avatar_url?: string
-  nhs_number?: string
-  primary_condition?: string
-  notes?: string
-  fullName: string // Derived property for convenience
-}
-
-export interface CareProfessional {
-  id: string
-  first_name: string
-  last_name: string
-  title?: string
+  name: string | null
   email: string
-  phone?: string
-  role: string
-  specialization?: string
-  qualification?: string
-  license_number?: string
-  employment_status?: string
-  start_date?: string | Date
-  is_active?: boolean
-  status?: string
-  tenantId?: string
-  tenant_id?: string
-  created_at?: string | Date
-  updated_at?: string | Date
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  created_by?: string
-  updated_by?: string
-  address?: string
-  notes?: string
-  emergency_contact_name?: string
-  emergency_contact_phone?: string
-  avatar_url?: string
-  fullName: string // Derived property for convenience
+  image: string | null
+  role: UserRole
+  tenantId: string | null
+  createdAt: Date
+  updatedAt: Date
 }
 
-export type CarePlan = {
+export type Patient = {
   id: string
-  tenant_id: string
-  patient_id: string
+  tenantId: string
+  firstName: string
+  lastName: string
+  fullName: string // Derived property
+  dateOfBirth: Date | null
+  gender: "Male" | "Female" | "Other" | null
+  address: string | null
+  phone: string | null
+  email: string | null
+  nhsNumber: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type CareProfessional = {
+  id: string
+  tenantId: string
+  userId: string | null // Link to User table if applicable
+  firstName: string
+  lastName: string
+  fullName: string // Derived property
+  email: string
+  phone: string | null
+  role: string // e.g., "Nurse", "Doctor", "Therapist"
+  specialty: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type Medication = {
+  id: string
+  tenantId: string
+  patientId: string
+  name: string
+  dosage: string
+  frequency: string
+  startDate: Date
+  endDate: Date | null
+  prescribedBy: string | null
+  notes: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type ClinicalNoteCategoryTypeType = {
+  id: string
+  tenantId: string
+  name: string
+  description: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type ClinicalNoteTemplateTypeType = {
+  id: string
+  tenantId: string
+  categoryId: string | null
+  categoryName?: string // Derived property
+  title: string
+  content: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type ClinicalNoteTypeType = {
+  id: string
+  tenantId: string
+  patientId: string
+  patientName?: string // Derived property
+  careProfessionalId: string
+  careProfessionalName?: string // Derived property
+  categoryId: string | null
+  categoryName?: string // Derived property
+  templateId: string | null
+  title: string
+  content: string
+  noteDate: Date
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type TaskStatus = "todo" | "in-progress" | "done" | "blocked"
+
+export type Task = {
+  id: string
+  tenantId: string
   title: string
   description: string | null
-  status: string
-  start_date: Date
-  end_date: Date | null
-  review_date: string | null
-  assigned_to: string | null
-  created_at: Date
-  updated_at: Date
-  created_by: string
-  updated_by: string | null
+  dueDate: Date | null
+  priority: "low" | "medium" | "high" | "urgent"
+  status: TaskStatus
+  assignedToId: string | null
+  assignedToName?: string | null // Derived property
+  patientId: string | null // Added for patient selection
+  patientName?: string | null // Derived property
+  createdAt: Date
+  updatedAt: Date
 }
 
 export type Appointment = {
   id: string
-  tenant_id: string
-  patient_id: string
-  care_professional_id: string
-  appointment_date: Date
-  appointment_time: string
-  duration_minutes: number
-  appointment_type: string
-  location: string | null
-  status: string
-  notes: string | null
-  created_at: Date
-  updated_at: Date
-  created_by: string
-  updated_by: string | null
-}
-
-export type Task = {
-  id: string
-  title: string
-  description?: string | null
-  dueDate?: Date | null
-  priority: "low" | "medium" | "high"
-  status: "pending" | "in_progress" | "completed" | "overdue"
-  assignedToId?: string | null // Care Professional ID
-  patientId?: string | null // New: Associate task with a patient
   tenantId: string
+  patientId: string
+  patientName?: string // Derived property
+  careProfessionalId: string
+  careProfessionalName?: string // Derived property
+  title: string
+  description: string | null
+  startTime: Date
+  endTime: Date
+  type: string // e.g., "Consultation", "Follow-up", "Therapy"
+  status: "scheduled" | "completed" | "cancelled" | "rescheduled"
+  location: string | null
+  notes: string | null
   createdAt: Date
   updatedAt: Date
-  assignedToName?: string // Optional, for display
-  patientName?: string // New: Optional, for display
+}
+
+export type ErrorLog = {
+  id: string
+  tenantId: string | null
+  userId: string | null
+  level: "info" | "warn" | "error" | "critical"
+  message: string
+  stackTrace: string | null
+  timestamp: Date
+  metadata: Record<string, any> | null
+  resolved: boolean
+  resolvedAt: Date | null
+  resolvedBy: string | null
+}
+
+export type WearableDevice = {
+  id: string
+  tenantId: string
+  patientId: string
+  deviceName: string
+  deviceType: string
+  deviceId: string // Unique ID from the wearable system
+  connectionStatus: "connected" | "disconnected" | "pending"
+  lastSyncAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type WearableReading = {
+  id: string
+  tenantId: string
+  patientId: string
+  deviceId: string
+  dataType: string // e.g., "heart_rate", "blood_pressure", "steps"
+  value: number
+  unit: string | null
+  timestamp: Date
+  createdAt: Date
+}
+
+export type WearableIntegrationSettings = {
+  id: string
+  tenantId: string
+  integrationName: string // e.g., "Fitbit", "Apple Health"
+  apiKey: string | null
+  apiSecret: string | null
+  enabled: boolean
+  lastSync: Date | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type Office365IntegrationSettings = {
+  id: string
+  tenantId: string
+  clientId: string
+  clientSecret: string
+  tenantIdO365: string // The Azure AD tenant ID
+  redirectUri: string
+  enabled: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type Office365UserConnection = {
+  id: string
+  tenantId: string
+  userId: string // Our internal user ID
+  o365UserId: string // Office 365 user ID
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  scope: string
+  connectedAt: Date
+  lastRefreshedAt: Date
+}
+
+export type Office365EmailSync = {
+  id: string
+  tenantId: string
+  userConnectionId: string
+  messageId: string // Office 365 message ID
+  subject: string
+  sender: string
+  receivedDateTime: Date
+  bodyPreview: string
+  isRead: boolean
+  createdAt: Date
+}
+
+export type Office365CalendarSync = {
+  id: string
+  tenantId: string
+  userConnectionId: string
+  eventId: string // Office 365 event ID
+  subject: string
+  start: Date
+  end: Date
+  location: string | null
+  isOnlineMeeting: boolean
+  organizer: string
+  createdAt: Date
+}
+
+export type ProviderAvailability = {
+  id: string
+  tenantId: string
+  careProfessionalId: string
+  date: Date
+  startTime: string // e.g., "09:00"
+  endTime: string // e.g., "17:00"
+  isAvailable: boolean
+  notes: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type TimeOffRequest = {
+  id: string
+  tenantId: string
+  careProfessionalId: string
+  startDate: Date
+  endDate: Date
+  reason: string
+  status: "pending" | "approved" | "rejected"
+  createdAt: Date
+  updatedAt: Date
 }
 
 export type Timesheet = {
@@ -366,20 +498,8 @@ export type TenantSetting = {
   updated_at: Date
 }
 
-export type ErrorLog = {
-  id: string
-  level: "info" | "warn" | "error" | "critical"
-  message: string
-  stackTrace?: string | null
-  timestamp: Date
-  userId?: string | null
-  tenantId?: string | null
-  resolved: boolean
-  context?: Record<string, any> | null
-}
-
 // Clinical Notes Module Types
-export interface ClinicalNote {
+export interface ClinicalNoteType {
   id: string
   tenantId: string
   patientId: string
@@ -397,7 +517,7 @@ export interface ClinicalNote {
   templateName?: string // For display
 }
 
-export interface ClinicalNoteCategory {
+export interface ClinicalNoteCategoryType {
   id: string
   tenantId: string
   name: string
@@ -406,7 +526,7 @@ export interface ClinicalNoteCategory {
   updatedAt: Date
 }
 
-export interface ClinicalNoteTemplate {
+export interface ClinicalNoteTemplateType {
   id: string
   tenantId: string
   categoryId: string

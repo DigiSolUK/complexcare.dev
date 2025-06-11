@@ -1,38 +1,36 @@
 import { NextResponse } from "next/server"
-import { TaskService } from "@/lib/services/task-service"
+import { getTasks, createTask } from "@/lib/services/task-service"
 import { getCurrentUser } from "@/lib/auth-utils"
-import { z } from "zod"
+import { AppError } from "@/lib/error-handler"
 import type { Task } from "@/lib/types"
-
-const taskSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional().nullable(),
-  dueDate: z.string().datetime().optional().nullable(),
-  priority: z.enum(["low", "medium", "high"]),
-  status: z.enum(["pending", "in_progress", "completed", "overdue"]),
-  assignedToId: z.string().optional().nullable(),
-  patientId: z.string().optional().nullable(), // New: patientId
-})
 
 export async function GET(request: Request) {
   try {
     const user = await getCurrentUser()
     if (!user || !user.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+      throw new AppError("Unauthorized", 401)
     }
 
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status") as Task["status"] | undefined
-    const assignedToId = searchParams.get("assignedToId") || undefined
-    const patientId = searchParams.get("patientId") || undefined // New: patientId filter
+    const status = searchParams.get("status") as Task["status"] | null
+    const assignedToId = searchParams.get("assignedToId")
+    const patientId = searchParams.get("patientId") // Get patientId from query params
 
-    const taskService = await TaskService.create()
-    const tasks = await taskService.getTasks({ status, assignedToId, patientId })
+    const filters: {
+      status?: Task["status"]
+      assignedToId?: string
+      patientId?: string
+    } = {}
 
-    return NextResponse.json(tasks)
+    if (status) filters.status = status
+    if (assignedToId) filters.assignedToId = assignedToId
+    if (patientId) filters.patientId = patientId // Apply patientId filter
+
+    const tasks = await getTasks(user.tenantId, filters)
+    return NextResponse.json({ success: true, data: tasks })
   } catch (error) {
-    console.error("Failed to fetch tasks:", error)
-    return NextResponse.json({ message: "Failed to fetch tasks" }, { status: 500 })
+    const appError = AppError.fromError(error)
+    return NextResponse.json({ success: false, error: appError.message }, { status: appError.statusCode })
   }
 }
 
@@ -40,24 +38,30 @@ export async function POST(request: Request) {
   try {
     const user = await getCurrentUser()
     if (!user || !user.tenantId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+      throw new AppError("Unauthorized", 401)
     }
 
     const body = await request.json()
-    const validatedData = taskSchema.parse(body)
+    const { title, description, dueDate, priority, status, assignedToId, patientId } = body // Include patientId
 
-    const taskService = await TaskService.create()
-    const newTask = await taskService.createTask({
-      ...validatedData,
-      dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
+    if (!title || !priority || !status) {
+      throw new AppError("Missing required fields: title, priority, status", 400)
+    }
+
+    const newTask = await createTask({
+      tenant_id: user.tenantId,
+      title,
+      description,
+      due_date: dueDate ? new Date(dueDate) : null,
+      priority,
+      status,
+      assigned_to_id: assignedToId,
+      patient_id: patientId, // Pass patientId to service
     })
 
-    return NextResponse.json(newTask, { status: 201 })
-  } catch (error: any) {
-    console.error("Failed to create task:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: "Invalid input", errors: error.errors }, { status: 400 })
-    }
-    return NextResponse.json({ message: "Failed to create task" }, { status: 500 })
+    return NextResponse.json({ success: true, data: newTask }, { status: 201 })
+  } catch (error) {
+    const appError = AppError.fromError(error)
+    return NextResponse.json({ success: false, error: appError.message }, { status: appError.statusCode })
   }
 }

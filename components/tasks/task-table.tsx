@@ -1,22 +1,23 @@
 "use client"
 
-import * as React from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   type ColumnDef,
-  type ColumnFiltersState,
-  type SortingState,
-  type VisibilityState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type SortingState,
+  type ColumnFiltersState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, PlusCircle } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, FileEdit, Trash2, PlusCircle } from "lucide-react"
+import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,241 +26,324 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import type { Task } from "@/types"
-import { format } from "date-fns"
-import { CreateTodoDialog } from "./create-todo-dialog"
-import { deleteTask, updateTask } from "@/lib/actions/task-actions"
 import { useToast } from "@/components/ui/use-toast"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog" // Assuming this component exists
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { CreateTodoDialog } from "./create-todo-dialog"
+import { EditTodoDialog } from "./edit-todo-dialog" // Assuming you have an edit dialog
+import { deleteTaskAction, getTasksAction } from "@/lib/actions/task-actions"
+import type { Task, TaskStatus } from "@/types"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PatientService } from "@/lib/services/patient-service"
+import type { Patient } from "@/types"
 
 interface TaskTableProps {
-  data: Task[]
-  onTaskUpdated: () => void
+  initialTasks: Task[]
+  onTasksUpdated: () => void
+  patientId?: string // Optional patientId for filtering/defaulting new tasks
 }
 
-export function TaskTable({ data, onTaskUpdated }: TaskTableProps) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-  const [rowSelection, setRowSelection] = React.useState({})
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false)
-  const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] = React.useState(false)
-  const [taskToDelete, setTaskToDelete] = React.useState<string | null>(null)
+export function TaskTable({ initialTasks, onTasksUpdated, patientId }: TaskTableProps) {
   const { toast } = useToast()
+  const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const [loading, setLoading] = useState(false) // Manage loading state for internal fetches
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all")
+  const [selectedPatientFilter, setSelectedPatientFilter] = useState<string>("all") // New filter for patient
+  const [patients, setPatients] = useState<Patient[]>([]) // State to store patients for filter dropdown
 
-  const handleDeleteClick = (taskId: string) => {
-    setTaskToDelete(taskId)
-    setIsConfirmDeleteDialogOpen(true)
-  }
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] = useState(false)
+  const [taskToDeleteId, setTaskToDeleteId] = useState<string | null>(null)
 
-  const handleConfirmDelete = async () => {
-    if (taskToDelete) {
-      const result = await deleteTask(taskToDelete)
-      if (result.success) {
-        toast({ title: "Success", description: "Task deleted successfully." })
-        onTaskUpdated()
-      } else {
-        toast({ title: "Error", description: result.error || "Failed to delete task.", variant: "destructive" })
+  const fetchTasks = async () => {
+    setLoading(true)
+    try {
+      const filters: { status?: TaskStatus; patientId?: string } = {}
+      if (statusFilter !== "all") {
+        filters.status = statusFilter
       }
-      setTaskToDelete(null)
-      setIsConfirmDeleteDialogOpen(false)
+      if (selectedPatientFilter !== "all") {
+        filters.patientId = selectedPatientFilter
+      } else if (patientId) {
+        // If patientId is passed as prop, always filter by it
+        filters.patientId = patientId
+      }
+
+      const result = await getTasksAction(filters)
+      if (result.success && result.data) {
+        setTasks(result.data)
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to load tasks.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching tasks:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while loading tasks.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleStatusChange = async (taskId: string, newStatus: Task["status"]) => {
-    const result = await updateTask(taskId, { status: newStatus })
-    if (result.success) {
-      toast({ title: "Success", description: `Task status updated to ${newStatus}.` })
-      onTaskUpdated()
-    } else {
-      toast({ title: "Error", description: result.error || "Failed to update task status.", variant: "destructive" })
+  const fetchPatients = async () => {
+    try {
+      const patientService = await PatientService.create()
+      const fetchedPatients = await patientService.getPatients()
+      setPatients(fetchedPatients)
+    } catch (error) {
+      console.error("Failed to fetch patients for filter:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load patients for filtering.",
+        variant: "destructive",
+      })
     }
   }
 
-  const columns: ColumnDef<Task>[] = [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      accessorKey: "title",
-      header: ({ column }) => {
-        return (
+  useEffect(() => {
+    setTasks(initialTasks) // Update tasks when initialTasks prop changes
+  }, [initialTasks])
+
+  useEffect(() => {
+    fetchTasks() // Re-fetch tasks when filters change
+  }, [statusFilter, selectedPatientFilter, patientId]) // Include patientId in dependency array
+
+  useEffect(() => {
+    fetchPatients() // Fetch patients once for the filter dropdown
+  }, [])
+
+  const columns: ColumnDef<Task>[] = useMemo(
+    () => [
+      {
+        accessorKey: "title",
+        header: ({ column }) => (
           <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
             Title
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
-        )
+        ),
+        cell: ({ row }) => <div className="font-medium">{row.getValue("title")}</div>,
       },
-      cell: ({ row }) => <div className="capitalize">{row.getValue("title")}</div>,
-    },
-    {
-      accessorKey: "patientName", // New column for patient name
-      header: ({ column }) => {
-        return (
+      {
+        accessorKey: "patientName",
+        header: ({ column }) => (
           <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
             Patient
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
-        )
+        ),
+        cell: ({ row }) => <div>{row.original.patientName || "N/A"}</div>,
+        enableHiding: !!patientId, // Hide if already filtered by patient prop
       },
-      cell: ({ row }) => <div>{row.original.patientName || "N/A"}</div>,
-    },
-    {
-      accessorKey: "assignedToName",
-      header: ({ column }) => {
-        return (
+      {
+        accessorKey: "assignedToName",
+        header: ({ column }) => (
           <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
             Assigned To
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
-        )
+        ),
+        cell: ({ row }) => <div>{row.original.assignedToName || "Unassigned"}</div>,
       },
-      cell: ({ row }) => <div>{row.original.assignedToName || "Unassigned"}</div>,
-    },
-    {
-      accessorKey: "dueDate",
-      header: ({ column }) => {
-        return (
+      {
+        accessorKey: "priority",
+        header: ({ column }) => (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+            Priority
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const priority = row.getValue("priority") as Task["priority"]
+          let variant: "default" | "secondary" | "destructive" | "outline" = "secondary"
+          if (priority === "high" || priority === "urgent") variant = "destructive"
+          if (priority === "medium") variant = "default"
+          return <Badge variant={variant}>{priority}</Badge>
+        },
+      },
+      {
+        accessorKey: "status",
+        header: ({ column }) => (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+            Status
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const status = row.getValue("status") as Task["status"]
+          let variant: "default" | "secondary" | "outline" = "outline"
+          if (status === "done") variant = "default"
+          if (status === "in-progress") variant = "secondary"
+          return <Badge variant={variant}>{status}</Badge>
+        },
+      },
+      {
+        accessorKey: "dueDate",
+        header: ({ column }) => (
           <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
             Due Date
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
-        )
+        ),
+        cell: ({ row }) => (row.original.dueDate ? format(new Date(row.original.dueDate), "PPP") : "N/A"),
+        sortingFn: (rowA, rowB, columnId) => {
+          const dateA = rowA.original.dueDate ? new Date(rowA.original.dueDate).getTime() : 0
+          const dateB = rowB.original.dueDate ? new Date(rowB.original.dueDate).getTime() : 0
+          return dateA - dateB
+        },
       },
-      cell: ({ row }) => {
-        const date = row.original.dueDate
-        return <div>{date ? format(date, "PPP") : "N/A"}</div>
+      {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+          const task = row.original
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedTask(task)
+                    setIsEditDialogOpen(true)
+                  }}
+                >
+                  <FileEdit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setTaskToDeleteId(task.id)
+                    setIsConfirmDeleteDialogOpen(true)
+                  }}
+                  className="text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
       },
-    },
-    {
-      accessorKey: "priority",
-      header: "Priority",
-      cell: ({ row }) => {
-        const priority = row.getValue("priority") as Task["priority"]
-        let variant: "default" | "secondary" | "destructive" | "outline" = "secondary"
-        if (priority === "high") variant = "destructive"
-        if (priority === "medium") variant = "default"
-        return <Badge variant={variant}>{priority}</Badge>
-      },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
-      },
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => {
-        const status = row.getValue("status") as Task["status"]
-        let variant: "default" | "secondary" | "destructive" | "outline" = "outline"
-        if (status === "completed") variant = "default"
-        if (status === "overdue") variant = "destructive"
-        return <Badge variant={variant}>{status.replace(/_/g, " ")}</Badge>
-      },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
-      },
-    },
-    {
-      id: "actions",
-      enableHiding: false,
-      cell: ({ row }) => {
-        const task = row.original
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(task.id)}>Copy task ID</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleStatusChange(task.id, "in_progress")}>
-                Mark In Progress
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleStatusChange(task.id, "completed")}>
-                Mark Completed
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDeleteClick(task.id)}>Delete Task</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )
-      },
-    },
-  ]
+    ],
+    [patientId], // Re-memoize columns if patientId prop changes
+  )
 
   const table = useReactTable({
-    data,
+    data: tasks,
     columns,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
+    onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
+    onGlobalFilterChange: setGlobalFilter,
     state: {
       sorting,
       columnFilters,
-      columnVisibility,
-      rowSelection,
+      globalFilter,
+      columnVisibility: {
+        patientName: !patientId, // Hide patientName column if patientId is provided as a prop
+      },
     },
   })
 
+  const handleTaskDeleted = async () => {
+    const result = await deleteTaskAction(taskToDeleteId!)
+    if (result.success) {
+      toast({ title: "Success", description: "Task deleted successfully." })
+      onTasksUpdated()
+      fetchTasks() // Re-fetch tasks after deletion
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete task.", variant: "destructive" })
+    }
+    setIsConfirmDeleteDialogOpen(false)
+    setTaskToDeleteId(null)
+  }
+
   return (
-    <div className="w-full">
-      <div className="flex items-center py-4">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
         <Input
-          placeholder="Filter tasks by title..."
-          value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
-          onChange={(event) => table.getColumn("title")?.setFilterValue(event.target.value)}
+          placeholder="Search tasks..."
+          value={globalFilter}
+          onChange={(event) => setGlobalFilter(event.target.value)}
           className="max-w-sm"
         />
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="ml-auto">
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Task
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="todo">To Do</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
+              <SelectItem value="done">Done</SelectItem>
+              <SelectItem value="blocked">Blocked</SelectItem>
+            </SelectContent>
+          </Select>
+          {!patientId && ( // Only show patient filter if not already filtered by patient prop
+            <Select value={selectedPatientFilter} onValueChange={setSelectedPatientFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by Patient" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Patients</SelectItem>
+                {patients.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.fullName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add New Task
+          </Button>
+        </div>
       </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  )
-                })}
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  Loading tasks...
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
                   {row.getVisibleCells().map((cell) => (
@@ -270,7 +354,7 @@ export function TaskTable({ data, onTaskUpdated }: TaskTableProps) {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  No tasks found.
                 </TableCell>
               </TableRow>
             )}
@@ -278,31 +362,40 @@ export function TaskTable({ data, onTaskUpdated }: TaskTableProps) {
         </Table>
       </div>
       <div className="flex items-center justify-end space-x-2 py-4">
-        <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s)
-          selected.
-        </div>
-        <div className="space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-            Next
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+          Previous
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+          Next
+        </Button>
       </div>
-      <CreateTodoDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} onTaskCreated={onTaskUpdated} />
+
+      <CreateTodoDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onTaskCreated={() => {
+          onTasksUpdated()
+          fetchTasks() // Re-fetch tasks after creation
+        }}
+        defaultPatientId={patientId} // Pass default patient ID if available
+      />
+      {selectedTask && (
+        <EditTodoDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          onTaskUpdated={() => {
+            onTasksUpdated()
+            fetchTasks() // Re-fetch tasks after update
+          }}
+          task={selectedTask}
+        />
+      )}
       <ConfirmDialog
         open={isConfirmDeleteDialogOpen}
         onOpenChange={setIsConfirmDeleteDialogOpen}
         title="Confirm Deletion"
         description="Are you sure you want to delete this task? This action cannot be undone."
-        onConfirm={handleConfirmDelete}
+        onConfirm={handleTaskDeleted}
       />
     </div>
   )
