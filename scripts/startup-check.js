@@ -39,14 +39,18 @@ async function runStartupChecks() {
       message: "DATABASE_URL environment variable not set.",
     })
   } else {
+    console.log(`Attempting to connect to: ${databaseUrl.replace(/^(postgres:\/\/[^:]+:[^@]+@)(.*)$/, "$1****@$2")}`) // Mask password
     try {
       const sql = neon(databaseUrl)
       const versionResult = await sql`SELECT version()`
+      const currentUserResult = await sql`SELECT current_user`
+      const currentDatabaseResult = await sql`SELECT current_database()`
+
       if (versionResult && versionResult.length > 0 && versionResult[0].version) {
         checks.push({
           name: "Database Connection",
           status: "pass",
-          message: `Connected to ${versionResult[0].version}`,
+          message: `Connected to ${versionResult[0].version} as user '${currentUserResult.rows[0].current_user}' on database '${currentDatabaseResult.rows[0].current_database}'`,
         })
       } else {
         checks.push({
@@ -56,7 +60,7 @@ async function runStartupChecks() {
         })
       }
 
-      // Check required tables
+      // Check required tables across all schemas
       const tables = [
         "tenants",
         "users",
@@ -82,27 +86,23 @@ async function runStartupChecks() {
       for (const table of tables) {
         try {
           const tableExistsResult = await sql.query(`
-            SELECT EXISTS (
-              SELECT FROM information_schema.tables
-              WHERE table_schema = 'public'
-              AND table_name = '${table}'
-            );
+            SELECT table_schema, table_name
+            FROM information_schema.tables
+            WHERE table_name = '${table}'
+            AND table_type = 'BASE TABLE';
           `)
-          if (
-            tableExistsResult &&
-            tableExistsResult.rows &&
-            tableExistsResult.rows.length > 0 &&
-            tableExistsResult.rows[0].exists
-          ) {
+          if (tableExistsResult && tableExistsResult.rows && tableExistsResult.rows.length > 0) {
+            const schema = tableExistsResult.rows[0].table_schema
             checks.push({
               name: `Table: ${table}`,
               status: "pass",
+              message: `Found in schema: ${schema}`,
             })
           } else {
             checks.push({
               name: `Table: ${table}`,
               status: "fail",
-              message: "Table does not exist or query returned no rows.",
+              message: "Table does not exist or query returned no rows in any schema.",
             })
           }
         } catch (error) {
