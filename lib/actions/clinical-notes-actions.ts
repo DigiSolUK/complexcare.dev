@@ -3,6 +3,7 @@
 import { ClinicalNotesService } from "@/lib/services/clinical-notes-service"
 import type { ClinicalNote, ClinicalNoteCategory, ClinicalNoteTemplate } from "@/types"
 import { revalidatePath } from "next/cache"
+import { AppError } from "@/lib/error-handler"
 
 // --- Clinical Notes Actions ---
 
@@ -13,7 +14,8 @@ export async function getClinicalNotes(patientId?: string) {
     return { success: true, data: notes }
   } catch (error: any) {
     console.error("Error fetching clinical notes:", error)
-    return { success: false, error: error.message || "Failed to fetch clinical notes" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to fetch clinical notes" }
   }
 }
 
@@ -27,7 +29,8 @@ export async function getClinicalNoteById(id: string) {
     return { success: true, data: note }
   } catch (error: any) {
     console.error("Error fetching clinical note by ID:", error)
-    return { success: false, error: error.message || "Failed to fetch clinical note" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to fetch clinical note" }
   }
 }
 
@@ -48,11 +51,12 @@ export async function createClinicalNote(
     const service = await ClinicalNotesService.create()
     const newNote = await service.createNote(noteData)
     revalidatePath("/clinical-notes")
-    revalidatePath(`/patients/${noteData.patientId}`) // Revalidate patient detail page
+    revalidatePath(`/patients/${noteData.patient_id}`) // Revalidate patient detail page
     return { success: true, data: newNote }
   } catch (error: any) {
     console.error("Error creating clinical note:", error)
-    return { success: false, error: error.message || "Failed to create clinical note" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to create clinical note" }
   }
 }
 
@@ -79,13 +83,14 @@ export async function updateClinicalNote(
       return { success: false, error: "Clinical note not found or update failed" }
     }
     revalidatePath("/clinical-notes")
-    if (updatedNote.patientId) {
-      revalidatePath(`/patients/${updatedNote.patientId}`)
+    if (updatedNote.patient_id) {
+      revalidatePath(`/patients/${updatedNote.patient_id}`)
     }
     return { success: true, data: updatedNote }
   } catch (error: any) {
     console.error("Error updating clinical note:", error)
-    return { success: false, error: error.message || "Failed to update clinical note" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to update clinical note" }
   }
 }
 
@@ -98,13 +103,26 @@ export async function deleteClinicalNote(id: string) {
       return { success: false, error: "Clinical note not found or deletion failed" }
     }
     revalidatePath("/clinical-notes")
-    if (note?.patientId) {
-      revalidatePath(`/patients/${note.patientId}`)
+    if (note?.patient_id) {
+      revalidatePath(`/patients/${note.patient_id}`)
     }
     return { success: true }
   } catch (error: any) {
     console.error("Error deleting clinical note:", error)
-    return { success: false, error: error.message || "Failed to delete clinical note" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to delete clinical note" }
+  }
+}
+
+export async function getClinicalNotesByPatientAction(patientId: string) {
+  try {
+    const service = await ClinicalNotesService.create()
+    const notes = await service.getNotes(patientId)
+    return { success: true, data: notes }
+  } catch (error: any) {
+    console.error(`Error fetching clinical notes for patient ${patientId}:`, error)
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to fetch clinical notes for patient" }
   }
 }
 
@@ -117,7 +135,8 @@ export async function getClinicalNoteCategories() {
     return { success: true, data: categories }
   } catch (error: any) {
     console.error("Error fetching clinical note categories:", error)
-    return { success: false, error: error.message || "Failed to fetch clinical note categories" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to fetch clinical note categories" }
   }
 }
 
@@ -131,7 +150,8 @@ export async function createClinicalNoteCategory(
     return { success: true, data: newCategory }
   } catch (error: any) {
     console.error("Error creating clinical note category:", error)
-    return { success: false, error: error.message || "Failed to create clinical note category" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to create clinical note category" }
   }
 }
 
@@ -149,7 +169,8 @@ export async function updateClinicalNoteCategory(
     return { success: true, data: updatedCategory }
   } catch (error: any) {
     console.error("Error updating clinical note category:", error)
-    return { success: false, error: error.message || "Failed to update clinical note category" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to update clinical note category" }
   }
 }
 
@@ -164,7 +185,8 @@ export async function deleteClinicalNoteCategory(id: string) {
     return { success: true }
   } catch (error: any) {
     console.error("Error deleting clinical note category:", error)
-    return { success: false, error: error.message || "Failed to delete clinical note category" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to delete clinical note category" }
   }
 }
 
@@ -177,7 +199,8 @@ export async function getClinicalNoteTemplates(categoryId?: string) {
     return { success: true, data: templates }
   } catch (error: any) {
     console.error("Error fetching clinical note templates:", error)
-    return { success: false, error: error.message || "Failed to fetch clinical note templates" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to fetch clinical note templates" }
   }
 }
 
@@ -191,7 +214,8 @@ export async function createClinicalNoteTemplate(
     return { success: true, data: newTemplate }
   } catch (error: any) {
     console.error("Error creating clinical note template:", error)
-    return { success: false, error: error.message || "Failed to create clinical note template" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to create clinical note template" }
   }
 }
 
@@ -209,7 +233,8 @@ export async function updateClinicalNoteTemplate(
     return { success: true, data: updatedTemplate }
   } catch (error: any) {
     console.error("Error updating clinical note template:", error)
-    return { success: false, error: error.message || "Failed to update clinical note template" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to update clinical note template" }
   }
 }
 
@@ -224,6 +249,7 @@ export async function deleteClinicalNoteTemplate(id: string) {
     return { success: true }
   } catch (error: any) {
     console.error("Error deleting clinical note template:", error)
-    return { success: false, error: error.message || "Failed to delete clinical note template" }
+    const appError = AppError.fromError(error)
+    return { success: false, error: appError.message || "Failed to delete clinical note template" }
   }
 }

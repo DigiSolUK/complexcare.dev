@@ -11,7 +11,8 @@ import { DeleteConfirmationDialog } from "@/components/data-management/delete-co
 import { deleteClinicalNoteTemplate } from "@/lib/actions/clinical-notes-actions"
 import { useToast } from "@/components/ui/use-toast"
 
-export function ClinicalNoteTemplatesList({
+export default function ClinicalNoteTemplatesList({
+  // Changed to default export
   templates,
   onTemplateUpdated,
   onTemplateDeleted,

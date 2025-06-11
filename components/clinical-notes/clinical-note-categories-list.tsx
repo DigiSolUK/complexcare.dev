@@ -10,7 +10,8 @@ import { DeleteConfirmationDialog } from "@/components/data-management/delete-co
 import { deleteClinicalNoteCategory } from "@/lib/actions/clinical-notes-actions"
 import { useToast } from "@/components/ui/use-toast"
 
-export function ClinicalNoteCategoriesList({
+export default function ClinicalNoteCategoriesList({
+  // Changed to default export
   categories,
   onCategoryUpdated,
   onCategoryDeleted,

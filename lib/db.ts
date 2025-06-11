@@ -1,4 +1,5 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
+import { v4 as uuidv4 } from "uuid" // Import uuid for generating tokens
 
 let sqlClient: NeonQueryFunction<false, false>
 
@@ -48,6 +49,7 @@ export function getNeonSqlClient(): NeonQueryFunction<false, false> {
 
 export const neonSql = getNeonSqlClient()
 export const sql = neonSql // Alias for compatibility
+export const db = neonSql // New alias for 'db' export
 
 export async function executeQuery<T = any>(queryTemplate: TemplateStringsArray, ...params: any[]): Promise<T[]> {
   try {
@@ -147,4 +149,38 @@ export async function testDatabaseConnectionInApp(): Promise<{
       envUsed: envUsedForTest,
     }
   }
+}
+
+// New functions for tenant invitations
+export async function createTenantInvitation(
+  tenantId: string,
+  email: string,
+  role: string,
+  expiresAt: Date,
+): Promise<{ id: string; token: string }> {
+  const token = uuidv4() // Generate a unique token
+  const result = await neonSql`
+    INSERT INTO tenant_invitations (tenant_id, email, role, token, expires_at, created_at, updated_at)
+    VALUES (${tenantId}, ${email}, ${role}, ${token}, ${expiresAt.toISOString()}, NOW(), NOW())
+    RETURNING id, token
+  `
+  return result[0]
+}
+
+export async function getTenantInvitationByToken(token: string): Promise<any | null> {
+  const result = await neonSql`
+    SELECT * FROM tenant_invitations
+    WHERE token = ${token} AND accepted_at IS NULL AND expires_at > NOW()
+    LIMIT 1
+  `
+  return result.length > 0 ? result[0] : null
+}
+
+export async function updateTenantInvitationAcceptedAt(id: string, acceptedByUserId: string): Promise<boolean> {
+  const result = await neonSql`
+    UPDATE tenant_invitations
+    SET accepted_at = NOW(), accepted_by_user_id = ${acceptedByUserId}, updated_at = NOW()
+    WHERE id = ${id}
+  `
+  return result.rowCount > 0
 }
