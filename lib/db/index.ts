@@ -1,34 +1,77 @@
-import { neon, type NeonDatabase } from "@neondatabase/serverless"
+import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
+import * as schema from "./schema" // Assuming schema defines tables
+import { eq } from "drizzle-orm"
+import type { TenantInvitation } from "@/types"
 
-// Use production_DATABASE_URL if available, otherwise fallback to DATABASE_URL
-const databaseUrl = process.env.production_DATABASE_URL || process.env.DATABASE_URL
+const sql = neon(process.env.DATABASE_URL!)
+export const db = drizzle(sql, { schema })
 
-if (!databaseUrl) {
-  console.warn("DATABASE_URL environment variable not set, using demo data")
-}
+// Functions for tenant_invitations
+export async function createTenantInvitation(data: {
+  tenant_id: string
+  email: string
+  role: string
+  token: string
+  expires_at: Date
+}): Promise<TenantInvitation> {
+  const [invitation] = await db
+    .insert(schema.tenantInvitations)
+    .values({
+      tenant_id: data.tenant_id,
+      email: data.email,
+      role: data.role,
+      token: data.token,
+      expires_at: data.expires_at,
+      created_at: new Date(),
+      updated_at: new Date(),
+      accepted_at: null, // Ensure accepted_at is null initially
+    })
+    .returning()
 
-// Create a SQL client with the database URL from environment variables
-const sql: NeonDatabase = databaseUrl ? neon(databaseUrl) : null
+  if (!invitation) {
+    throw new Error("Failed to create tenant invitation.")
+  }
 
-// Initialize the Drizzle ORM instance if we have a database URL
-export const db = databaseUrl ? drizzle(sql) : null
-
-// Helper function for raw SQL queries using tagged template literals
-export async function executeQuery<T = any>(query: string, params: any[] = []): Promise<T[]> {
-  try {
-    if (!sql) {
-      console.warn("Database not configured, returning empty result")
-      return []
-    }
-
-    // Convert to tagged template literal format
-    const result = await sql.query(query, params)
-    return result.rows as T[]
-  } catch (error) {
-    console.error("Database query error:", error)
-    throw error
+  return {
+    ...invitation,
+    created_at: new Date(invitation.created_at),
+    updated_at: new Date(invitation.updated_at),
+    expires_at: new Date(invitation.expires_at),
+    accepted_at: invitation.accepted_at ? new Date(invitation.accepted_at) : null,
   }
 }
 
-export { sql }
+export async function getTenantInvitationByToken(token: string): Promise<TenantInvitation | null> {
+  const invitation = await db.query.tenantInvitations.findFirst({
+    where: (table, { eq }) => eq(table.token, token),
+  })
+  if (!invitation) return null
+  return {
+    ...invitation,
+    created_at: new Date(invitation.created_at),
+    updated_at: new Date(invitation.updated_at),
+    expires_at: new Date(invitation.expires_at),
+    accepted_at: invitation.accepted_at ? new Date(invitation.accepted_at) : null,
+  }
+}
+
+export async function updateTenantInvitationAcceptedAt(id: string, acceptedAt: Date): Promise<TenantInvitation> {
+  const [updatedInvitation] = await db
+    .update(schema.tenantInvitations)
+    .set({ accepted_at: acceptedAt, updated_at: new Date() })
+    .where(eq(schema.tenantInvitations.id, id))
+    .returning()
+
+  if (!updatedInvitation) {
+    throw new Error("Failed to update tenant invitation.")
+  }
+
+  return {
+    ...updatedInvitation,
+    created_at: new Date(updatedInvitation.created_at),
+    updated_at: new Date(updatedInvitation.updated_at),
+    expires_at: new Date(updatedInvitation.expires_at),
+    accepted_at: updatedInvitation.accepted_at ? new Date(updatedInvitation.accepted_at) : null,
+  }
+}

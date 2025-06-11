@@ -4,6 +4,11 @@ import type { Tenant, TenantUser, TenantInvitation } from "@/types"
 import { sql } from "@/lib/db"
 import { DEFAULT_TENANT_ID } from "../tenant"
 import { getCachedTenant, cacheTenant, invalidateTenantCache } from "../redis/tenant-cache"
+import { db } from "@/lib/db"
+import * as schema from "@/lib/db/schema"
+import { eq, and } from "drizzle-orm"
+import { AppError } from "@/lib/error-handler"
+import type { TenantMembership, UserRole } from "@/types"
 
 // Get all tenants
 export async function getAllTenants(): Promise<Tenant[]> {
@@ -364,4 +369,108 @@ export async function setUserPrimaryTenant(userId: string, tenantId: string) {
     name: "Default Tenant",
     status: "active",
   }
+}
+
+export class TenantService {
+  private constructor() {}
+
+  public static async create() {
+    return new TenantService()
+  }
+
+  async getTenantById(id: string): Promise<Tenant | null> {
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(schema.tenants.id, id),
+    })
+    if (!tenant) return null
+    return {
+      ...tenant,
+      created_at: tenant.created_at.toISOString(),
+      updated_at: tenant.updated_at.toISOString(),
+      deleted_at: tenant.deleted_at?.toISOString() || null,
+    }
+  }
+
+  async getTenantBySlug(slug: string): Promise<Tenant | null> {
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(schema.tenants.slug, slug),
+    })
+    if (!tenant) return null
+    return {
+      ...tenant,
+      created_at: tenant.created_at.toISOString(),
+      updated_at: tenant.updated_at.toISOString(),
+      deleted_at: tenant.deleted_at?.toISOString() || null,
+    }
+  }
+
+  async getTenantMemberships(tenantId: string): Promise<TenantMembership[]> {
+    const memberships = await db.query.tenantMemberships.findMany({
+      where: eq(schema.tenantMemberships.tenant_id, tenantId),
+    })
+    return memberships.map((m) => ({
+      ...m,
+      created_at: new Date(m.created_at),
+      updated_at: new Date(m.updated_at),
+    }))
+  }
+
+  async addTenantMembership(userId: string, tenantId: string, role: UserRole): Promise<TenantMembership> {
+    // Check if membership already exists
+    const existingMembership = await db.query.tenantMemberships.findFirst({
+      where: and(eq(schema.tenantMemberships.user_id, userId), eq(schema.tenantMemberships.tenant_id, tenantId)),
+    })
+
+    if (existingMembership) {
+      // If exists, update role if different, or just return existing
+      if (existingMembership.role !== role) {
+        const [updatedMembership] = await db
+          .update(schema.tenantMemberships)
+          .set({ role, updated_at: new Date() })
+          .where(and(eq(schema.tenantMemberships.user_id, userId), eq(schema.tenantMemberships.tenant_id, tenantId)))
+          .returning()
+        if (!updatedMembership) throw new AppError("Failed to update tenant membership", 500)
+        return {
+          ...updatedMembership,
+          created_at: new Date(updatedMembership.created_at),
+          updated_at: new Date(updatedMembership.updated_at),
+        }
+      }
+      return {
+        ...existingMembership,
+        created_at: new Date(existingMembership.created_at),
+        updated_at: new Date(existingMembership.updated_at),
+      }
+    }
+
+    // Create new membership
+    const [newMembership] = await db
+      .insert(schema.tenantMemberships)
+      .values({
+        user_id: userId,
+        tenant_id: tenantId,
+        role,
+        is_primary: false, // Default to false for invited users
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .returning()
+
+    if (!newMembership) throw new AppError("Failed to create tenant membership", 500)
+
+    return {
+      ...newMembership,
+      created_at: new Date(newMembership.created_at),
+      updated_at: new Date(newMembership.updated_at),
+    }
+  }
+
+  async isUserMemberOfTenant(userId: string, tenantId: string): Promise<boolean> {
+    const membership = await db.query.tenantMemberships.findFirst({
+      where: and(eq(schema.tenantMemberships.user_id, userId), eq(schema.tenantMemberships.tenant_id, tenantId)),
+    })
+    return !!membership
+  }
+
+  // ... other existing methods ...
 }
