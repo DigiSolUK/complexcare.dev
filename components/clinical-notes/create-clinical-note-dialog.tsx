@@ -52,7 +52,7 @@ interface CreateClinicalNoteDialogProps {
   defaultPatientName?: string
 }
 
-export default function CreateClinicalNoteDialog({
+export function CreateClinicalNoteDialog({
   open,
   onOpenChange,
   onNoteCreated,

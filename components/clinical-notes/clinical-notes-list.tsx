@@ -42,7 +42,7 @@ interface ClinicalNotesListProps {
   defaultPatientName?: string // For creating new notes
 }
 
-export default function ClinicalNotesList({
+export function ClinicalNotesList({
   initialNotes,
   onNotesUpdated,
   patientId,
