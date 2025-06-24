@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "predev": "tsx scripts/startup-check.js",
     "prebuild": "tsx scripts/startup-check.js",
-    "db:setup": "tsx scripts/setup-database.ts"
+    "build": "next build",
+    "db:setup": "tsx scripts/setup-database.ts",
+    "predev": "tsx scripts/startup-check.js",
+    "dev": "next dev",
+    "lint": "next lint",
+    "start": "next start"
   },
   "dependencies": {
     "@ai-sdk/groq": "latest",
