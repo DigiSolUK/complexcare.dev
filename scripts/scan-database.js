@@ -1,5 +1,3 @@
-import { config } from "dotenv"
-config()
 import { neon } from "@neondatabase/serverless"
 import fs from "fs"
 
