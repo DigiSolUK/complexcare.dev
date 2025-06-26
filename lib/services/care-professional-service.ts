@@ -2,7 +2,7 @@ import type { CareProfessional } from "@/types"
 import { neon } from "@neondatabase/serverless"
 import { buildUpdateQuery } from "@/lib/db-utils"
 import { v4 as uuidv4 } from "uuid"
-import { executeQuery } from "@/lib/db" // Import executeQuery from lib/db
+import { tenantQuery } from "@/lib/db-utils"
 
 const sql = neon(process.env.DATABASE_URL!)
 
@@ -41,7 +41,7 @@ export async function getCareProfessionals(tenantId: string, searchQuery?: strin
 
     query += ` ORDER BY last_name, first_name`
 
-    const result = await executeQuery<any>(query, params) // Use executeQuery
+    const result = await tenantQuery<any>(tenantId, query, params)
     return result.map(mapCareProfessionalRow)
   } catch (error) {
     console.error("Error fetching care professionals:", error)
@@ -51,7 +51,8 @@ export async function getCareProfessionals(tenantId: string, searchQuery?: strin
 
 export async function getCareProfessionalById(id: string, tenantId: string): Promise<CareProfessional | null> {
   try {
-    const result = await executeQuery<any>(
+    const result = await tenantQuery<any>(
+      tenantId,
       `
       SELECT * FROM care_professionals
       WHERE id = $1 AND tenant_id = $2
@@ -74,7 +75,8 @@ export async function createCareProfessional(
     const id = uuidv4()
     const now = new Date().toISOString()
 
-    const result = await executeQuery<any>(
+    const result = await tenantQuery<any>(
+      tenantId,
       `
       INSERT INTO care_professionals (
         id, tenant_id, first_name, last_name, email, role, phone, specialization,
@@ -141,7 +143,7 @@ export async function updateCareProfessional(
 
     const { query, values } = buildUpdateQuery("care_professionals", dataWithUpdater, { id, tenant_id: tenantId })
 
-    const result = await executeQuery<any>(query, values) // Use executeQuery
+    const result = await tenantQuery<any>(tenantId, query, values)
 
     if (result.length === 0) {
       throw new Error("Care professional not found or update failed.")
@@ -160,7 +162,8 @@ export async function deactivateCareProfessional(
   userId: string,
 ): Promise<CareProfessional> {
   try {
-    const result = await executeQuery<any>(
+    const result = await tenantQuery<any>(
+      tenantId,
       `
       UPDATE care_professionals
       SET is_active = false, updated_at = NOW(), updated_by = $3
@@ -216,7 +219,8 @@ export async function getCareProfessionalsWithExpiringCredentials(
       ]
     }
 
-    const result = await executeQuery<any>(
+    const result = await tenantQuery<any>(
+      tenantId,
       `SELECT cp.id, cp.first_name, cp.last_name, cp.role, cp.avatar_url,
              pc.id as credential_id, pc.credential_type, pc.credential_number,
              pc.expiry_date, pc.verification_status
@@ -316,7 +320,8 @@ export async function getCareProfessionalsWithPatientCounts(tenantId: string): P
       ]
     }
 
-    const result = await executeQuery<any>(
+    const result = await tenantQuery<any>(
+      tenantId,
       `SELECT cp.id, cp.first_name, cp.last_name, cp.role, cp.avatar_url,
              COUNT(DISTINCT pa.id) as patient_count
       FROM care_professionals cp
@@ -429,7 +434,8 @@ export async function getCareProfessionalsWithAppointmentCounts(
       ]
     }
 
-    const result = await executeQuery<any>(
+    const result = await tenantQuery<any>(
+      tenantId,
       `SELECT cp.id, cp.first_name, cp.last_name, cp.role, cp.avatar_url,
              COUNT(a.id) as appointment_count
       FROM care_professionals cp
