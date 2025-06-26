@@ -3,13 +3,7 @@ import fs from "fs"
 
 async function scanDatabase() {
   try {
-    const databaseUrl = process.env.DATABASE_URL
-    if (!databaseUrl) {
-      throw new Error(
-        "DATABASE_URL environment variable is not set. Please ensure it's configured in your Vercel project settings.",
-      )
-    }
-    const sql = neon(databaseUrl)
+    const sql = neon(process.env.DATABASE_URL)
 
     // Fetch all table names
     const tableResult = await sql`

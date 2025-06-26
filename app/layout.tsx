@@ -1,33 +1,34 @@
 import type React from "react"
 import "./globals.css"
-import { Mona_Sans as FontSans } from "next/font/google"
-import { cn } from "@/lib/utils"
+import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/sonner"
-import { SessionProvider } from "next-auth/react" // Assuming next-auth/react for SessionProvider
+import { ErrorBoundary } from "@/components/error-boundary"
+import { GlobalErrorHandler } from "@/components/global-error-handler"
+import { SessionProvider } from "@/components/session-provider" // Correct import
+import type { Metadata } from "next"
 
-const fontSans = FontSans({
-  subsets: ["latin"],
-  variable: "--font-sans",
-})
+const inter = Inter({ subsets: ["latin"] })
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "ComplexCare CRM",
-  description: "Multi-tenant UK Complex Care CRM",
+  description: "A comprehensive CRM for complex care management",
     generator: 'v0.dev'
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <SessionProvider>{children}</SessionProvider>
-          <Toaster />
+      <body className={inter.className}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <ErrorBoundary componentPath="app/layout.tsx">
+            <GlobalErrorHandler />
+            {/* SessionProvider is required for useSession hook */}
+            <SessionProvider>{children}</SessionProvider>
+          </ErrorBoundary>
         </ThemeProvider>
       </body>
     </html>
