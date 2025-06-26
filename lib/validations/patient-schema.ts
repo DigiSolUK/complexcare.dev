@@ -12,6 +12,13 @@ export const patientSchema = z.object({
   primary_care_provider: z.string().optional().nullable(),
   avatar_url: z.string().url().optional().nullable(),
   status: z.string().optional().default("active"),
+  // New medical history fields
+  medical_history: z.any().optional().nullable(), // For JSONB
+  allergies: z.array(z.string()).optional().nullable(),
+  chronic_conditions: z.array(z.string()).optional().nullable(),
+  past_surgeries: z.array(z.string()).optional().nullable(),
+  family_medical_history: z.any().optional().nullable(), // For JSONB
+  immunizations: z.array(z.string()).optional().nullable(),
 })
 
 export const updatePatientSchema = patientSchema.partial()

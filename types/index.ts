@@ -67,11 +67,18 @@ export type Patient = {
   medical_record_number?: string | null
   primary_care_provider?: string | null
   avatar_url?: string | null
+  status?: string
+  // New medical history fields
+  medical_history?: any // JSONB for general medical history
+  allergies?: string[] | null // Array of strings
+  chronic_conditions?: string[] | null // Array of strings
+  past_surgeries?: string[] | null // Array of strings
+  family_medical_history?: any // JSONB for structured family history
+  immunizations?: string[] | null // Array of strings
   created_at?: string
   updated_at?: string
   created_by?: string | null
   updated_by?: string | null
-  status?: string
 }
 
 export interface CareProfessional {
@@ -318,6 +325,22 @@ export interface ApiKey {
   last_used_at?: string | null
   created_by: string
   created_by_name?: string
+  created_at: string
+  updated_at: string
+}
+
+export type Medication = {
+  id: string
+  tenant_id: string
+  patient_id: string
+  name: string
+  dosage: string
+  frequency: string
+  start_date: string
+  end_date?: string | null
+  prescribed_by?: string | null
+  prescribed_by_name?: string | null
+  notes?: string | null
   created_at: string
   updated_at: string
 }

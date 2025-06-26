@@ -31,6 +31,11 @@ import {
   Activity,
   Target,
   ListChecks,
+  Syringe,
+  Stethoscope,
+  BugIcon as Allergy,
+  Bone,
+  Users,
 } from "lucide-react"
 import {
   Dialog,
@@ -56,6 +61,7 @@ import { PatientNotesList } from "@/components/patients/patient-notes-list"
 import { GPConnectData } from "@/components/patients/gp-connect-data" // Import GPConnectData
 import { PatientDailyLogs } from "@/components/patients/patient-daily-logs" // Import PatientDailyLogs
 import { Progress } from "@/components/ui/progress"
+import { Textarea } from "@/components/ui/textarea" // Import Textarea
 
 export default function PatientDetailPage() {
   const params = useParams()
@@ -98,8 +104,35 @@ export default function PatientDetailPage() {
       }
 
       const data: Patient = await response.json()
-      setPatient(data)
-      setEditedPatientData(data) // Initialize edit form with current patient data
+      // Parse JSONB fields if they are strings
+      const parsedData = {
+        ...data,
+        address: typeof data.address === "string" ? JSON.parse(data.address) : data.address,
+        medical_history:
+          typeof data.medical_history === "string" ? JSON.parse(data.medical_history) : data.medical_history,
+        family_medical_history:
+          typeof data.family_medical_history === "string"
+            ? JSON.parse(data.family_medical_history)
+            : data.family_medical_history,
+        allergies: typeof data.allergies === "string" ? JSON.parse(data.allergies) : data.allergies,
+        chronic_conditions:
+          typeof data.chronic_conditions === "string" ? JSON.parse(data.chronic_conditions) : data.chronic_conditions,
+        past_surgeries: typeof data.past_surgeries === "string" ? JSON.parse(data.past_surgeries) : data.past_surgeries,
+        immunizations: typeof data.immunizations === "string" ? JSON.parse(data.immunizations) : data.immunizations,
+      }
+      setPatient(parsedData)
+      // Prepare data for edit form, converting arrays to comma-separated strings for Textarea
+      setEditedPatientData({
+        ...parsedData,
+        allergies: parsedData.allergies?.join(", ") || "",
+        chronic_conditions: parsedData.chronic_conditions?.join(", ") || "",
+        past_surgeries: parsedData.past_surgeries?.join(", ") || "",
+        immunizations: parsedData.immunizations?.join(", ") || "",
+        medical_history: parsedData.medical_history ? JSON.stringify(parsedData.medical_history, null, 2) : "",
+        family_medical_history: parsedData.family_medical_history
+          ? JSON.stringify(parsedData.family_medical_history, null, 2)
+          : "",
+      })
     } catch (err: any) {
       console.error("Error fetching patient:", err)
       setError(err.message || "Failed to load patient details. Please try again later.")
@@ -226,12 +259,74 @@ export default function PatientDetailPage() {
 
   const handleUpdatePatient = async () => {
     try {
+      const dataToSend: Partial<Patient> = { ...editedPatientData }
+
+      // Convert comma-separated strings back to arrays
+      if (typeof dataToSend.allergies === "string") {
+        dataToSend.allergies = dataToSend.allergies
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      }
+      if (typeof dataToSend.chronic_conditions === "string") {
+        dataToSend.chronic_conditions = dataToSend.chronic_conditions
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      }
+      if (typeof dataToSend.past_surgeries === "string") {
+        dataToSend.past_surgeries = dataToSend.past_surgeries
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      }
+      if (typeof dataToSend.immunizations === "string") {
+        dataToSend.immunizations = dataToSend.immunizations
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      }
+
+      // Parse JSON strings back to objects
+      if (typeof dataToSend.medical_history === "string" && dataToSend.medical_history.trim() !== "") {
+        try {
+          dataToSend.medical_history = JSON.parse(dataToSend.medical_history)
+        } catch (e) {
+          toast({
+            title: "Input Error",
+            description: "Medical History must be valid JSON.",
+            variant: "destructive",
+          })
+          return
+        }
+      } else if (typeof dataToSend.medical_history === "string" && dataToSend.medical_history.trim() === "") {
+        dataToSend.medical_history = null
+      }
+
+      if (typeof dataToSend.family_medical_history === "string" && dataToSend.family_medical_history.trim() !== "") {
+        try {
+          dataToSend.family_medical_history = JSON.parse(dataToSend.family_medical_history)
+        } catch (e) {
+          toast({
+            title: "Input Error",
+            description: "Family Medical History must be valid JSON.",
+            variant: "destructive",
+          })
+          return
+        }
+      } else if (
+        typeof dataToSend.family_medical_history === "string" &&
+        dataToSend.family_medical_history.trim() === ""
+      ) {
+        dataToSend.family_medical_history = null
+      }
+
       const response = await fetch(`/api/patients/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(editedPatientData),
+        body: JSON.stringify(dataToSend),
       })
 
       if (!response.ok) {
@@ -449,17 +544,28 @@ export default function PatientDetailPage() {
                   <dt className="text-sm font-medium text-muted-foreground">Primary Care Provider</dt>
                   <dd>{patient.primary_care_provider || "N/A"}</dd>
                 </div>
-                {/* Placeholder for primary condition and allergies, as they are not in the current Patient type */}
-                {/* <div>
-                  <dt className="text-sm font-medium text-muted-foreground">Primary Condition</dt>
-                  <dd>{patient.medical_information.primary_condition}</dd>
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Stethoscope className="mr-2 h-4 w-4" /> Medical History
+                  </dt>
+                  <dd className="text-sm text-muted-foreground">
+                    {patient.medical_history ? (
+                      <pre className="whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded-md">
+                        {JSON.stringify(patient.medical_history, null, 2)}
+                      </pre>
+                    ) : (
+                      "N/A"
+                    )}
+                  </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-muted-foreground">Allergies</dt>
+                  <dt className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Allergy className="mr-2 h-4 w-4" /> Allergies
+                  </dt>
                   <dd>
-                    {patient.medical_information.allergies.length > 0 ? (
+                    {patient.allergies && patient.allergies.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {patient.medical_information.allergies.map((allergy, index) => (
+                        {patient.allergies.map((allergy, index) => (
                           <Badge key={index} variant="outline" className="bg-red-50">
                             {allergy}
                           </Badge>
@@ -469,7 +575,75 @@ export default function PatientDetailPage() {
                       "None reported"
                     )}
                   </dd>
-                </div> */}
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Heart className="mr-2 h-4 w-4" /> Chronic Conditions
+                  </dt>
+                  <dd>
+                    {patient.chronic_conditions && patient.chronic_conditions.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {patient.chronic_conditions.map((condition, index) => (
+                          <Badge key={index} variant="outline">
+                            {condition}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      "None reported"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Bone className="mr-2 h-4 w-4" /> Past Surgeries
+                  </dt>
+                  <dd>
+                    {patient.past_surgeries && patient.past_surgeries.length > 0 ? (
+                      <ul className="list-disc pl-5 space-y-1">
+                        {patient.past_surgeries.map((surgery, index) => (
+                          <li key={index} className="text-sm">
+                            {surgery}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      "None reported"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Users className="mr-2 h-4 w-4" /> Family Medical History
+                  </dt>
+                  <dd className="text-sm text-muted-foreground">
+                    {patient.family_medical_history ? (
+                      <pre className="whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded-md">
+                        {JSON.stringify(patient.family_medical_history, null, 2)}
+                      </pre>
+                    ) : (
+                      "N/A"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Syringe className="mr-2 h-4 w-4" /> Immunizations
+                  </dt>
+                  <dd>
+                    {patient.immunizations && patient.immunizations.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {patient.immunizations.map((immunization, index) => (
+                          <Badge key={index} variant="outline">
+                            {immunization}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      "None reported"
+                    )}
+                  </dd>
+                </div>
               </dl>
             </CardContent>
           </Card>
@@ -634,6 +808,109 @@ export default function PatientDetailPage() {
                 Add Medication
               </Button>
             </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Stethoscope className="mr-2 h-5 w-5" />
+                Detailed Medical History
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h3 className="font-medium mb-1 flex items-center">
+                  <Stethoscope className="mr-2 h-4 w-4" /> General Medical History
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {patient.medical_history ? (
+                    <pre className="whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded-md">
+                      {JSON.stringify(patient.medical_history, null, 2)}
+                    </pre>
+                  ) : (
+                    "N/A"
+                  )}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-medium mb-1 flex items-center">
+                  <Allergy className="mr-2 h-4 w-4" /> Allergies
+                </h3>
+                {patient.allergies && patient.allergies.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {patient.allergies.map((allergy, index) => (
+                      <Badge key={index} variant="outline" className="bg-red-50">
+                        {allergy}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">None reported</p>
+                )}
+              </div>
+              <div>
+                <h3 className="font-medium mb-1 flex items-center">
+                  <Heart className="mr-2 h-4 w-4" /> Chronic Conditions
+                </h3>
+                {patient.chronic_conditions && patient.chronic_conditions.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {patient.chronic_conditions.map((condition, index) => (
+                      <Badge key={index} variant="outline">
+                        {condition}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">None reported</p>
+                )}
+              </div>
+              <div>
+                <h3 className="font-medium mb-1 flex items-center">
+                  <Bone className="mr-2 h-4 w-4" /> Past Surgeries
+                </h3>
+                {patient.past_surgeries && patient.past_surgeries.length > 0 ? (
+                  <ul className="list-disc pl-5 space-y-1">
+                    {patient.past_surgeries.map((surgery, index) => (
+                      <li key={index} className="text-sm">
+                        {surgery}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">None reported</p>
+                )}
+              </div>
+              <div>
+                <h3 className="font-medium mb-1 flex items-center">
+                  <Users className="mr-2 h-4 w-4" /> Family Medical History
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {patient.family_medical_history ? (
+                    <pre className="whitespace-pre-wrap text-xs bg-gray-50 p-2 rounded-md">
+                      {JSON.stringify(patient.family_medical_history, null, 2)}
+                    </pre>
+                  ) : (
+                    "N/A"
+                  )}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-medium mb-1 flex items-center">
+                  <Syringe className="mr-2 h-4 w-4" /> Immunizations
+                </h3>
+                {patient.immunizations && patient.immunizations.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {patient.immunizations.map((immunization, index) => (
+                      <Badge key={index} variant="outline">
+                        {immunization}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">None reported</p>
+                )}
+              </div>
+            </CardContent>
           </Card>
         </TabsContent>
 
@@ -861,7 +1138,7 @@ export default function PatientDetailPage() {
 
       {/* Edit Patient Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Patient</DialogTitle>
             <DialogDescription>
@@ -1003,7 +1280,85 @@ export default function PatientDetailPage() {
                 className="col-span-3"
               />
             </div>
-            {/* Address fields can be added here, potentially as a nested object in editedPatientData.address */}
+            {/* New Medical History Fields */}
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="edit_medical_history" className="text-right pt-2">
+                Medical History (JSON)
+              </Label>
+              <Textarea
+                id="edit_medical_history"
+                name="medical_history"
+                value={editedPatientData.medical_history || ""}
+                onChange={handleEditInputChange}
+                className="col-span-3 min-h-[80px]"
+                placeholder='e.g., {"conditions": ["Hypertension"], "surgeries": ["Appendectomy"]}'
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_allergies" className="text-right">
+                Allergies (comma-separated)
+              </Label>
+              <Input
+                id="edit_allergies"
+                name="allergies"
+                value={editedPatientData.allergies || ""}
+                onChange={handleEditInputChange}
+                className="col-span-3"
+                placeholder="e.g., Penicillin, Peanuts"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_chronic_conditions" className="text-right">
+                Chronic Conditions (comma-separated)
+              </Label>
+              <Input
+                id="edit_chronic_conditions"
+                name="chronic_conditions"
+                value={editedPatientData.chronic_conditions || ""}
+                onChange={handleEditInputChange}
+                className="col-span-3"
+                placeholder="e.g., Diabetes, Asthma"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_past_surgeries" className="text-right">
+                Past Surgeries (comma-separated)
+              </Label>
+              <Input
+                id="edit_past_surgeries"
+                name="past_surgeries"
+                value={editedPatientData.past_surgeries || ""}
+                onChange={handleEditInputChange}
+                className="col-span-3"
+                placeholder="e.g., Tonsillectomy (2010), Cholecystectomy (2015)"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="edit_family_medical_history" className="text-right pt-2">
+                Family Medical History (JSON)
+              </Label>
+              <Textarea
+                id="edit_family_medical_history"
+                name="family_medical_history"
+                value={editedPatientData.family_medical_history || ""}
+                onChange={handleEditInputChange}
+                className="col-span-3 min-h-[80px]"
+                placeholder='e.g., {"father": "Hypertension", "mother": "Diabetes"}'
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_immunizations" className="text-right">
+                Immunizations (comma-separated)
+              </Label>
+              <Input
+                id="edit_immunizations"
+                name="immunizations"
+                value={editedPatientData.immunizations || ""}
+                onChange={handleEditInputChange}
+                className="col-span-3"
+                placeholder="e.g., Flu (2023), Tetanus (2020)"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>

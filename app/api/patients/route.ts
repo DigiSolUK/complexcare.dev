@@ -3,11 +3,9 @@ import { neon } from "@neondatabase/serverless"
 import { getSession } from "@/lib/auth"
 import { patientSchema } from "@/lib/validations/patient-schema"
 import { ZodError } from "zod"
-import { v4 as uuidv4 } from "uuid"
 
 const sql = neon(process.env.DATABASE_URL!)
 
-// GET /api/patients - Fetch all patients for the current tenant
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession()
@@ -17,9 +15,30 @@ export async function GET(request: NextRequest) {
     const { tenantId } = session.user
 
     const patients = await sql`
-      SELECT * FROM patients
+      SELECT
+        id,
+        first_name,
+        last_name,
+        date_of_birth,
+        gender,
+        contact_number,
+        email,
+        address,
+        medical_record_number,
+        primary_care_provider,
+        avatar_url,
+        status,
+        medical_history,
+        allergies,
+        chronic_conditions,
+        past_surgeries,
+        family_medical_history,
+        immunizations,
+        created_at,
+        updated_at
+      FROM patients
       WHERE tenant_id = ${tenantId}
-      ORDER BY last_name, first_name
+      ORDER BY created_at DESC
     `
     return NextResponse.json(patients)
   } catch (error) {
@@ -28,7 +47,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/patients - Create a new patient
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession()
@@ -40,21 +58,67 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = patientSchema.parse(body)
 
-    const now = new Date().toISOString()
-    const patientId = uuidv4()
+    const {
+      first_name,
+      last_name,
+      date_of_birth,
+      gender,
+      contact_number,
+      email,
+      address,
+      medical_record_number,
+      primary_care_provider,
+      avatar_url,
+      status,
+      medical_history,
+      allergies,
+      chronic_conditions,
+      past_surgeries,
+      family_medical_history,
+      immunizations,
+    } = validatedData
 
     const result = await sql`
       INSERT INTO patients (
-        id, tenant_id, first_name, last_name, date_of_birth, gender,
-        contact_number, email, address, medical_record_number, primary_care_provider,
-        avatar_url, status, created_at, updated_at, created_by, updated_by
+        tenant_id,
+        first_name,
+        last_name,
+        date_of_birth,
+        gender,
+        contact_number,
+        email,
+        address,
+        medical_record_number,
+        primary_care_provider,
+        avatar_url,
+        status,
+        medical_history,
+        allergies,
+        chronic_conditions,
+        past_surgeries,
+        family_medical_history,
+        immunizations,
+        created_by
       ) VALUES (
-        ${patientId}, ${tenantId}, ${validatedData.first_name}, ${validatedData.last_name},
-        ${validatedData.date_of_birth}, ${validatedData.gender}, ${validatedData.contact_number},
-        ${validatedData.email}, ${validatedData.address ? JSON.stringify(validatedData.address) : null},
-        ${validatedData.medical_record_number}, ${validatedData.primary_care_provider},
-        ${validatedData.avatar_url}, ${validatedData.status},
-        ${now}, ${now}, ${userId}, ${userId}
+        ${tenantId},
+        ${first_name},
+        ${last_name},
+        ${date_of_birth},
+        ${gender},
+        ${contact_number},
+        ${email},
+        ${address ? JSON.stringify(address) : null}::jsonb,
+        ${medical_record_number},
+        ${primary_care_provider},
+        ${avatar_url},
+        ${status},
+        ${medical_history ? JSON.stringify(medical_history) : null}::jsonb,
+        ${allergies ? JSON.stringify(allergies) : null}::jsonb,
+        ${chronic_conditions ? JSON.stringify(chronic_conditions) : null}::jsonb,
+        ${past_surgeries ? JSON.stringify(past_surgeries) : null}::jsonb,
+        ${family_medical_history ? JSON.stringify(family_medical_history) : null}::jsonb,
+        ${immunizations ? JSON.stringify(immunizations) : null}::jsonb,
+        ${userId}
       )
       RETURNING *
     `

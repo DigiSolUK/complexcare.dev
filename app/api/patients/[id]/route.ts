@@ -18,7 +18,28 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const { id } = params
 
     const result = await sql`
-      SELECT * FROM patients
+      SELECT
+        id,
+        first_name,
+        last_name,
+        date_of_birth,
+        gender,
+        contact_number,
+        email,
+        address,
+        medical_record_number,
+        primary_care_provider,
+        avatar_url,
+        status,
+        medical_history,
+        allergies,
+        chronic_conditions,
+        past_surgeries,
+        family_medical_history,
+        immunizations,
+        created_at,
+        updated_at
+      FROM patients
       WHERE id = ${id} AND tenant_id = ${tenantId}
     `
 
@@ -50,7 +71,35 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
 
-    const dataWithUpdater = { ...validatedData, updated_by: userId }
+    // Convert array fields to JSON strings if they exist
+    const dataToUpdate: Record<string, any> = { ...validatedData }
+    if (dataToUpdate.allergies !== undefined) {
+      dataToUpdate.allergies = dataToUpdate.allergies ? JSON.stringify(dataToUpdate.allergies) : null
+    }
+    if (dataToUpdate.chronic_conditions !== undefined) {
+      dataToUpdate.chronic_conditions = dataToUpdate.chronic_conditions
+        ? JSON.stringify(dataToUpdate.chronic_conditions)
+        : null
+    }
+    if (dataToUpdate.past_surgeries !== undefined) {
+      dataToUpdate.past_surgeries = dataToUpdate.past_surgeries ? JSON.stringify(dataToUpdate.past_surgeries) : null
+    }
+    if (dataToUpdate.immunizations !== undefined) {
+      dataToUpdate.immunizations = dataToUpdate.immunizations ? JSON.stringify(dataToUpdate.immunizations) : null
+    }
+    if (dataToUpdate.medical_history !== undefined) {
+      dataToUpdate.medical_history = dataToUpdate.medical_history ? JSON.stringify(dataToUpdate.medical_history) : null
+    }
+    if (dataToUpdate.family_medical_history !== undefined) {
+      dataToUpdate.family_medical_history = dataToUpdate.family_medical_history
+        ? JSON.stringify(dataToUpdate.family_medical_history)
+        : null
+    }
+    if (dataToUpdate.address !== undefined) {
+      dataToUpdate.address = dataToUpdate.address ? JSON.stringify(dataToUpdate.address) : null
+    }
+
+    const dataWithUpdater = { ...dataToUpdate, updated_by: userId }
 
     const { query, values } = buildUpdateQuery("patients", dataWithUpdater, { id, tenant_id: tenantId })
 
