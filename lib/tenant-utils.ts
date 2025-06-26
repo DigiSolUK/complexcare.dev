@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server"
 import { getTenantById } from "@/lib/services/user-service" // Assuming getTenantById is in user-service
 
+export const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || "demo-tenant-1"
+
 // Extract tenant ID from request headers or subdomain
 export async function getTenantFromRequest(request: NextRequest): Promise<{ id: string } | null> {
   const hostname = request.headers.get("host")
@@ -24,7 +26,7 @@ export async function getTenantFromRequest(request: NextRequest): Promise<{ id: 
 
   // In demo mode, fallback to a default tenant if no specific tenant is identified
   if (process.env.NEXT_PUBLIC_DEMO_MODE === "true" || process.env.NODE_ENV === "development") {
-    const defaultTenantId = process.env.DEFAULT_TENANT_ID || "demo-tenant-1" // Use a hardcoded default if env var is missing
+    const defaultTenantId = DEFAULT_TENANT_ID // Use a hardcoded default if env var is missing
     const tenant = await getTenantById(defaultTenantId)
     if (tenant) return tenant
   }
