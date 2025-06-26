@@ -1,10 +1,5 @@
-import { sql } from "@neondatabase/serverless"
+import { sql } from "@/lib/db" // Corrected import path
 import { v4 as uuidv4, validate as uuidValidate } from "uuid"
-// import { getAuth } from "@auth0/nextjs-auth0" // Commented out as it's not directly used in these functions
-// import { DEFAULT_TENANT_ID } from "@/lib/tenant-utils" // Commented out as tenantId is passed as an argument
-
-// Initialize the SQL client once
-// const db = neon(process.env.DATABASE_URL!) // This line is not needed if using `sql` directly from @neondatabase/serverless
 
 /**
  * Checks if a string is a valid UUID.
@@ -21,34 +16,20 @@ export function isValidUUID(uuid: string): boolean {
  * Always returns an array of results (empty array if no rows found).
  */
 export async function tenantQuery<T>(query: string, params: any[] = [], tenantId?: string): Promise<T[]> {
-  // The original code had getAuth() and session logic here.
-  // For these utility functions, it's better to pass tenantId explicitly
-  // and let the calling API route or service handle session/auth.
-
   let finalQuery = query
   const finalParams = [...params]
 
   if (tenantId) {
-    // Adjust query to include tenant_id filter if not already present
-    // This is a simplistic approach; for complex queries, you might need more sophisticated parsing
-    // For example, if the query already has a WHERE clause, append with AND
-    // Otherwise, add a WHERE clause.
     const lowerCaseQuery = query.toLowerCase()
     const whereClauseIndex = lowerCaseQuery.indexOf("where")
 
     if (whereClauseIndex !== -1) {
-      // Check if tenant_id is already part of the WHERE clause to avoid duplicates
       if (!lowerCaseQuery.includes("tenant_id")) {
         finalQuery =
           query.substring(0, whereClauseIndex + 5) +
           ` tenant_id = $${finalParams.length + 1} AND ` +
           query.substring(whereClauseIndex + 5)
         finalParams.push(tenantId)
-      } else {
-        // If tenant_id is already in the query, assume it's handled by the caller
-        // and ensure the tenantId is in the params at the correct position.
-        // This requires careful coordination with how the query is constructed.
-        // For simplicity, we'll assume it's added if not present.
       }
     } else {
       finalQuery = `${query} WHERE tenant_id = $${finalParams.length + 1}`
@@ -57,37 +38,34 @@ export async function tenantQuery<T>(query: string, params: any[] = [], tenantId
   }
 
   try {
-    // Use sql.query for parameterized queries
     const result = await sql.query<T>(finalQuery, finalParams)
-    return result.rows || [] // Ensure it always returns an array
+    return result.rows || []
   } catch (error) {
     console.error(`Error executing tenant-scoped query for tenant ${tenantId}:`, error)
-    throw error // Re-throw the error for upstream handling
+    throw error
   }
 }
 
 /**
  * Helper to build update query dynamically.
  * @param tableName The name of the table to update.
- * @param id The ID of the record to update.
  * @param data An object containing the columns and values to update.
- * @param tenantId Optional tenant ID for tenant-scoping.
+ * @param conditions An object containing the WHERE clause conditions.
  * @returns An object containing the query string and the array of values.
  */
 export function buildUpdateQuery(
   tableName: string,
-  id: string,
   data: Record<string, any>,
-  tenantId?: string,
-): { query: string; params: any[] } {
+  conditions: Record<string, any>,
+): { query: string; values: any[] } {
   const updates: string[] = []
-  const params: any[] = []
+  const values: any[] = []
   let paramIndex = 1
 
   for (const key in data) {
     if (data.hasOwnProperty(key)) {
       updates.push(`${key} = $${paramIndex++}`)
-      params.push(data[key])
+      values.push(data[key])
     }
   }
 
@@ -95,17 +73,21 @@ export function buildUpdateQuery(
     throw new Error("No data provided for update.")
   }
 
-  let query = `UPDATE ${tableName} SET ${updates.join(", ")} WHERE id = $${paramIndex++}`
-  params.push(id)
-
-  if (tenantId) {
-    query += ` AND tenant_id = $${paramIndex++}`
-    params.push(tenantId)
+  const conditionClauses: string[] = []
+  for (const key in conditions) {
+    if (conditions.hasOwnProperty(key)) {
+      conditionClauses.push(`${key} = $${paramIndex++}`)
+      values.push(conditions[key])
+    }
   }
 
-  query += " RETURNING *" // Return the updated row
+  if (conditionClauses.length === 0) {
+    throw new Error("No conditions provided for update.")
+  }
 
-  return { query, params }
+  const query = `UPDATE ${tableName} SET ${updates.join(", ")} WHERE ${conditionClauses.join(" AND ")} RETURNING *`
+
+  return { query, values }
 }
 
 /**
@@ -161,8 +143,8 @@ export async function tenantUpdate<T>(
   tenantId?: string,
 ): Promise<T> {
   try {
-    const { query, params } = buildUpdateQuery(tableName, id, data, tenantId)
-    const result = await sql.query<T>(query, params)
+    const { query, values } = buildUpdateQuery(tableName, data, { id, tenant_id: tenantId })
+    const result = await sql.query<T>(query, values)
     if (result.rows.length === 0) {
       throw new Error(`Record with ID ${id} not found or not accessible for update.`)
     }

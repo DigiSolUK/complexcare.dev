@@ -1,9 +1,7 @@
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db" // Corrected import path
 import type { Patient } from "@/types"
-import { buildUpdateQuery } from "@/lib/db-utils" // Ensure isValidUUID is imported
+import { buildUpdateQuery } from "@/lib/db-utils"
 import { v4 as uuidv4 } from "uuid"
-
-const sql = neon(process.env.DATABASE_URL!)
 
 export async function getPatients(tenantId: string): Promise<Patient[]> {
   try {
@@ -241,7 +239,7 @@ export async function validatePatientsTable(): Promise<{
       }
     }
 
-    const localSql = neon(databaseUrl) // Use a local sql client for this specific check
+    const localSql = sql // Use the imported sql client
 
     // Check if table exists
     const tableCheck = await localSql`
@@ -299,7 +297,7 @@ export async function countAllPatients(): Promise<{
       }
     }
 
-    const localSql = neon(databaseUrl)
+    const localSql = sql // Use the imported sql client
 
     const result = await localSql`SELECT COUNT(*) as count FROM patients`
 
@@ -330,7 +328,7 @@ export async function getTenantsWithPatients(): Promise<{
       }
     }
 
-    const localSql = neon(databaseUrl)
+    const localSql = sql // Use the imported sql client
 
     const result = await localSql`
       SELECT DISTINCT tenant_id
@@ -367,7 +365,7 @@ export async function createTestPatient(tenantId: string): Promise<{
       }
     }
 
-    const localSql = neon(databaseUrl)
+    const localSql = sql // Use the imported sql client
 
     const now = new Date().toISOString()
     const testPatient = {
