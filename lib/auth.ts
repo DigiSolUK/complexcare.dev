@@ -1,7 +1,9 @@
 import type { NextAuthOptions } from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
+import * as CredentialsProviderModule from "next-auth/providers/credentials" // Changed import
 import { DEFAULT_TENANT_ID } from "@/lib/tenant-utils"
-import { isValidUUID } from "@/lib/db-utils" // Import isValidUUID
+import { isValidUUID } from "@/lib/db-utils"
+
+const CredentialsProvider = CredentialsProviderModule.default // Access the default export
 
 export const authOptions: NextAuthOptions = {
   providers: [

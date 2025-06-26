@@ -1,204 +1,102 @@
 import { sql } from "@/lib/db" // Corrected import path
-import type { Patient } from "@/types"
-import { buildUpdateQuery } from "@/lib/db-utils"
+import type { Patient, NewPatient } from "@/types"
 import { v4 as uuidv4 } from "uuid"
 
 export async function getPatients(tenantId: string): Promise<Patient[]> {
   try {
-    const patients = await sql`
-      SELECT
-        id,
-        first_name,
-        last_name,
-        date_of_birth,
-        gender,
-        contact_number,
-        email,
-        address,
-        medical_record_number,
-        primary_care_provider,
-        avatar_url,
-        status,
-        medical_history,
-        allergies,
-        chronic_conditions,
-        past_surgeries,
-        family_medical_history,
-        immunizations,
-        created_at,
-        updated_at
-      FROM patients
+    const result = await sql`
+      SELECT * FROM patients
       WHERE tenant_id = ${tenantId}
-      ORDER BY created_at DESC
+      ORDER BY last_name ASC;
     `
-    return patients as Patient[]
+    return result.rows as Patient[]
   } catch (error) {
     console.error("Error fetching patients:", error)
-    throw new Error("Failed to fetch patients")
+    throw new Error("Failed to fetch patients.")
   }
 }
 
-export async function getPatientById(tenantId: string, patientId: string): Promise<Patient | null> {
+export async function getPatientById(id: string, tenantId: string): Promise<Patient | null> {
   try {
     const result = await sql`
-      SELECT
-        id,
-        first_name,
-        last_name,
-        date_of_birth,
-        gender,
-        contact_number,
-        email,
-        address,
-        medical_record_number,
-        primary_care_provider,
-        avatar_url,
-        status,
-        medical_history,
-        allergies,
-        chronic_conditions,
-        past_surgeries,
-        family_medical_history,
-        immunizations,
-        created_at,
-        updated_at
-      FROM patients
-      WHERE id = ${patientId} AND tenant_id = ${tenantId}
+      SELECT * FROM patients
+      WHERE id = ${id} AND tenant_id = ${tenantId};
     `
-    return (result[0] as Patient) || null
+    return (result.rows[0] as Patient) || null
   } catch (error) {
-    console.error(`Error fetching patient ${patientId}:`, error)
-    throw new Error("Failed to fetch patient")
+    console.error(`Error fetching patient with ID ${id}:`, error)
+    throw new Error(`Failed to fetch patient with ID ${id}.`)
   }
 }
 
-export async function createPatient(
-  tenantId: string,
-  patientData: Partial<Patient>,
-  createdBy: string,
-): Promise<Patient> {
+export async function createPatient(patient: NewPatient, tenantId: string): Promise<Patient> {
   try {
-    const {
-      first_name,
-      last_name,
-      date_of_birth,
-      gender,
-      contact_number,
-      email,
-      address,
-      medical_record_number,
-      primary_care_provider,
-      avatar_url,
-      status,
-      medical_history,
-      allergies,
-      chronic_conditions,
-      past_surgeries,
-      family_medical_history,
-      immunizations,
-    } = patientData
-
     const result = await sql`
       INSERT INTO patients (
-        tenant_id,
-        first_name,
-        last_name,
-        date_of_birth,
-        gender,
-        contact_number,
-        email,
-        address,
-        medical_record_number,
-        primary_care_provider,
-        avatar_url,
-        status,
-        medical_history,
-        allergies,
-        chronic_conditions,
-        past_surgeries,
-        family_medical_history,
-        immunizations,
-        created_by
+        tenant_id, first_name, last_name, date_of_birth, gender, address, phone, email,
+        nhs_number, medical_history, allergies, current_medications,
+        emergency_contact_name, emergency_contact_phone, notes, created_at, updated_at
       ) VALUES (
-        ${tenantId},
-        ${first_name},
-        ${last_name},
-        ${date_of_birth},
-        ${gender},
-        ${contact_number},
-        ${email},
-        ${address ? JSON.stringify(address) : null}::jsonb,
-        ${medical_record_number},
-        ${primary_care_provider},
-        ${avatar_url},
-        ${status},
-        ${medical_history ? JSON.stringify(medical_history) : null}::jsonb,
-        ${allergies ? JSON.stringify(allergies) : null}::jsonb,
-        ${chronic_conditions ? JSON.stringify(chronic_conditions) : null}::jsonb,
-        ${past_surgeries ? JSON.stringify(past_surgeries) : null}::jsonb,
-        ${family_medical_history ? JSON.stringify(family_medical_history) : null}::jsonb,
-        ${immunizations ? JSON.stringify(immunizations) : null}::jsonb,
-        ${createdBy}
+        ${tenantId}, ${patient.first_name}, ${patient.last_name}, ${patient.date_of_birth},
+        ${patient.gender}, ${patient.address}, ${patient.phone}, ${patient.email},
+        ${patient.nhs_number}, ${patient.medical_history}, ${patient.allergies},
+        ${patient.current_medications}, ${patient.emergency_contact_name},
+        ${patient.emergency_contact_phone}, ${patient.notes}, NOW(), NOW()
       )
-      RETURNING *
+      RETURNING *;
     `
-    return result[0] as Patient
+    return result.rows[0] as Patient
   } catch (error) {
     console.error("Error creating patient:", error)
-    throw new Error("Failed to create patient")
+    throw new Error("Failed to create patient.")
   }
 }
 
-export async function updatePatient(
-  tenantId: string,
-  patientId: string,
-  patientData: Partial<Patient>,
-  updatedBy: string,
-): Promise<Patient> {
+export async function updatePatient(id: string, patient: Partial<Patient>, tenantId: string): Promise<Patient> {
   try {
-    const dataToUpdate: Record<string, any> = { ...patientData }
-
-    // Convert array/JSONB fields to JSON strings if they exist
-    if (dataToUpdate.allergies !== undefined) {
-      dataToUpdate.allergies = dataToUpdate.allergies ? JSON.stringify(dataToUpdate.allergies) : null
-    }
-    if (dataToUpdate.chronic_conditions !== undefined) {
-      dataToUpdate.chronic_conditions = dataToUpdate.chronic_conditions
-        ? JSON.stringify(dataToUpdate.chronic_conditions)
-        : null
-    }
-    if (dataToUpdate.past_surgeries !== undefined) {
-      dataToUpdate.past_surgeries = dataToUpdate.past_surgeries ? JSON.stringify(dataToUpdate.past_surgeries) : null
-    }
-    if (dataToUpdate.immunizations !== undefined) {
-      dataToUpdate.immunizations = dataToUpdate.immunizations ? JSON.stringify(dataToUpdate.immunizations) : null
-    }
-    if (dataToUpdate.medical_history !== undefined) {
-      dataToUpdate.medical_history = dataToUpdate.medical_history ? JSON.stringify(dataToUpdate.medical_history) : null
-    }
-    if (dataToUpdate.family_medical_history !== undefined) {
-      dataToUpdate.family_medical_history = dataToUpdate.family_medical_history
-        ? JSON.stringify(dataToUpdate.family_medical_history)
-        : null
-    }
-    if (dataToUpdate.address !== undefined) {
-      dataToUpdate.address = dataToUpdate.address ? JSON.stringify(dataToUpdate.address) : null
-    }
-
-    const dataWithUpdater = { ...dataToUpdate, updated_by: updatedBy }
-
-    const { query, values } = buildUpdateQuery("patients", dataWithUpdater, { id: patientId, tenant_id: tenantId })
-
-    const result = await sql.query(query, values)
-
+    const result = await sql`
+      UPDATE patients
+      SET
+        first_name = COALESCE(${patient.first_name}, first_name),
+        last_name = COALESCE(${patient.last_name}, last_name),
+        date_of_birth = COALESCE(${patient.date_of_birth}, date_of_birth),
+        gender = COALESCE(${patient.gender}, gender),
+        address = COALESCE(${patient.address}, address),
+        phone = COALESCE(${patient.phone}, phone),
+        email = COALESCE(${patient.email}, email),
+        nhs_number = COALESCE(${patient.nhs_number}, nhs_number),
+        medical_history = COALESCE(${patient.medical_history}, medical_history),
+        allergies = COALESCE(${patient.allergies}, allergies),
+        current_medications = COALESCE(${patient.current_medications}, current_medications),
+        emergency_contact_name = COALESCE(${patient.emergency_contact_name}, emergency_contact_name),
+        emergency_contact_phone = COALESCE(${patient.emergency_contact_phone}, emergency_contact_phone),
+        notes = COALESCE(${patient.notes}, notes),
+        updated_at = NOW()
+      WHERE id = ${id} AND tenant_id = ${tenantId}
+      RETURNING *;
+    `
     if (result.rows.length === 0) {
-      throw new Error("Patient not found or update failed")
+      throw new Error("Patient not found or not authorized.")
     }
-
     return result.rows[0] as Patient
   } catch (error) {
-    console.error(`Error updating patient ${patientId}:`, error)
-    throw new Error("Failed to update patient")
+    console.error(`Error updating patient with ID ${id}:`, error)
+    throw new Error(`Failed to update patient with ID ${id}.`)
+  }
+}
+
+export async function deletePatient(id: string, tenantId: string): Promise<void> {
+  try {
+    const result = await sql`
+      DELETE FROM patients
+      WHERE id = ${id} AND tenant_id = ${tenantId};
+    `
+    if (result.count === 0) {
+      throw new Error("Patient not found or not authorized.")
+    }
+  } catch (error) {
+    console.error(`Error deleting patient with ID ${id}:`, error)
+    throw new Error(`Failed to delete patient with ID ${id}.`)
   }
 }
 
@@ -376,7 +274,7 @@ export async function createTestPatient(tenantId: string): Promise<{
       date_of_birth: "1990-01-01",
       gender: "Other",
       email: `test.patient.${Date.now()}@example.com`, // Make email unique
-      contact_number: "07700 900000",
+      phone: "07700 900000",
       address: {}, // JSONB field
       medical_record_number: `TEST${Date.now()}`,
       status: "active",
@@ -391,24 +289,30 @@ export async function createTestPatient(tenantId: string): Promise<{
       past_surgeries: [],
       family_medical_history: {},
       immunizations: [],
+      nhs_number: "1234567890",
+      current_medications: [],
+      emergency_contact_name: "Emergency Contact",
+      emergency_contact_phone: "07700 900001",
+      notes: "This is a test patient.",
     }
 
     // Insert the test patient
     await localSql`
       INSERT INTO patients (
         id, tenant_id, first_name, last_name, date_of_birth, gender,
-        contact_number, email, address, medical_record_number, status,
-        created_at, updated_at, created_by, primary_care_provider, avatar_url,
-        medical_history, allergies, chronic_conditions, past_surgeries, family_medical_history, immunizations
+        address, phone, email, nhs_number, medical_history, allergies,
+        current_medications, emergency_contact_name, emergency_contact_phone,
+        notes, created_at, updated_at, created_by, primary_care_provider, avatar_url,
+        medical_record_number, status
       ) VALUES (
         ${testPatient.id}, ${testPatient.tenant_id}, ${testPatient.first_name}, ${testPatient.last_name},
-        ${testPatient.date_of_birth}, ${testPatient.gender}, ${testPatient.contact_number},
-        ${testPatient.email}, ${JSON.stringify(testPatient.address)}::jsonb, ${testPatient.medical_record_number},
-        ${testPatient.status}, ${testPatient.created_at}, ${testPatient.updated_at},
-        ${testPatient.created_by}, ${testPatient.primary_care_provider}, ${testPatient.avatar_url},
+        ${testPatient.date_of_birth}, ${testPatient.gender}, ${JSON.stringify(testPatient.address)}::jsonb,
+        ${testPatient.phone}, ${testPatient.email}, ${testPatient.nhs_number},
         ${JSON.stringify(testPatient.medical_history)}::jsonb, ${JSON.stringify(testPatient.allergies)}::jsonb,
-        ${JSON.stringify(testPatient.chronic_conditions)}::jsonb, ${JSON.stringify(testPatient.past_surgeries)}::jsonb,
-        ${JSON.stringify(testPatient.family_medical_history)}::jsonb, ${JSON.stringify(testPatient.immunizations)}::jsonb
+        ${JSON.stringify(testPatient.current_medications)}::jsonb, ${testPatient.emergency_contact_name},
+        ${testPatient.emergency_contact_phone}, ${testPatient.notes}, ${testPatient.created_at}, ${testPatient.updated_at},
+        ${testPatient.created_by}, ${testPatient.primary_care_provider}, ${testPatient.avatar_url},
+        ${testPatient.medical_record_number}, ${testPatient.status}
       )
     `
 

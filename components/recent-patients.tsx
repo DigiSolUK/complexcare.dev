@@ -1,85 +1,116 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { type Patient, getPatients } from "@/lib/services/patient-service"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import type { Patient } from "@/types"
+import { getPatients } from "@/lib/services/patient-service"
+import { useTenant } from "@/lib/tenant-context"
+import { Skeleton } from "@/components/ui/skeleton"
 
-interface RecentPatientsProps {
-  tenantId?: string
-}
-
-export function RecentPatients({ tenantId }: RecentPatientsProps) {
+export function RecentPatients() {
+  const { tenantId } = useTenant()
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function loadPatients() {
+    async function fetchPatients() {
       if (!tenantId) {
+        setError("Tenant ID is missing. Cannot fetch patients.")
         setLoading(false)
-        setError("Tenant ID is missing. Cannot load patients.")
-        setPatients([]) // Clear any previous data
         return
       }
-
       try {
         setLoading(true)
-        setError(null)
-        const data = await getPatients(tenantId)
-        setPatients(data)
+        const fetchedPatients = await getPatients(tenantId)
+        setPatients(fetchedPatients.slice(0, 5)) // Display up to 5 recent patients
       } catch (err) {
-        console.error("Error loading patients:", err)
-        setError("Failed to load patients. Please try again.")
-        setPatients([]) // Clear data on error
+        console.error("Failed to fetch recent patients:", err)
+        setError("Failed to load recent patients.")
       } finally {
         setLoading(false)
       }
     }
 
-    loadPatients()
+    fetchPatients()
   }, [tenantId])
 
   if (loading) {
-    return <div className="flex justify-center p-4 text-muted-foreground">Loading patients...</div>
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Patients</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="grid gap-1">
+                <Skeleton className="h-4 w-[150px]" />
+                <Skeleton className="h-3 w-[100px]" />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    )
   }
 
   if (error) {
-    return <div className="flex justify-center p-4 text-destructive">{error}</div>
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Patients</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-red-500">{error}</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (patients.length === 0) {
     return (
-      <div className="flex justify-center p-4 text-muted-foreground">No recent patients found for this tenant.</div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Patients</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500">No recent patients found.</p>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="space-y-4">
-      {patients.map((patient) => (
-        <div key={patient.id} className="flex items-center gap-4 rounded-lg border p-3 transition-all hover:bg-accent">
-          <Avatar>
-            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-              {`${patient.first_name.charAt(0)}${patient.last_name.charAt(0)}`}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 space-y-1">
-            <p className="font-medium leading-none">{`${patient.first_name} ${patient.last_name}`}</p>
-            <p className="text-sm text-muted-foreground">{patient.email}</p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent Patients</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {patients.map((patient) => (
+          <div key={patient.id} className="flex items-center gap-4">
+            <Avatar className="hidden h-9 w-9 sm:flex">
+              <AvatarImage
+                src={`/placeholder.svg?height=36&width=36&query=${patient.first_name}+${patient.last_name}`}
+                alt={`${patient.first_name} ${patient.last_name}`}
+              />
+              <AvatarFallback>
+                {patient.first_name[0]}
+                {patient.last_name[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div className="grid gap-1">
+              <p className="text-sm font-medium leading-none">
+                {patient.first_name} {patient.last_name}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{patient.email}</p>
+            </div>
+            <div className="ml-auto font-medium text-sm">{patient.nhs_number}</div>
           </div>
-          <Badge
-            variant="outline"
-            className={`
-              ${patient.status === "active" ? "border-green-500 bg-green-50 text-green-700" : ""}
-              ${patient.status === "inactive" ? "border-gray-500 bg-gray-50 text-gray-700" : ""}
-              ${patient.status === "pending" ? "border-yellow-500 bg-yellow-50 text-yellow-700" : ""}
-            `}
-          >
-            {patient.status}
-          </Badge>
-          <div className="text-xs text-muted-foreground">{new Date(patient.updated_at).toLocaleDateString()}</div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </CardContent>
+    </Card>
   )
 }
