@@ -12,107 +12,27 @@ interface RecentPatientsProps {
 export function RecentPatients({ tenantId }: RecentPatientsProps) {
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadPatients() {
-      if (tenantId) {
-        try {
-          const data = await getPatients(tenantId, 5)
-          setPatients(data)
-        } catch (error) {
-          console.error("Error loading patients:", error)
-        } finally {
-          setLoading(false)
-        }
-      } else {
-        // Fallback to static data
-        setPatients([
-          {
-            id: "1",
-            tenant_id: "",
-            first_name: "Emma",
-            last_name: "Thompson",
-            email: "emma.t@example.com",
-            status: "active",
-            date_of_birth: "1985-05-15",
-            gender: "female",
-            contact_number: "07700 900123",
-            address: "123 Main St, London",
-            medical_record_number: "MRN12345",
-            primary_care_provider: "Dr. Smith",
-            created_at: "2023-01-15T10:30:00Z",
-            updated_at: "2023-05-20T14:45:00Z",
-            deleted_at: null,
-          },
-          {
-            id: "2",
-            tenant_id: "",
-            first_name: "James",
-            last_name: "Wilson",
-            email: "james.w@example.com",
-            status: "active",
-            date_of_birth: "1978-08-22",
-            gender: "male",
-            contact_number: "07700 900456",
-            address: "456 High St, Manchester",
-            medical_record_number: "MRN67890",
-            primary_care_provider: "Dr. Johnson",
-            created_at: "2023-02-10T09:15:00Z",
-            updated_at: "2023-05-18T11:30:00Z",
-            deleted_at: null,
-          },
-          {
-            id: "3",
-            tenant_id: "",
-            first_name: "Olivia",
-            last_name: "Parker",
-            email: "olivia.p@example.com",
-            status: "inactive",
-            date_of_birth: "1992-03-10",
-            gender: "female",
-            contact_number: "07700 900789",
-            address: "789 Park Lane, Birmingham",
-            medical_record_number: "MRN24680",
-            primary_care_provider: "Dr. Williams",
-            created_at: "2023-03-05T14:20:00Z",
-            updated_at: "2023-05-15T16:45:00Z",
-            deleted_at: null,
-          },
-          {
-            id: "4",
-            tenant_id: "",
-            first_name: "William",
-            last_name: "Davis",
-            email: "william.d@example.com",
-            status: "pending",
-            date_of_birth: "1965-11-28",
-            gender: "male",
-            contact_number: "07700 900012",
-            address: "12 Queen St, Edinburgh",
-            medical_record_number: "MRN13579",
-            primary_care_provider: "Dr. Brown",
-            created_at: "2023-04-12T08:45:00Z",
-            updated_at: "2023-05-10T10:15:00Z",
-            deleted_at: null,
-          },
-          {
-            id: "5",
-            tenant_id: "",
-            first_name: "Sophia",
-            last_name: "Martinez",
-            email: "sophia.m@example.com",
-            status: "active",
-            date_of_birth: "1988-07-17",
-            gender: "female",
-            contact_number: "07700 900345",
-            address: "34 River Road, Glasgow",
-            medical_record_number: "MRN97531",
-            primary_care_provider: "Dr. Taylor",
-            created_at: "2023-01-20T11:30:00Z",
-            updated_at: "2023-05-05T09:30:00Z",
-            deleted_at: null,
-          },
-        ])
+      if (!tenantId) {
+        setLoading(false)
+        setError("Tenant ID is missing. Cannot load patients.")
+        setPatients([]) // Clear any previous data
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await getPatients(tenantId)
+        setPatients(data)
+      } catch (err) {
+        console.error("Error loading patients:", err)
+        setError("Failed to load patients. Please try again.")
+        setPatients([]) // Clear data on error
+      } finally {
         setLoading(false)
       }
     }
@@ -121,7 +41,17 @@ export function RecentPatients({ tenantId }: RecentPatientsProps) {
   }, [tenantId])
 
   if (loading) {
-    return <div className="flex justify-center p-4">Loading patients...</div>
+    return <div className="flex justify-center p-4 text-muted-foreground">Loading patients...</div>
+  }
+
+  if (error) {
+    return <div className="flex justify-center p-4 text-destructive">{error}</div>
+  }
+
+  if (patients.length === 0) {
+    return (
+      <div className="flex justify-center p-4 text-muted-foreground">No recent patients found for this tenant.</div>
+    )
   }
 
   return (

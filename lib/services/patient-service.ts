@@ -1,6 +1,7 @@
 import { neon } from "@neondatabase/serverless"
 import type { Patient } from "@/types"
 import { buildUpdateQuery } from "@/lib/db-utils" // Ensure isValidUUID is imported
+import { v4 as uuidv4 } from "uuid"
 
 const sql = neon(process.env.DATABASE_URL!)
 
@@ -370,7 +371,7 @@ export async function createTestPatient(tenantId: string): Promise<{
 
     const now = new Date().toISOString()
     const testPatient = {
-      id: `test-${Date.now()}`, // This ID is not a UUID, which might cause issues if the DB expects UUID
+      id: uuidv4(), // Use UUID for consistency
       tenant_id: tenantId,
       first_name: "Test",
       last_name: "Patient",
