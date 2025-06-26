@@ -2,9 +2,8 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 export function middleware(request: NextRequest) {
-  // This middleware is intentionally minimal as per the instruction
-  // that no authentication is configured.
-  // It simply allows all requests to pass through.
+  // This middleware currently does nothing but pass the request through.
+  // It can be extended later for custom authentication, tenant routing, etc.
   return NextResponse.next()
 }
 
@@ -15,8 +14,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder (e.g. /public/images)
+     * - api/auth (auth routes)
+     * - api/public (public API routes)
+     * - /((?!api|_next/static|_next/image|favicon.ico).*)
      */
-    "/((?!_next/static|_next/image|favicon.ico|images|.*\\..*).*)",
+    "/((?!api/auth|api/public|_next/static|_next/image|favicon.ico).*)",
   ],
 }

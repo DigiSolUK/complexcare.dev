@@ -18,7 +18,7 @@ interface TenantContextType {
   currentTenant: Tenant | null
   isLoading: boolean
   error: string | null
-  setTenant: (tenantId: string) => void
+  setTenant: (tenantId: string) => void // This might be simplified or removed later if tenant switching isn't needed without auth
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined)
@@ -40,15 +40,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           throw new Error("DEFAULT_TENANT_ID is not configured in environment variables.")
         }
 
-        // For a real application, you would fetch tenant details from your API
-        // based on the defaultTenantId or a hardcoded tenant for demo purposes.
-        // Since we're explicitly not using demo data, we'll simulate a fetch
-        // or use a simple mock if no actual API endpoint exists for this.
-        // Assuming a simple mock for now, as there's no explicit API for tenant details
-        // without authentication.
+        // For this project, we'll use a simple mock tenant based on the default ID
+        // as there's no explicit API for tenant details without authentication.
         const mockTenant: Tenant = {
           id: defaultTenantId,
-          name: "ComplexCare CRM", // Default name if not fetched
+          name: "ComplexCare CRM", // Default name
           branding: {
             logoUrl: "/placeholder.svg", // Default logo
             primaryColor: "#007bff",

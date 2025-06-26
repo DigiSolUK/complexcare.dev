@@ -9,22 +9,35 @@ import type { Patient } from "@/types"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export function RecentPatients() {
-  const { tenantId } = useTenant()
+  const { currentTenant, isLoading: isTenantLoading, error: tenantError } = useTenant()
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchPatients = async () => {
-      if (!tenantId) {
+      if (isTenantLoading) {
+        // Still waiting for tenant info
+        return
+      }
+
+      if (tenantError) {
+        setError(tenantError)
+        setLoading(false)
+        return
+      }
+
+      if (!currentTenant?.id) {
         setError("Tenant ID is not available.")
         setLoading(false)
         return
       }
+
       try {
         setLoading(true)
-        const fetchedPatients = await getPatients(tenantId)
-        setPatients(fetchedPatients.slice(0, 5)) // Displaying up to 5 recent patients
+        // Fetching all patients for the tenant, then slicing to 5 for "recent" display
+        const fetchedPatients = await getPatients(currentTenant.id)
+        setPatients(fetchedPatients.slice(0, 5))
       } catch (err) {
         console.error("Failed to fetch recent patients:", err)
         setError("Failed to load recent patients.")
@@ -34,9 +47,9 @@ export function RecentPatients() {
     }
 
     fetchPatients()
-  }, [tenantId])
+  }, [currentTenant, isTenantLoading, tenantError])
 
-  if (loading) {
+  if (loading || isTenantLoading) {
     return (
       <Card>
         <CardHeader>
@@ -77,7 +90,7 @@ export function RecentPatients() {
           <CardTitle>Recent Patients</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-500">No recent patients found.</p>
+          <p className="text-gray-500">No recent patients found for this tenant.</p>
         </CardContent>
       </Card>
     )
@@ -104,7 +117,7 @@ export function RecentPatients() {
               </p>
               <p className="text-sm text-muted-foreground">{patient.email}</p>
             </div>
-            <div className="ml-auto font-medium">{patient.nhs_number}</div>
+            <div className="ml-auto font-medium">{patient.medical_record_number || patient.contact_number}</div>
           </div>
         ))}
       </CardContent>

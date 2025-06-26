@@ -24,9 +24,9 @@ import {
   Brain,
 } from "lucide-react"
 
-interface DashboardSidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-export function DashboardSidebar({ className }: DashboardSidebarProps) {
+export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
 
   return (
