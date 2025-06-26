@@ -1,0 +1,132 @@
+-- Set search path to public to ensure we're working in the default schema
+SET search_path TO public;
+
+-- Define the hardcoded default tenant ID for consistency
+DO $$
+DECLARE
+    default_tenant_id UUID := 'ba367cfe-6de0-4180-9566-1002b75cf82c';
+BEGIN
+    -- Insert demo patient data
+    INSERT INTO patients (
+        id, tenant_id, first_name, last_name, date_of_birth, gender,
+        contact_number, email, address, medical_record_number, primary_care_provider,
+        avatar_url, status, medical_history, allergies, chronic_conditions,
+        past_surgeries, family_medical_history, immunizations, created_by, updated_by
+    ) VALUES
+    (
+        uuid_generate_v4(),
+        default_tenant_id,
+        'Alice',
+        'Smith',
+        '1985-03-15',
+        'Female',
+        '07712345678',
+        'alice.smith@example.com',
+        '{"street": "123 Oak Ave", "city": "London", "postcode": "SW1A 0AA"}',
+        'MRS1001',
+        'Dr. Emily White',
+        '/placeholder.svg?height=100&width=100',
+        'active',
+        '{"past_illnesses": ["Childhood Asthma"], "vaccination_status": "Up-to-date"}',
+        '["Pollen", "Penicillin"]',
+        '["Asthma"]',
+        '["Appendectomy (2000)"]',
+        '{"mother": {"conditions": ["Diabetes"]}, "father": {"conditions": ["Heart Disease"]}}',
+        '["MMR", "Flu (Annual)"]',
+        'system',
+        'system'
+    ),
+    (
+        uuid_generate_v4(),
+        default_tenant_id,
+        'Bob',
+        'Johnson',
+        '1970-11-22',
+        'Male',
+        '07723456789',
+        'bob.johnson@example.com',
+        '{"street": "45 High St", "city": "Manchester", "postcode": "M1 1AA"}',
+        'MRS1002',
+        'Dr. John Green',
+        '/placeholder.svg?height=100&width=100',
+        'active',
+        '{"past_illnesses": ["Hypertension"], "lifestyle": "Sedentary"}',
+        '["Dust Mites"]',
+        '["Hypertension", "Type 2 Diabetes"]',
+        '[]',
+        '{"mother": {"conditions": ["Hypertension"]}, "father": {"conditions": ["Diabetes"]}}',
+        '["Tetanus", "COVID-19"]',
+        'system',
+        'system'
+    ),
+    (
+        uuid_generate_v4(),
+        default_tenant_id,
+        'Charlie',
+        'Brown',
+        '1995-07-01',
+        'Non-binary',
+        '07734567890',
+        'charlie.brown@example.com',
+        '{"street": "789 Elm Rd", "city": "Birmingham", "postcode": "B2 4AA"}',
+        'MRS1003',
+        'Dr. Sarah Blue',
+        '/placeholder.svg?height=100&width=100',
+        'active',
+        '{"past_illnesses": ["Anxiety"], "mental_health_history": "Therapy in 2020"}',
+        '[]',
+        '["Anxiety"]',
+        '[]',
+        '{"mother": {"conditions": ["Anxiety"]}}',
+        '["HPV"]',
+        'system',
+        'system'
+    ),
+    (
+        uuid_generate_v4(),
+        default_tenant_id,
+        'Diana',
+        'Prince',
+        '1960-01-01',
+        'Female',
+        '07745678901',
+        'diana.prince@example.com',
+        '{"street": "10 Downing St", "city": "London", "postcode": "SW1A 2AA"}',
+        'MRS1004',
+        'Dr. Jane Doe',
+        '/placeholder.svg?height=100&width=100',
+        'active',
+        '{"past_illnesses": ["Osteoarthritis"], "mobility_issues": "Knee pain"}',
+        '["Shellfish"]',
+        '["Osteoarthritis", "High Cholesterol"]',
+        '["Knee Replacement (2015)"]',
+        '{"father": {"conditions": ["Arthritis"]}}',
+        '["Pneumococcal"]',
+        'system',
+        'system'
+    ),
+    (
+        uuid_generate_v4(),
+        default_tenant_id,
+        'Eve',
+        'Adams',
+        '2005-09-30',
+        'Female',
+        '07756789012',
+        'eve.adams@example.com',
+        '{"street": "50 Park Lane", "city": "Leeds", "postcode": "LS1 1AA"}',
+        'MRS1005',
+        'Dr. Alex Red',
+        '/placeholder.svg?height=100&width=100',
+        'active',
+        '{"past_illnesses": ["Seasonal Allergies"]}',
+        '["Peanuts"]',
+        '[]',
+        '[]',
+        '{"mother": {"conditions": ["Seasonal Allergies"]}}',
+        '["MMR", "Varicella"]',
+        'system',
+        'system'
+    )
+    ON CONFLICT (id) DO NOTHING; -- Prevents re-insertion if IDs already exist
+END $$;
