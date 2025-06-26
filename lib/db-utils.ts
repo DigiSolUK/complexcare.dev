@@ -1,8 +1,10 @@
 import { neon } from "@neondatabase/serverless"
-import { v4 as uuidv4 } from "uuid"
+import { sql } from "@neondatabase/serverless"
+import { getAuth } from "@auth0/nextjs-auth0"
+import { DEFAULT_TENANT_ID } from "@/lib/tenant-utils"
 
 // Initialize the SQL client once
-const sql = neon(process.env.DATABASE_URL!)
+const db = neon(process.env.DATABASE_URL!)
 
 /**
  * Checks if a string is a valid UUID.
@@ -19,17 +21,28 @@ export function isValidUUID(uuid: string) {
  * Throws an error if the tenantId is missing or if the query fails.
  * Always returns an array of results (empty array if no rows found).
  */
-export async function tenantQuery<T>(tenantId: string, query: string, params: any[] = []): Promise<T[]> {
-  if (!tenantId) {
-    throw new Error("Tenant ID is required for tenant-scoped queries.")
+export async function tenantQuery<T>(query: string, params: any[] = [], options?: { tenantId?: string }): Promise<T[]> {
+  const { getSession } = getAuth()
+  const session = await getSession()
+  const userTenantId = session?.user?.tenantId
+
+  const effectiveTenantId = options?.tenantId || userTenantId || DEFAULT_TENANT_ID
+
+  if (!effectiveTenantId) {
+    console.error("Error: No tenant ID available for tenantQuery.")
+    return [] // Return an empty array if no tenant ID is available
   }
+
+  // Ensure the query includes a tenant_id filter
+  const tenantFilteredQuery = `${query} WHERE tenant_id = $${params.length + 1}`
+  const allParams = [...params, effectiveTenantId]
+
   try {
-    const result = await sql<T[]>(query, params)
-    // Ensure result is an array, even if the underlying driver returns null/undefined for no rows
-    return Array.isArray(result) ? result : []
+    const result = await sql.query<T>(tenantFilteredQuery, allParams)
+    return result.rows || [] // Ensure an array is always returned
   } catch (error) {
-    console.error(`Error executing tenant-scoped query for tenant ${tenantId}:`, error)
-    throw new Error("Database query failed.")
+    console.error(`Error executing tenant-scoped query for tenant ${effectiveTenantId}:`, error)
+    return [] // Return an empty array on error
   }
 }
 
@@ -41,35 +54,35 @@ export async function tenantQuery<T>(tenantId: string, query: string, params: an
  * @param data The data object to insert.
  * @returns An array of the inserted records.
  */
-export async function tenantInsert<T>(tenantId: string, table: string, data: any): Promise<T[]> {
-  if (!isValidUUID(tenantId)) {
-    console.warn("Invalid tenant ID provided. Skipping insert operation.")
-    return []
+export async function tenantInsert<T>(
+  tableName: string,
+  data: Partial<T>,
+  options?: { tenantId?: string },
+): Promise<T | null> {
+  const { getSession } = getAuth()
+  const session = await getSession()
+  const userTenantId = session?.user?.tenantId
+
+  const effectiveTenantId = options?.tenantId || userTenantId || DEFAULT_TENANT_ID
+
+  if (!effectiveTenantId) {
+    console.error("Error: No tenant ID available for tenantInsert.")
+    return null
   }
+
+  const columns = Object.keys(data)
+  const values = Object.values(data)
+  const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ")
+
+  const query = `INSERT INTO ${tableName} (${columns.join(", ")}, tenant_id) VALUES (${placeholders}, $${columns.length + 1}) RETURNING *`
+  const allValues = [...values, effectiveTenantId]
+
   try {
-    if (!data.id) {
-      data.id = uuidv4()
-    }
-    data.tenant_id = tenantId
-    data.created_at = new Date()
-    data.updated_at = new Date()
-
-    const columns = Object.keys(data).join(", ")
-    const valuesPlaceholders = Object.keys(data)
-      .map((_, i) => `$${i + 1}`)
-      .join(", ")
-    const values = Object.values(data)
-
-    const query = `
-      INSERT INTO ${table} (${columns})
-      VALUES (${valuesPlaceholders})
-      RETURNING *
-    `
-    const result = await sql<T[]>(query, values)
-    return Array.isArray(result) ? result : []
+    const result = await sql.query<T>(query, allValues)
+    return result.rows[0] || null
   } catch (error) {
-    console.error("Error executing tenant insert:", error)
-    throw new Error("Database insert failed.")
+    console.error(`Error inserting into ${tableName} for tenant ${effectiveTenantId}:`, error)
+    return null
   }
 }
 
@@ -82,18 +95,31 @@ export async function tenantInsert<T>(tenantId: string, table: string, data: any
  * @param data The data object containing fields to update.
  * @returns An array of the updated records.
  */
-export async function tenantUpdate<T>(tenantId: string, table: string, id: string, data: any): Promise<T[]> {
-  if (!isValidUUID(tenantId) || !isValidUUID(id)) {
-    console.warn("Invalid tenant or record ID provided. Skipping update operation.")
-    return []
+export async function tenantUpdate<T>(
+  tableName: string,
+  id: string,
+  data: Partial<T>,
+  options?: { tenantId?: string },
+): Promise<T | null> {
+  const { getSession } = getAuth()
+  const session = await getSession()
+  const userTenantId = session?.user?.tenantId
+
+  const effectiveTenantId = options?.tenantId || userTenantId || DEFAULT_TENANT_ID
+
+  if (!effectiveTenantId) {
+    console.error("Error: No tenant ID available for tenantUpdate.")
+    return null
   }
+
+  const { query, values } = buildUpdateQuery(tableName, data, { id, tenant_id: effectiveTenantId })
+
   try {
-    const { query, values } = buildUpdateQuery(table, data, { id, tenant_id: tenantId })
-    const result = await sql<T[]>(query, values)
-    return Array.isArray(result) ? result : []
+    const result = await sql.query<T>(query, values)
+    return result.rows[0] || null
   } catch (error) {
-    console.error("Error executing tenant update:", error)
-    throw new Error("Database update failed.")
+    console.error(`Error updating ${tableName} (id: ${id}) for tenant ${effectiveTenantId}:`, error)
+    return null
   }
 }
 
@@ -102,20 +128,29 @@ export async function tenantUpdate<T>(tenantId: string, table: string, id: strin
  * @param tenantId The ID of the tenant.
  * @param table The name of the table.
  * @param id The ID of the record to delete.
- * @returns An array of the deleted records.
+ * @returns A boolean indicating if the deletion was successful.
  */
-export async function tenantDelete<T>(tenantId: string, table: string, id: string): Promise<T[]> {
-  if (!isValidUUID(tenantId) || !isValidUUID(id)) {
-    console.warn("Invalid tenant or record ID provided. Skipping delete operation.")
-    return []
+export async function tenantDelete(tableName: string, id: string, options?: { tenantId?: string }): Promise<boolean> {
+  const { getSession } = getAuth()
+  const session = await getSession()
+  const userTenantId = session?.user?.tenantId
+
+  const effectiveTenantId = options?.tenantId || userTenantId || DEFAULT_TENANT_ID
+
+  if (!effectiveTenantId) {
+    console.error("Error: No tenant ID available for tenantDelete.")
+    return false
   }
+
+  const query = `DELETE FROM ${tableName} WHERE id = $1 AND tenant_id = $2`
+  const params = [id, effectiveTenantId]
+
   try {
-    const query = `DELETE FROM ${table} WHERE id = $1 AND tenant_id = $2 RETURNING *`
-    const result = await sql<T[]>(query, [id, tenantId])
-    return Array.isArray(result) ? result : []
+    const result = await sql.query(query, params)
+    return result.rowCount > 0
   } catch (error) {
-    console.error("Error executing tenant delete:", error)
-    throw new Error("Database delete failed.")
+    console.error(`Error deleting from ${tableName} (id: ${id}) for tenant ${effectiveTenantId}:`, error)
+    return false
   }
 }
 
