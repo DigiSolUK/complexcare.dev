@@ -47,17 +47,17 @@ export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddPatientDialogOpen, setIsAddPatientDialogOpen] = useState(false)
   const [newPatientData, setNewPatientData] = useState<Partial<Patient>>({
-    tenant_id: process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || "a1b2c3d4-e5f6-7890-1234-567890abcdef", // Placeholder
+    // tenant_id is now handled by the API route from the session
     first_name: "",
     last_name: "",
     date_of_birth: "",
     gender: "",
-    contact_number: "", // Corrected column name
+    contact_number: "",
     email: "",
-    address: {}, // JSONB field
-    medical_record_number: "", // Corrected column name
+    address: {},
+    medical_record_number: "",
     primary_care_provider: "",
-    avatar_url: "", // Corrected column name
+    avatar_url: "",
     status: "active", // Default status
   })
 
@@ -72,9 +72,8 @@ export default function PatientsPage() {
   const fetchPatients = async () => {
     try {
       setLoading(true)
-      // For multi-tenancy, you'd typically get the tenantId from the user's session
-      // For now, using a placeholder or a query parameter
-      const response = await fetch(`/api/patients?tenantId=${newPatientData.tenant_id}`)
+      // Remove tenantId from query parameter, API route gets it from session
+      const response = await fetch(`/api/patients`)
 
       if (!response.ok) {
         throw new Error(`Failed to fetch patients: ${response.status}`)
@@ -97,7 +96,7 @@ export default function PatientsPage() {
 
   useEffect(() => {
     fetchPatients()
-  }, [newPatientData.tenant_id]) // Refetch if tenantId changes (for demo/testing)
+  }, []) // No dependency on newPatientData.tenant_id anymore
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -114,12 +113,15 @@ export default function PatientsPage() {
 
   const handleAddPatient = async () => {
     try {
+      // Remove tenant_id from the body, as the API route will add it from the session
+      const { tenant_id, ...dataToSend } = newPatientData
+
       const response = await fetch("/api/patients", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newPatientData),
+        body: JSON.stringify(dataToSend),
       })
 
       if (!response.ok) {
@@ -134,7 +136,7 @@ export default function PatientsPage() {
       await fetchPatients() // Refresh the list
       setIsAddPatientDialogOpen(false)
       setNewPatientData({
-        tenant_id: process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || "a1b2c3d4-e5f6-7890-1234-567890abcdef", // Reset
+        // Reset state, no tenant_id needed here
         first_name: "",
         last_name: "",
         date_of_birth: "",
