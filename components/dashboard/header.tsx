@@ -9,11 +9,11 @@ import { useTenant } from "@/lib/tenant-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Menu } from "lucide-react"
 
-interface HeaderProps {
+interface DashboardHeaderProps {
   toggleSidebar: () => void
 }
 
-export function Header({ toggleSidebar }: HeaderProps) {
+export function DashboardHeader({ toggleSidebar }: DashboardHeaderProps) {
   const { currentTenant, isLoading } = useTenant()
 
   return (

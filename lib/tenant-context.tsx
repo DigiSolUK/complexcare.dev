@@ -2,31 +2,86 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
+interface TenantBranding {
+  logoUrl?: string
+  primaryColor?: string
+  secondaryColor?: string
+}
+
+interface Tenant {
+  id: string
+  name: string
+  branding?: TenantBranding
+}
+
 interface TenantContextType {
-  tenantId: string | null
-  setTenantId: (id: string | null) => void
+  currentTenant: Tenant | null
+  isLoading: boolean
+  error: string | null
+  setTenant: (tenantId: string) => void
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined)
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const [tenantId, setTenantId] = useState<string | null>(null)
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // In a real application without authentication, you might fetch this from a config
-    // or rely on a hardcoded default for development/single-tenant setups.
-    // For this project, we're using the DEFAULT_TENANT_ID environment variable.
-    const defaultTenantId = process.env.DEFAULT_TENANT_ID
-    if (defaultTenantId) {
-      setTenantId(defaultTenantId)
-    } else {
-      console.warn("DEFAULT_TENANT_ID environment variable is not set.")
-      // Fallback for development if env var is not set, or handle error
-      setTenantId("default-tenant-id-if-not-set") // Consider a more robust error handling or default
-    }
-  }, [])
+    const fetchTenant = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        // In a non-authenticated setup, we rely on a default tenant ID from env
+        const defaultTenantId = process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || process.env.DEFAULT_TENANT_ID
 
-  return <TenantContext.Provider value={{ tenantId, setTenantId }}>{children}</TenantContext.Provider>
+        if (!defaultTenantId) {
+          throw new Error("DEFAULT_TENANT_ID is not configured in environment variables.")
+        }
+
+        // For a real application, you would fetch tenant details from your API
+        // based on the defaultTenantId or a hardcoded tenant for demo purposes.
+        // Since we're explicitly not using demo data, we'll simulate a fetch
+        // or use a simple mock if no actual API endpoint exists for this.
+        // Assuming a simple mock for now, as there's no explicit API for tenant details
+        // without authentication.
+        const mockTenant: Tenant = {
+          id: defaultTenantId,
+          name: "ComplexCare CRM", // Default name if not fetched
+          branding: {
+            logoUrl: "/placeholder.svg", // Default logo
+            primaryColor: "#007bff",
+            secondaryColor: "#6c757d",
+          },
+        }
+        setCurrentTenant(mockTenant)
+      } catch (err) {
+        console.error("Failed to load tenant:", err)
+        setError(err instanceof Error ? err.message : "An unknown error occurred while loading tenant.")
+        setCurrentTenant(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchTenant()
+  }, []) // Empty dependency array means this runs once on mount
+
+  const setTenant = (tenantId: string) => {
+    // In a non-authenticated setup, changing tenant might involve
+    // reloading the app or changing the DEFAULT_TENANT_ID env var.
+    // For now, we'll just update the state directly for demonstration.
+    setCurrentTenant((prev) => ({
+      ...prev,
+      id: tenantId,
+      name: `Tenant ${tenantId.substring(0, 8)}`, // Simple name for demonstration
+    }))
+  }
+
+  return (
+    <TenantContext.Provider value={{ currentTenant, isLoading, error, setTenant }}>{children}</TenantContext.Provider>
+  )
 }
 
 export function useTenant() {

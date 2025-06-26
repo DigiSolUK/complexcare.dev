@@ -1,4 +1,4 @@
-import { sql } from "@/lib/db" // Corrected import path
+import { sql } from "@neondatabase/serverless"
 import { v4 as uuidv4, validate as uuidValidate } from "uuid"
 
 /**
@@ -23,33 +23,31 @@ export async function tenantQuery(query: string, params: any[] = [], tenantId: s
   return await sql(query, [...params, tenantId])
 }
 
-/**
- * Builds an SQL UPDATE query string and its corresponding values.
- * @param tableName The name of the table to update.
- * @param data The object containing the data to update. Keys are column names, values are new values.
- * @param idColumn The name of the ID column (e.g., 'id').
- * @param idValue The value of the ID column for the row to update.
- * @returns An object containing the `query` string and `values` array.
- */
+// Helper function to build dynamic SQL UPDATE queries
 export function buildUpdateQuery(
   tableName: string,
   data: Record<string, any>,
   idColumn: string,
   idValue: string,
 ): { query: string; values: any[] } {
-  const keys = Object.keys(data).filter((key) => data[key] !== undefined) // Filter out undefined values
-  const setClauses = keys.map((key, index) => `${key} = $${index + 1}`)
-  const values = keys.map((key) => data[key])
+  const updates: string[] = []
+  const values: any[] = []
+  let paramIndex = 1
 
-  // Add the ID value to the end of the values array
-  values.push(idValue)
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      updates.push(`${key} = $${paramIndex}`)
+      values.push(data[key])
+      paramIndex++
+    }
+  }
 
-  const query = `
-    UPDATE ${tableName}
-    SET ${setClauses.join(", ")}
-    WHERE ${idColumn} = $${values.length}
-    RETURNING *;
-  `
+  if (updates.length === 0) {
+    return { query: "", values: [] } // No updates to perform
+  }
+
+  values.push(idValue) // Add the ID value to the end
+  const query = `UPDATE ${tableName} SET ${updates.join(", ")} WHERE ${idColumn} = $${paramIndex} RETURNING *`
 
   return { query, values }
 }
