@@ -10,18 +10,19 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType | undefined>(undefined)
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  // In a production multi-tenant application with authentication,
-  // the tenantId would typically be derived from the authenticated user's session.
-  // Since authentication is not configured, we're using a default from environment variables.
   const [tenantId, setTenantId] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load the default tenant ID from environment variables
-    const defaultId = process.env.DEFAULT_TENANT_ID || null
-    if (defaultId) {
-      setTenantId(defaultId)
+    // In a real application without authentication, you might fetch this from a config
+    // or rely on a hardcoded default for development/single-tenant setups.
+    // For this project, we're using the DEFAULT_TENANT_ID environment variable.
+    const defaultTenantId = process.env.DEFAULT_TENANT_ID
+    if (defaultTenantId) {
+      setTenantId(defaultTenantId)
     } else {
-      console.warn("DEFAULT_TENANT_ID is not set. Some features may not work correctly without a tenant ID.")
+      console.warn("DEFAULT_TENANT_ID environment variable is not set.")
+      // Fallback for development if env var is not set, or handle error
+      setTenantId("default-tenant-id-if-not-set") // Consider a more robust error handling or default
     }
   }, [])
 

@@ -112,6 +112,24 @@ export async function updateCareProfessional(
   }
 }
 
+export async function deactivateCareProfessional(id: string, tenantId: string): Promise<CareProfessional> {
+  try {
+    const { rows } = await sql`
+      UPDATE care_professionals
+      SET is_active = FALSE, updated_at = NOW()
+      WHERE id = ${id} AND tenant_id = ${tenantId}
+      RETURNING *;
+    `
+    if (rows.length === 0) {
+      throw new Error("Care professional not found or not authorized.")
+    }
+    return rows[0] as CareProfessional
+  } catch (error) {
+    console.error(`Error deactivating care professional with ID ${id}:`, error)
+    throw new Error(`Failed to deactivate care professional with ID ${id}.`)
+  }
+}
+
 export async function deleteCareProfessional(id: string, tenantId: string): Promise<void> {
   try {
     const { rowCount } = await sql`

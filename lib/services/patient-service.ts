@@ -1,5 +1,5 @@
 import { sql } from "@/lib/db"
-import type { Patient } from "@/types"
+import type { Patient, NewPatient } from "@/types"
 import { buildUpdateQuery } from "@/lib/db-utils"
 
 export async function getPatients(tenantId: string): Promise<Patient[]> {
@@ -7,7 +7,7 @@ export async function getPatients(tenantId: string): Promise<Patient[]> {
     const { rows } = await sql`
       SELECT * FROM patients
       WHERE tenant_id = ${tenantId}
-      ORDER BY created_at DESC;
+      ORDER BY last_name ASC;
     `
     return rows as Patient[]
   } catch (error) {
@@ -29,10 +29,7 @@ export async function getPatientById(id: string, tenantId: string): Promise<Pati
   }
 }
 
-export async function createPatient(
-  patientData: Omit<Patient, "id" | "created_at" | "updated_at">,
-  tenantId: string,
-): Promise<Patient> {
+export async function createPatient(patientData: NewPatient, tenantId: string): Promise<Patient> {
   try {
     const { rows } = await sql`
       INSERT INTO patients (
@@ -44,21 +41,21 @@ export async function createPatient(
         address,
         city,
         postcode,
-        nhs_number,
+        country,
         phone,
         email,
-        emergency_contact_name,
-        emergency_contact_phone,
+        nhs_number,
         gp_name,
         gp_phone,
+        gp_address,
         medical_history,
         allergies,
         medications,
         care_plan_summary,
-        risk_assessment_summary,
-        last_activity_at,
-        created_by_user_id,
-        updated_by_user_id
+        emergency_contact_name,
+        emergency_contact_phone,
+        created_at,
+        updated_at
       ) VALUES (
         ${tenantId},
         ${patientData.first_name},
@@ -68,21 +65,21 @@ export async function createPatient(
         ${patientData.address},
         ${patientData.city},
         ${patientData.postcode},
-        ${patientData.nhs_number},
+        ${patientData.country},
         ${patientData.phone},
         ${patientData.email},
-        ${patientData.emergency_contact_name},
-        ${patientData.emergency_contact_phone},
+        ${patientData.nhs_number},
         ${patientData.gp_name},
         ${patientData.gp_phone},
+        ${patientData.gp_address},
         ${patientData.medical_history},
         ${patientData.allergies},
         ${patientData.medications},
         ${patientData.care_plan_summary},
-        ${patientData.risk_assessment_summary},
-        ${patientData.last_activity_at},
-        ${patientData.created_by_user_id},
-        ${patientData.updated_by_user_id}
+        ${patientData.emergency_contact_name},
+        ${patientData.emergency_contact_phone},
+        NOW(),
+        NOW()
       )
       RETURNING *;
     `

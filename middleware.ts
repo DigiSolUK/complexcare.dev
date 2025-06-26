@@ -2,9 +2,9 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  // Since authentication is not configured, we simply allow all requests to pass through.
-  // In a real application, you would implement authentication logic here
-  // to protect routes and ensure only authorized users can access certain paths.
+  // This middleware is intentionally minimal as per the instruction
+  // that no authentication is configured.
+  // It simply allows all requests to pass through.
   return NextResponse.next()
 }
 
@@ -15,16 +15,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - api/auth (auth routes)
+     * - public folder (e.g. /public/images)
      * - api/public (public API routes)
-     * - / (marketing landing page)
-     * - /login (login page)
-     * - /live-login (live login page)
-     * - /unauthorized (unauthorized page)
-     * - /error (error page)
-     * - /debug (debug page)
-     * - /api/config/stack-auth (Stack Auth config)
+     * - api/auth (auth routes, if re-enabled later)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/public|api/config/stack-auth|login|live-login|unauthorized|error|debug|$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api/public|api/auth).*)",
   ],
 }

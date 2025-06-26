@@ -24,33 +24,32 @@ export async function tenantQuery(query: string, params: any[] = [], tenantId: s
 }
 
 /**
- * Helper to build update query dynamically.
+ * Builds an SQL UPDATE query string and its corresponding values.
  * @param tableName The name of the table to update.
- * @param data An object containing the columns and values to update.
- * @param idColumn The name of the ID column for the WHERE clause (e.g., 'id', 'patient_id').
- * @param idValue The value of the ID column for the WHERE clause.
- * @returns An object containing the query string and the array of values.
+ * @param data The object containing the data to update. Keys are column names, values are new values.
+ * @param idColumn The name of the ID column (e.g., 'id').
+ * @param idValue The value of the ID column for the row to update.
+ * @returns An object containing the `query` string and `values` array.
  */
 export function buildUpdateQuery(
   tableName: string,
   data: Record<string, any>,
   idColumn: string,
-  idValue: string | number,
+  idValue: string,
 ): { query: string; values: any[] } {
-  const updates: string[] = []
-  const values: any[] = []
-  let paramIndex = 1
+  const keys = Object.keys(data).filter((key) => data[key] !== undefined) // Filter out undefined values
+  const setClauses = keys.map((key, index) => `${key} = $${index + 1}`)
+  const values = keys.map((key) => data[key])
 
-  for (const key in data) {
-    if (Object.prototype.hasOwnProperty.call(data, key)) {
-      updates.push(`${key} = $${paramIndex++}`)
-      values.push(data[key])
-    }
-  }
+  // Add the ID value to the end of the values array
+  values.push(idValue)
 
-  values.push(idValue) // Add the ID value to the end
-
-  const query = `UPDATE ${tableName} SET ${updates.join(", ")} WHERE ${idColumn} = $${paramIndex} RETURNING *`
+  const query = `
+    UPDATE ${tableName}
+    SET ${setClauses.join(", ")}
+    WHERE ${idColumn} = $${values.length}
+    RETURNING *;
+  `
 
   return { query, values }
 }
