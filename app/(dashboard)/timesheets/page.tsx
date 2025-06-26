@@ -1,71 +1,34 @@
 import { Suspense } from "react"
-import type { Metadata } from "next"
-import TimesheetsContent from "./timesheets-content"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import TimesheetsContent from "./timesheets-content"
+import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "Timesheets | ComplexCare CRM",
-  description: "Manage staff timesheets and time tracking",
-}
-
-function TimesheetsLoading() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <Skeleton className="h-8 w-48 mb-2" />
-        <Skeleton className="h-4 w-96" />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-3 w-32" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-32" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center space-x-4">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-3 w-32" />
-                </div>
-                <Skeleton className="h-8 w-20" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+  description: "Manage staff timesheets and working hours",
 }
 
 export default function TimesheetsPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Timesheets</h1>
-        <p className="text-muted-foreground">Manage staff timesheets and track working hours</p>
+    <Suspense fallback={<TimesheetsSkeleton />}>
+      <TimesheetsContent />
+    </Suspense>
+  )
+}
+
+function TimesheetsSkeleton() {
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-10 w-32" />
       </div>
 
-      <Suspense fallback={<TimesheetsLoading />}>
-        <TimesheetsContent />
-      </Suspense>
+      <Skeleton className="h-12 w-full" />
+
+      <div className="mt-6">
+        <Skeleton className="h-96 w-full rounded-lg" />
+      </div>
     </div>
   )
 }

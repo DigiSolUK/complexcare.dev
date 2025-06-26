@@ -1,51 +1,27 @@
 "use client"
 
-import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
-import { AlertTriangle } from "lucide-react"
 
-export default function Error({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string }
-  reset: () => void
-}) {
-  useEffect(() => {
-    // Log the error to an error reporting service
-    console.error("Application error:", error)
-  }, [error])
-
+export default function Error() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <Card className="mx-auto max-w-md">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-            <CardTitle>Something went wrong</CardTitle>
-          </div>
-          <CardDescription>
-            An error occurred while trying to process your request. Please try again or contact support if the problem
-            persists.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md bg-red-50 p-4 text-sm text-red-800">
-            <p className="font-medium">Error: {error.message || "Unknown error"}</p>
-            {error.digest && <p className="mt-1 text-xs text-red-600">Error ID: {error.digest}</p>}
-          </div>
-        </CardContent>
-        <CardFooter className="flex gap-2">
-          <Button onClick={reset} variant="default">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
+        <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong!</h2>
+        <p className="mb-6 text-gray-600">
+          We apologize for the inconvenience. Please try again or contact support if the problem persists.
+        </p>
+        <div className="space-y-4">
+          <Button onClick={() => window.location.reload()} variant="destructive">
             Try Again
           </Button>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard">Return to Dashboard</Link>
-          </Button>
-        </CardFooter>
-      </Card>
+          <div>
+            <Link href="/" className="inline-block text-sm text-blue-600 hover:underline">
+              Return Home
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,11 +1,27 @@
-# Auth
-NEXTAUTH_URL=https://your-vercel-deployment-url.vercel.app
-NEXTAUTH_SECRET=your-nextauth-secret
+# Recommended for most uses
+DATABASE_URL=postgres://neondb_owner:npg_0eaLV6qTlfmb@ep-silent-poetry-abytoc6r-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require
 
-# Auth0
-AUTH0_CLIENT_ID=your-auth0-client-id
-AUTH0_CLIENT_SECRET=your-auth0-client-secret
-AUTH0_ISSUER_BASE_URL=https://your-auth0-domain.auth0.com
+# For uses requiring a connection without pgbouncer
+DATABASE_URL_UNPOOLED=postgresql://neondb_owner:npg_0eaLV6qTlfmb@ep-silent-poetry-abytoc6r.eu-west-2.aws.neon.tech/neondb?sslmode=require
 
-# Database
-DATABASE_URL=your-database-url
+# Parameters for constructing your own connection string
+PGHOST=ep-silent-poetry-abytoc6r-pooler.eu-west-2.aws.neon.tech
+PGHOST_UNPOOLED=ep-silent-poetry-abytoc6r.eu-west-2.aws.neon.tech
+PGUSER=neondb_owner
+PGDATABASE=neondb
+PGPASSWORD=npg_0eaLV6qTlfmb
+
+# Parameters for Vercel Postgres Templates
+POSTGRES_URL=postgres://neondb_owner:npg_0eaLV6qTlfmb@ep-silent-poetry-abytoc6r-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require
+POSTGRES_URL_NON_POOLING=postgres://neondb_owner:npg_0eaLV6qTlfmb@ep-silent-poetry-abytoc6r.eu-west-2.aws.neon.tech/neondb?sslmode=require
+POSTGRES_USER=neondb_owner
+POSTGRES_HOST=ep-silent-poetry-abytoc6r-pooler.eu-west-2.aws.neon.tech
+POSTGRES_PASSWORD=npg_0eaLV6qTlfmb
+POSTGRES_DATABASE=neondb
+POSTGRES_URL_NO_SSL=postgres://neondb_owner:npg_0eaLV6qTlfmb@ep-silent-poetry-abytoc6r-pooler.eu-west-2.aws.neon.tech/neondb
+POSTGRES_PRISMA_URL=postgres://neondb_owner:npg_0eaLV6qTlfmb@ep-silent-poetry-abytoc6r-pooler.eu-west-2.aws.neon.tech/neondb?connect_timeout=15&sslmode=require
+
+# Neon Auth environment variables for Next.js
+NEXT_PUBLIC_STACK_PROJECT_ID=287760d7-1b68-4dfd-ba63-7af7c5084512
+STACK_PUBLISHABLE_CLIENT_KEY=pck_m2whbgj1dvzetjkxt7cb9qp7h1v7x7f3fd83zm2vwkahg
+STACK_SECRET_SERVER_KEY=ssk_mgdjj09c82pzf9v3wv49r8a66qx5rf6xsdwxa4rbzh8j0

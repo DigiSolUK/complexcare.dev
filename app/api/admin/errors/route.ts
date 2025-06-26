@@ -1,28 +1,37 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getErrors } from "@/lib/services/error-logging-service"
 import { getSession } from "@/lib/auth"
-import { getErrorLogs } from "@/lib/services/error-logging-service"
-import { createApiHandler, AppError } from "@/lib/error-handler"
 
-export const GET = createApiHandler(async (request: NextRequest) => {
-  const session = await getSession()
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getSession()
 
-  if (!session?.user) {
-    throw new AppError("Unauthorized", 401, true, "low")
+    // Only allow admin users
+    if (!session?.user || !session.user.roles?.includes("admin")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Parse query parameters
+    const searchParams = request.nextUrl.searchParams
+    const resolved = searchParams.get("resolved")
+    const severity = searchParams.get("severity")
+    const limit = searchParams.get("limit")
+    const offset = searchParams.get("offset")
+
+    const result = await getErrors({
+      resolved: resolved === "true" ? true : resolved === "false" ? false : undefined,
+      severity: severity || undefined,
+      limit: limit ? Number.parseInt(limit) : undefined,
+      offset: offset ? Number.parseInt(offset) : undefined,
+    })
+
+    if (result.success) {
+      return NextResponse.json({ errors: result.errors })
+    } else {
+      return NextResponse.json({ error: "Failed to fetch errors" }, { status: 500 })
+    }
+  } catch (error) {
+    console.error("Error in admin errors API:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
-
-  // Check if user has admin permissions
-  if (session.user.role !== "admin" && session.user.role !== "superadmin") {
-    throw new AppError("Forbidden - Admin access required", 403, true, "low")
-  }
-
-  const searchParams = request.nextUrl.searchParams
-  const severity = searchParams.get("severity") || undefined
-  const status = searchParams.get("status") || undefined
-
-  const result = await getErrorLogs(session.user.tenant_id, {
-    severity,
-    status,
-  })
-
-  return NextResponse.json(result)
-})
+}

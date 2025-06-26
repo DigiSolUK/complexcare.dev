@@ -4,175 +4,165 @@ import type React from "react"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
 import {
   BarChart3,
   Calendar,
   ClipboardList,
   FileText,
-  Home,
+  Pill,
   Settings,
   Users,
-  Wallet,
-  Clock,
-  FileCheck,
+  CreditCard,
+  Briefcase,
+  FileEdit,
+  LayoutDashboard,
   Shield,
-  PieChart,
 } from "lucide-react"
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
-export function DashboardSidebar({ className }: SidebarProps) {
+interface SidebarNavProps extends React.HTMLAttributes<HTMLElement> {
+  items: {
+    href: string
+    title: string
+    icon: React.ReactNode
+    color?: string
+  }[]
+}
+
+export function SidebarNav({ className, items, ...props }: SidebarNavProps) {
   const pathname = usePathname()
 
   return (
-    <div className={cn("pb-12 border-r w-64 bg-white hidden md:block", className)}>
-      <div className="space-y-4 py-4">
-        <div className="px-4 py-2">
-          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">Main</h2>
-          <div className="space-y-1">
-            <Link
-              href="/dashboard"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname === "/dashboard" ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <Home className="mr-2 h-4 w-4" />
-              <span>Dashboard</span>
+    <nav className={cn("flex flex-col gap-2", className)} {...props}>
+      {items.map((item) => {
+        const isActive = pathname === item.href
+        return (
+          <Button
+            key={item.href}
+            variant={isActive ? "default" : "ghost"}
+            className={cn(
+              "justify-start",
+              isActive && item.color
+                ? `bg-${item.color}-100 text-${item.color}-700 hover:bg-${item.color}-200 hover:text-${item.color}-800`
+                : "",
+              !isActive && item.color
+                ? `text-${item.color}-600 hover:bg-${item.color}-100 hover:text-${item.color}-700`
+                : "",
+            )}
+            asChild
+          >
+            <Link href={item.href}>
+              {item.icon}
+              {item.title}
             </Link>
-            <Link
-              href="/patients"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/patients") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <Users className="mr-2 h-4 w-4" />
-              <span>Patients</span>
-            </Link>
-            <Link
-              href="/care-professionals"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/care-professionals") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <Users className="mr-2 h-4 w-4" />
-              <span>Care Professionals</span>
-            </Link>
-            <Link
-              href="/appointments"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/appointments") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              <span>Appointments</span>
-            </Link>
-            <Link
-              href="/care-plans"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/care-plans") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <ClipboardList className="mr-2 h-4 w-4" />
-              <span>Care Plans</span>
-            </Link>
-            <Link
-              href="/tasks"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/tasks") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <FileCheck className="mr-2 h-4 w-4" />
-              <span>Tasks</span>
-            </Link>
-          </div>
-        </div>
-        <div className="px-4 py-2">
-          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">Administration</h2>
-          <div className="space-y-1">
-            <Link
-              href="/timesheets"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/timesheets") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <Clock className="mr-2 h-4 w-4" />
-              <span>Timesheets</span>
-            </Link>
-            <Link
-              href="/documents"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/documents") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              <span>Documents</span>
-            </Link>
-            <Link
-              href="/invoicing"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/invoicing") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <Wallet className="mr-2 h-4 w-4" />
-              <span>Invoicing</span>
-            </Link>
-            <Link
-              href="/compliance"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/compliance") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <Shield className="mr-2 h-4 w-4" />
-              <span>Compliance</span>
-            </Link>
-          </div>
-        </div>
-        <div className="px-4 py-2">
-          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">System</h2>
-          <div className="space-y-1">
-            <Link
-              href="/analytics"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/analytics") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <BarChart3 className="mr-2 h-4 w-4" />
-              <span>Analytics</span>
-            </Link>
-            <Link
-              href="/reports"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/reports") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <PieChart className="mr-2 h-4 w-4" />
-              <span>Reports</span>
-            </Link>
-            <Link
-              href="/settings"
-              className={cn(
-                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-100 hover:text-gray-900",
-                pathname.startsWith("/settings") ? "bg-gray-100 text-gray-900" : "text-gray-700",
-              )}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </Link>
-          </div>
-        </div>
+          </Button>
+        )
+      })}
+    </nav>
+  )
+}
+
+export function DashboardSidebar() {
+  const items = [
+    {
+      href: "/dashboard",
+      title: "Dashboard",
+      icon: <LayoutDashboard className="mr-2 h-4 w-4" />,
+      color: "blue",
+    },
+    {
+      href: "/patients",
+      title: "Patients",
+      icon: <Users className="mr-2 h-4 w-4" />,
+      color: "indigo",
+    },
+    {
+      href: "/medications",
+      title: "Medications",
+      icon: <Pill className="mr-2 h-4 w-4" />,
+      color: "cyan",
+    },
+    {
+      href: "/care-professionals",
+      title: "Care Professionals",
+      icon: <Users className="mr-2 h-4 w-4" />,
+      color: "purple",
+    },
+    {
+      href: "/appointments",
+      title: "Appointments",
+      icon: <Calendar className="mr-2 h-4 w-4" />,
+      color: "purple",
+    },
+    {
+      href: "/documents",
+      title: "Documents",
+      icon: <FileText className="mr-2 h-4 w-4" />,
+      color: "teal",
+    },
+    {
+      href: "/finances",
+      title: "Finances",
+      icon: <CreditCard className="mr-2 h-4 w-4" />,
+      color: "green",
+    },
+    {
+      href: "/tasks",
+      title: "Tasks",
+      icon: <ClipboardList className="mr-2 h-4 w-4" />,
+      color: "yellow",
+    },
+    {
+      href: "/analytics",
+      title: "Analytics",
+      icon: <BarChart3 className="mr-2 h-4 w-4" />,
+      color: "orange",
+    },
+    {
+      href: "/compliance",
+      title: "Compliance",
+      icon: <Shield className="mr-2 h-4 w-4" />,
+      color: "blue",
+    },
+    {
+      href: "/recruitment",
+      title: "Recruitment",
+      icon: <Briefcase className="mr-2 h-4 w-4" />,
+      color: "red",
+    },
+    {
+      href: "/content",
+      title: "Content",
+      icon: <FileEdit className="mr-2 h-4 w-4" />,
+      color: "pink",
+    },
+    {
+      href: "/settings",
+      title: "Settings",
+      icon: <Settings className="mr-2 h-4 w-4" />,
+      color: "gray",
+    },
+  ]
+
+  const adminItems = [
+    {
+      href: "/admin/tenant-management",
+      title: "Tenant Management",
+      icon: <Users className="mr-2 h-4 w-4" />,
+      color: "purple",
+    },
+  ]
+
+  return (
+    <div className="flex h-full flex-col gap-2 p-4">
+      <div className="px-3 py-2">
+        <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">Navigation</h2>
+        <SidebarNav items={items} />
+
+        <h2 className="mb-2 mt-6 px-4 text-lg font-semibold tracking-tight">Administration</h2>
+        <SidebarNav items={adminItems} />
       </div>
     </div>
   )

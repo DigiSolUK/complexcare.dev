@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { sql } from "@/lib/neon-adapter"
-import { getSession } from "@/lib/auth0-adapter"
+import { sql } from "@neondatabase/serverless"
+import { getSession } from "@auth0/nextjs-auth0"
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // Calculate execution time if duration is provided
     const executionTimeMs = duration || null
 
-    // Insert into ai_tool_analytics table
+    // Insert into ai_tool_analytics table using the existing structure
     await sql`
       INSERT INTO ai_tool_analytics (
         tenant_id, 

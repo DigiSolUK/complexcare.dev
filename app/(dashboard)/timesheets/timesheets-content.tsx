@@ -1,76 +1,55 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { TimesheetTable } from "@/components/timesheets/timesheet-table"
-import { CreateTimesheetDialog } from "@/components/timesheets/create-timesheet-dialog"
-import { TimesheetCalendar } from "@/components/timesheets/timesheet-calendar"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PlusCircle, Calendar, List } from "lucide-react"
+import { TimesheetTable } from "@/components/timesheets/timesheet-table"
+import { TimesheetCalendar } from "@/components/timesheets/timesheet-calendar"
+import { CreateTimesheetDialog } from "@/components/timesheets/create-timesheet-dialog"
+import { useTenant } from "@/components/providers/tenant-provider"
+import { getTimesheets } from "@/lib/services/timesheet-service"
 
-export function TimesheetsContent() {
-  const [timesheets, setTimesheets] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [open, setOpen] = useState(false)
+export default async function TimesheetsContent() {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [tenantId, setTenantId] = useState("demo-tenant")
 
   useEffect(() => {
-    const fetchTimesheets = async () => {
-      try {
-        setLoading(true)
-        const response = await fetch("/api/timesheets")
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch timesheets")
-        }
-
-        const data = await response.json()
-        setTimesheets(data)
-      } catch (error) {
-        console.error("Error fetching timesheets:", error)
-      } finally {
-        setLoading(false)
+    let id = "demo-tenant"
+    try {
+      const { tenant } = useTenant()
+      if (tenant?.id) {
+        id = tenant.id
       }
+    } catch (error) {
+      console.error("TenantProvider not available, using default tenant ID:", error)
     }
-
-    fetchTimesheets()
+    setTenantId(id)
   }, [])
 
-  const handleCreateTimesheet = async (newTimesheet) => {
-    setTimesheets([...timesheets, newTimesheet])
-  }
+  // Fetch timesheets with the tenant ID (or fallback)
+  const timesheets = await getTimesheets(tenantId)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Timesheets</h1>
-        <Button onClick={() => setOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Create Timesheet
-        </Button>
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">Timesheets</h1>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>Add Timesheet</Button>
       </div>
 
-      <Tabs defaultValue="list">
-        <TabsList>
-          <TabsTrigger value="list">
-            <List className="mr-2 h-4 w-4" />
-            List View
-          </TabsTrigger>
-          <TabsTrigger value="calendar">
-            <Calendar className="mr-2 h-4 w-4" />
-            Calendar View
-          </TabsTrigger>
+      <Tabs defaultValue="list" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="list">List View</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar View</TabsTrigger>
         </TabsList>
-        <TabsContent value="list" className="space-y-4">
-          <TimesheetTable timesheets={timesheets} loading={loading} />
+        <TabsContent value="list">
+          <TimesheetTable timesheets={timesheets} />
         </TabsContent>
-        <TabsContent value="calendar" className="space-y-4">
-          <TimesheetCalendar timesheets={timesheets} loading={loading} />
+        <TabsContent value="calendar">
+          <TimesheetCalendar timesheets={timesheets} />
         </TabsContent>
       </Tabs>
 
-      <CreateTimesheetDialog open={open} onOpenChange={setOpen} onCreateTimesheet={handleCreateTimesheet} />
+      <CreateTimesheetDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} tenantId={tenantId} />
     </div>
   )
 }
-
-export default TimesheetsContent

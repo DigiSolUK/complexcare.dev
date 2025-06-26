@@ -1,24 +1,17 @@
-"use client"
-
-import type React from "react"
-
-import { useState } from "react"
-import { DashboardSidebar } from "@/components/dashboard-sidebar"
-import { Header } from "@/components/dashboard/header"
+import type { ReactNode } from "react"
+import { Sidebar } from "@/components/dashboard/sidebar"
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-
+  // Removed the DemoBanner from here since it's already in the global layout
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
-      <Header toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+    <div className="flex min-h-screen flex-col">
       <div className="flex flex-1">
-        <DashboardSidebar className={sidebarOpen ? "block" : undefined} />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <Sidebar />
+        <main className="flex-1 p-6 pt-4">{children}</main>
       </div>
     </div>
   )

@@ -1,8 +1,105 @@
-import type { LightbulbIcon as LucideProps } from "lucide-react"
+import {
+  ArrowRight,
+  Building2,
+  Calendar,
+  Check,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Download,
+  Eye,
+  FileEdit,
+  FolderOpen,
+  Globe,
+  Lock,
+  Menu,
+  MoreHorizontal,
+  Newspaper,
+  Paperclip,
+  PlusCircle,
+  Settings,
+  Shield,
+  Trash2,
+  AlertTriangle,
+  AlertCircle,
+  FileUp,
+  FileCode,
+  ExternalLink,
+  Mail,
+  Wallet,
+  BanknoteIcon,
+  FileIcon as FilePdf,
+  FileTextIcon,
+  FileSpreadsheet,
+  FileImage,
+  File,
+  LayoutDashboard,
+  Pill,
+  RefreshCw,
+  TrendingUpIcon,
+  UserCircle,
+  SunIcon,
+  MoonIcon,
+  CopyIcon,
+  XCircleIcon,
+  BarChartIcon,
+} from "lucide-react"
+import { User, LogOut, Search } from "some-icon-library" // Placeholder for actual import paths
 
-export function XCircle(props: LucideProps) {
+export const Icons = {
+  spinner: RefreshCw,
+  check: Check,
+  mail: Mail,
+  calendar: Calendar,
+  user: User,
+  settings: Settings,
+  logOut: LogOut,
+  sun: SunIcon,
+  moon: MoonIcon,
+  copy: CopyIcon,
+  trash: Trash2,
+  alertTriangle: AlertTriangle,
+  alertCircle: AlertCircle,
+  search: Search,
+  plus: PlusCircle,
+  download: Download,
+  moreHorizontal: MoreHorizontal,
+  fileText: FileTextIcon,
+  building: Building2,
+  creditCard: CreditCard,
+  shield: Shield,
+  barChart: BarChartIcon,
+  fileUp: FileUp,
+  folderOpen: FolderOpen,
+  fileCode: FileCode,
+  externalLink: ExternalLink,
+  menu: Menu,
+  lock: Lock,
+  arrowRight: ArrowRight,
+  checkCircle: CheckCircle2,
+  wallet: Wallet,
+  banknote: BanknoteIcon,
+  filePdf: FilePdf,
+  fileSpreadsheet: FileSpreadsheet,
+  fileImage: FileImage,
+  file: File,
+  layoutDashboard: LayoutDashboard,
+  pill: Pill,
+  eye: Eye,
+  fileEdit: FileEdit,
+  xCircle: XCircleIcon,
+  globe: Globe,
+  clock: Clock,
+  newspaper: Newspaper,
+  paperclip: Paperclip,
+  trendingUp: TrendingUpIcon,
+  userCircle: UserCircle,
+}
+
+function Sun(props: any) {
   return (
     <svg
+      {...props}
       xmlns="http://www.w3.org/2000/svg"
       width="24"
       height="24"
@@ -12,18 +109,24 @@ export function XCircle(props: LucideProps) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      {...props}
     >
-      <circle cx="12" cy="12" r="10" />
-      <path d="m15 9-6 6" />
-      <path d="m9 9 6 6" />
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="M4.93 4.93l1.41 1.41" />
+      <path d="M17.66 17.66l1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="M4.93 19.07l1.41-1.41" />
+      <path d="M17.66 6.34l1.41-1.41" />
     </svg>
   )
 }
 
-export function CheckCircle(props: LucideProps) {
+function Moon(props: any) {
   return (
     <svg
+      {...props}
       xmlns="http://www.w3.org/2000/svg"
       width="24"
       height="24"
@@ -33,17 +136,16 @@ export function CheckCircle(props: LucideProps) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      {...props}
     >
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22,4 12,14.01 9,11.01" />
+      <path d="M12 3a6 6 0 0 0-6 6 6 6 0 1 0 6-6z" />
     </svg>
   )
 }
 
-export function AlertCircle(props: LucideProps) {
+function Copy(props: any) {
   return (
     <svg
+      {...props}
       xmlns="http://www.w3.org/2000/svg"
       width="24"
       height="24"
@@ -53,18 +155,18 @@ export function AlertCircle(props: LucideProps) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      {...props}
     >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" x2="12" y1="8" y2="12" />
-      <line x1="12" x2="12.01" y1="16" y2="16" />
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.5 0-3-1-3-2.5S2.5 11 4 11h16c1.5 0 3 1 3 2.5S21.5 16 20 16H4z" />
+      <rect width="14" height="14" x="2" y="2" rx="2" ry="2" />
     </svg>
   )
 }
 
-export function Info(props: LucideProps) {
+function XCircle(props: any) {
   return (
     <svg
+      {...props}
       xmlns="http://www.w3.org/2000/svg"
       width="24"
       height="24"
@@ -74,10 +176,10 @@ export function Info(props: LucideProps) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      {...props}
     >
       <circle cx="12" cy="12" r="10" />
-      <path d="m9 12 2 2 4-4" />
+      <line x1="15" x2="9" y1="9" y2="15" />
+      <line x1="9" x2="15" y1="9" y2="15" />
     </svg>
   )
 }

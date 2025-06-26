@@ -1,34 +1,32 @@
 import { tenantQuery, tenantInsert, tenantUpdate, tenantDelete } from "@/lib/db-utils"
+import type { CarePlan } from "@/types"
 
-export type CarePlan = {
-  id: string
-  tenant_id: string
-  patient_id: string
-  title: string
-  description: string | null
-  start_date: string
-  end_date: string | null
-  status: "draft" | "active" | "completed" | "cancelled"
-  goals: string | null
-  interventions: string | null
-  review_date: string | null
-  assigned_to: string | null
-  created_at: string
-  updated_at: string
-  created_by: string
-  updated_by: string
-}
-
-// Get all care plans for a tenant
+// Get all care plans for a tenant, with patient and assigned professional names
 export async function getCarePlans(tenantId: string): Promise<CarePlan[]> {
   try {
-    return tenantQuery<CarePlan>(
+    const carePlans = await tenantQuery<CarePlan>(
       tenantId,
       `
-      SELECT * FROM care_plans 
-      ORDER BY start_date DESC
+      SELECT
+        cp.*,
+        p.first_name AS patient_first_name,
+        p.last_name AS patient_last_name,
+        cp_assigned.first_name AS assigned_to_first_name,
+        cp_assigned.last_name AS assigned_to_last_name
+      FROM care_plans cp
+      JOIN patients p ON cp.patient_id = p.id
+      LEFT JOIN care_professionals cp_assigned ON cp.assigned_to = cp_assigned.id
+      WHERE cp.tenant_id = $1
+      ORDER BY cp.start_date DESC
     `,
+      [tenantId],
     )
+
+    return carePlans.map((cp: any) => ({
+      ...cp,
+      patient_name: `${cp.patient_first_name} ${cp.patient_last_name}`,
+      assigned_to_name: cp.assigned_to_first_name ? `${cp.assigned_to_first_name} ${cp.assigned_to_last_name}` : null,
+    }))
   } catch (error) {
     console.error("Error fetching care plans:", error)
     return []
@@ -38,15 +36,29 @@ export async function getCarePlans(tenantId: string): Promise<CarePlan[]> {
 // Get care plans for a patient
 export async function getCarePlansForPatient(tenantId: string, patientId: string): Promise<CarePlan[]> {
   try {
-    return tenantQuery<CarePlan>(
+    const carePlans = await tenantQuery<CarePlan>(
       tenantId,
       `
-      SELECT * FROM care_plans 
-      WHERE patient_id = $1 
-      ORDER BY start_date DESC
+      SELECT
+        cp.*,
+        p.first_name AS patient_first_name,
+        p.last_name AS patient_last_name,
+        cp_assigned.first_name AS assigned_to_first_name,
+        cp_assigned.last_name AS assigned_to_last_name
+      FROM care_plans cp
+      JOIN patients p ON cp.patient_id = p.id
+      LEFT JOIN care_professionals cp_assigned ON cp.assigned_to = cp_assigned.id
+      WHERE cp.tenant_id = $1 AND cp.patient_id = $2
+      ORDER BY cp.start_date DESC
     `,
-      [patientId],
+      [tenantId, patientId],
     )
+
+    return carePlans.map((cp: any) => ({
+      ...cp,
+      patient_name: `${cp.patient_first_name} ${cp.patient_last_name}`,
+      assigned_to_name: cp.assigned_to_first_name ? `${cp.assigned_to_first_name} ${cp.assigned_to_last_name}` : null,
+    }))
   } catch (error) {
     console.error("Error fetching patient care plans:", error)
     return []
@@ -59,12 +71,30 @@ export async function getCarePlanById(tenantId: string, carePlanId: string): Pro
     const carePlans = await tenantQuery<CarePlan>(
       tenantId,
       `
-      SELECT * FROM care_plans 
-      WHERE id = $1
+      SELECT
+        cp.*,
+        p.first_name AS patient_first_name,
+        p.last_name AS patient_last_name,
+        cp_assigned.first_name AS assigned_to_first_name,
+        cp_assigned.last_name AS assigned_to_last_name
+      FROM care_plans cp
+      JOIN patients p ON cp.patient_id = p.id
+      LEFT JOIN care_professionals cp_assigned ON cp.assigned_to = cp_assigned.id
+      WHERE cp.tenant_id = $1 AND cp.id = $2
     `,
-      [carePlanId],
+      [tenantId, carePlanId],
     )
-    return carePlans.length > 0 ? carePlans[0] : null
+    const carePlan = carePlans.length > 0 ? carePlans[0] : null
+    if (carePlan) {
+      return {
+        ...carePlan,
+        patient_name: `${(carePlan as any).patient_first_name} ${(carePlan as any).patient_last_name}`,
+        assigned_to_name: (carePlan as any).assigned_to_first_name
+          ? `${(carePlan as any).assigned_to_first_name} ${(carePlan as any).assigned_to_last_name}`
+          : null,
+      }
+    }
+    return null
   } catch (error) {
     console.error("Error fetching care plan:", error)
     return null
@@ -74,7 +104,7 @@ export async function getCarePlanById(tenantId: string, carePlanId: string): Pro
 // Create a new care plan
 export async function createCarePlan(
   tenantId: string,
-  carePlanData: Omit<CarePlan, "id" | "tenant_id" | "created_at" | "updated_at">,
+  carePlanData: Omit<CarePlan, "id" | "tenant_id" | "created_at" | "updated_at" | "patient_name" | "assigned_to_name">,
   userId: string,
 ): Promise<CarePlan | null> {
   try {
@@ -98,7 +128,7 @@ export async function createCarePlan(
 export async function updateCarePlan(
   tenantId: string,
   carePlanId: string,
-  carePlanData: Partial<CarePlan>,
+  carePlanData: Partial<Omit<CarePlan, "patient_name" | "assigned_to_name">>,
   userId: string,
 ): Promise<CarePlan | null> {
   try {
@@ -131,7 +161,8 @@ export async function getActiveCarePlansCount(tenantId: string): Promise<number>
   try {
     const result = await tenantQuery<{ count: number }>(
       tenantId,
-      `SELECT COUNT(*) as count FROM care_plans WHERE status = 'active'`,
+      `SELECT COUNT(*) as count FROM care_plans WHERE status = 'active' AND tenant_id = $1`,
+      [tenantId],
     )
     return result[0]?.count || 0
   } catch (error) {

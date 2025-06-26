@@ -1,6 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
-import { tenantQuery } from "@/lib/db-utils"
+import { NextResponse } from "next/server"
+import { neon } from "@neondatabase/serverless"
+
+// Connect to the database
+const sql = neon(process.env.DATABASE_URL!)
 
 // Demo data for tasks
 const demoTasks = [
@@ -66,25 +68,28 @@ const demoTasks = [
   },
 ]
 
-const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
-
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const patientId = searchParams.get("patientId")
-
-    let query = `SELECT * FROM tasks WHERE tenant_id = $1`
-    const params = [DEFAULT_TENANT_ID]
-
-    // Filter by patient if patientId is provided
-    if (patientId) {
-      query += ` AND related_to_type = 'patient' AND related_to_id = $2`
-      params.push(patientId)
+    // Check for demo mode
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      return NextResponse.json(demoTasks)
     }
 
-    query += ` ORDER BY due_date ASC`
+    // Get tenant ID from request
+    const url = new URL(request.url)
+    const tenantId =
+      request.headers.get("x-tenant-id") || url.searchParams.get("tenantId") || process.env.DEFAULT_TENANT_ID
 
-    const tasks = await tenantQuery(DEFAULT_TENANT_ID, query, params)
+    if (!tenantId) {
+      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    }
+
+    // Query tasks from database using tagged template literal syntax
+    const tasks = await sql`
+      SELECT * FROM tasks
+      WHERE tenant_id = ${tenantId}
+      ORDER BY created_at DESC
+    `
 
     return NextResponse.json(tasks)
   } catch (error) {
@@ -117,9 +122,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
     }
 
-    // Insert task using the new API
-    const result = await sql.query(
-      `INSERT INTO tasks (
+    // Insert task using tagged template literal syntax
+    const result = await sql`
+      INSERT INTO tasks (
         title, 
         description, 
         status, 
@@ -131,19 +136,18 @@ export async function POST(request: Request) {
         updated_at
       )
       VALUES (
-        $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+        ${title}, 
+        ${description || null}, 
+        ${status || "pending"}, 
+        ${priority || "medium"}, 
+        ${due_date || null}, 
+        ${assigned_to || null}, 
+        ${tenantId}, 
+        NOW(), 
+        NOW()
       )
-      RETURNING *`,
-      [
-        title,
-        description || null,
-        status || "pending",
-        priority || "medium",
-        due_date || null,
-        assigned_to || null,
-        tenantId,
-      ],
-    )
+      RETURNING *
+    `
 
     return NextResponse.json(result[0], { status: 201 })
   } catch (error) {

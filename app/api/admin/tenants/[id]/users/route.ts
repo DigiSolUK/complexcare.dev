@@ -1,94 +1,70 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { NextResponse } from "next/server"
+import { getTenantUsers, addUserToTenant, createTenantInvitation } from "@/lib/services/tenant-service"
+import { getCurrentUserId } from "@/lib/auth/auth-utils"
+import { requirePermission } from "@/lib/auth/require-permission"
+import { PERMISSIONS } from "@/lib/auth/permissions"
 
-interface RouteParams {
-  params: {
-    id: string
-  }
-}
-
-// GET users for a tenant
-export async function GET(request: NextRequest, { params }: RouteParams) {
+// Get tenant users (admin only)
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const { id } = params
 
-    // Check if tenant exists
-    const tenantCheck = await sql`
-      SELECT id FROM tenants WHERE id = ${id} AND deleted_at IS NULL
-    `
+    // Get current user ID
+    const userId = await getCurrentUserId()
 
-    if (tenantCheck.length === 0) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get users for the tenant
-    const result = await sql`
-      SELECT 
-        tu.id, tu.tenant_id, tu.user_id, tu.role, tu.is_primary, tu.created_at as joined_at,
-        u.email, u.name, u.image
-      FROM tenant_users tu
-      JOIN users u ON tu.user_id = u.id
-      WHERE tu.tenant_id = ${id} AND tu.deleted_at IS NULL
-      ORDER BY tu.is_primary DESC, u.name ASC
-    `
+    // Check if user has permission to view tenant users
+    await requirePermission(PERMISSIONS.TENANT_USER_VIEW, "system")
 
-    return NextResponse.json(result)
+    // Get tenant users
+    const users = await getTenantUsers(id)
+
+    return NextResponse.json(users)
   } catch (error) {
-    console.error("Error fetching tenant users:", error)
+    console.error(`Error fetching users for tenant ${params.id}:`, error)
     return NextResponse.json({ error: "Failed to fetch tenant users" }, { status: 500 })
   }
 }
 
-// POST add a user to a tenant
-export async function POST(request: NextRequest, { params }: RouteParams) {
+// Add user to tenant or invite a new user (admin only)
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
     const { id } = params
-    const body = await request.json()
-    const { user_id, role, is_primary } = body
 
-    // Check if tenant exists
-    const tenantCheck = await sql`
-      SELECT id FROM tenants WHERE id = ${id} AND deleted_at IS NULL
-    `
+    // Get current user ID
+    const userId = await getCurrentUserId()
 
-    if (tenantCheck.length === 0) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user exists
-    const userCheck = await sql`
-      SELECT id FROM users WHERE id = ${user_id}
-    `
+    // Check if user has permission to add users to tenants
+    await requirePermission(PERMISSIONS.TENANT_USER_CREATE, "system")
 
-    if (userCheck.length === 0) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    // Get request body
+    const { email, role, existingUserId } = await request.json()
+
+    if (!email && !existingUserId) {
+      return NextResponse.json({ error: "Either email or existingUserId is required" }, { status: 400 })
     }
 
-    // Check if user is already in the tenant
-    const existingUser = await sql`
-      SELECT id FROM tenant_users 
-      WHERE tenant_id = ${id} AND user_id = ${user_id} AND deleted_at IS NULL
-    `
-
-    if (existingUser.length > 0) {
-      return NextResponse.json({ error: "User is already in this tenant" }, { status: 409 })
+    // If existingUserId is provided, add the user directly
+    if (existingUserId) {
+      const tenantUser = await addUserToTenant(id, existingUserId, role || "user")
+      return NextResponse.json(tenantUser, { status: 201 })
     }
 
-    // Add user to tenant
-    const now = new Date()
+    // Otherwise, create an invitation
+    const invitation = await createTenantInvitation(id, email, role || "user")
 
-    const result = await sql`
-      INSERT INTO tenant_users (
-        tenant_id, user_id, role, is_primary, created_at, updated_at
-      ) VALUES (
-        ${id}, ${user_id}, ${role}, ${is_primary || false}, ${now}, ${now}
-      )
-      RETURNING id, tenant_id, user_id, role, is_primary, created_at, updated_at
-    `
+    // TODO: Send invitation email
 
-    return NextResponse.json(result[0], { status: 201 })
+    return NextResponse.json(invitation, { status: 201 })
   } catch (error) {
-    console.error("Error adding user to tenant:", error)
+    console.error(`Error adding user to tenant ${params.id}:`, error)
     return NextResponse.json({ error: "Failed to add user to tenant" }, { status: 500 })
   }
 }

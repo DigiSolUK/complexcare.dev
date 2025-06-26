@@ -1,5 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSession } from "@/lib/auth0-adapter"
+import { neon } from "@neondatabase/serverless"
+
+// Define the response type
+interface AIAnalyticsResponse {
+  totalAIInteractions: number
+  aiInteractionsByType: {
+    type: string
+    count: number
+  }[]
+  aiInteractionsByDate: {
+    date: string
+    count: number
+  }[]
+  averageResponseTime: number
+  successRate: number
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,39 +22,81 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const tenantIdFromQuery = searchParams.get("tenantId")
     const tenantIdFromHeader = request.headers.get("x-tenant-id")
-    const tenantId = tenantIdFromQuery || tenantIdFromHeader
+    let tenantId = tenantIdFromQuery || tenantIdFromHeader
 
-    // Check if tenant ID is provided
+    const DEFAULT_TENANT_ID = process.env.DEFAULT_TENANT_ID || "ba367cfe-6de0-4180-9566-1002b75cf82c" // Fallback to a known ID if env is not set
+
+    // Check if tenant ID is provided, otherwise use default
     if (!tenantId) {
-      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+      tenantId = DEFAULT_TENANT_ID
     }
 
-    // Get the user session for authentication
-    const session = await getSession()
+    // Connect to the database
+    const sql = neon(process.env.DATABASE_URL!)
 
-    // Check if user is authenticated
-    if (!session?.user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    // Query for total AI interactions
+    const totalInteractionsResult = await sql`
+      SELECT COUNT(*) as total
+      FROM ai_interactions
+      WHERE tenant_id = ${tenantId}
+    `
+    const totalAIInteractions = Number.parseInt(totalInteractionsResult[0]?.total || "0")
+
+    // Query for AI interactions by type
+    const interactionsByTypeResult = await sql`
+      SELECT interaction_type as type, COUNT(*) as count
+      FROM ai_interactions
+      WHERE tenant_id = ${tenantId}
+      GROUP BY interaction_type
+      ORDER BY count DESC
+    `
+
+    // Query for AI interactions by date (last 30 days)
+    const interactionsByDateResult = await sql`
+      SELECT 
+        DATE(created_at) as date, 
+        COUNT(*) as count
+      FROM ai_interactions
+      WHERE 
+        tenant_id = ${tenantId} AND
+        created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `
+
+    // Query for average response time
+    const avgResponseTimeResult = await sql`
+      SELECT AVG(response_time_ms) as avg_time
+      FROM ai_interactions
+      WHERE tenant_id = ${tenantId}
+    `
+    const averageResponseTime = Number.parseFloat(avgResponseTimeResult[0]?.avg_time || "0")
+
+    // Query for success rate
+    const successRateResult = await sql`
+      SELECT 
+        COUNT(CASE WHEN status = 'success' THEN 1 END) * 100.0 / COUNT(*) as success_rate
+      FROM ai_interactions
+      WHERE tenant_id = ${tenantId}
+    `
+    const successRate = Number.parseFloat(successRateResult[0]?.success_rate || "0")
+
+    // Prepare the response
+    const response: AIAnalyticsResponse = {
+      totalAIInteractions,
+      aiInteractionsByType: interactionsByTypeResult.map((row) => ({
+        type: row.type,
+        count: Number.parseInt(row.count),
+      })),
+      aiInteractionsByDate: interactionsByDateResult.map((row) => ({
+        date: row.date,
+        count: Number.parseInt(row.count),
+      })),
+      averageResponseTime,
+      successRate,
     }
 
-    // Mock data for AI analytics
-    return NextResponse.json({
-      totalAIInteractions: 120,
-      aiInteractionsByType: [
-        { type: "summarization", count: 45 },
-        { type: "generation", count: 35 },
-        { type: "classification", count: 25 },
-        { type: "extraction", count: 15 },
-      ],
-      aiInteractionsByDate: [
-        { date: "2023-05-01", count: 10 },
-        { date: "2023-05-02", count: 15 },
-        { date: "2023-05-03", count: 8 },
-        { date: "2023-05-04", count: 12 },
-      ],
-      averageResponseTime: 450.75,
-      successRate: 98.5,
-    })
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Error fetching AI analytics:", error)
     return NextResponse.json({ error: "Failed to fetch AI analytics" }, { status: 500 })
