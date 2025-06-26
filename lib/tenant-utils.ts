@@ -1,91 +1,41 @@
 import type { NextRequest } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getTenantById } from "@/lib/services/user-service" // Assuming getTenantById is in user-service
 
-/**
- * Get tenant ID from request headers or query params
- */
-export function getTenantIdFromRequest(request: NextRequest): string | null {
-  // Check headers first
-  const tenantHeader = request.headers.get("x-tenant-id")
-  if (tenantHeader) return tenantHeader
+// Extract tenant ID from request headers or subdomain
+export async function getTenantFromRequest(request: NextRequest): Promise<{ id: string } | null> {
+  const hostname = request.headers.get("host")
+  // This logic assumes a structure like 'tenant-id.yourdomain.com'
+  // For localhost or direct IP, it might not extract a subdomain.
+  const subdomain = hostname ? hostname.split(".")[0] : null
 
-  // Check query params
-  const { searchParams } = new URL(request.url)
-  const tenantParam = searchParams.get("tenantId")
-  if (tenantParam) return tenantParam
+  if (subdomain && subdomain !== "localhost" && subdomain !== "127") {
+    // Avoid treating localhost/IP as tenant ID
+    const tenant = await getTenantById(subdomain)
+    if (tenant) return tenant
+  }
 
-  // Check for tenant in path
-  const pathname = request.nextUrl.pathname
-  const tenantMatch = pathname.match(/\/tenant\/([^/]+)/)
-  if (tenantMatch) return tenantMatch[1]
+  // Fallback to header or cookie if subdomain is not available or not a valid tenant
+  const tenantId = request.headers.get("x-tenant-id") || request.cookies.get("tenantId")?.value
+
+  if (tenantId) {
+    const tenant = await getTenantById(tenantId)
+    return tenant
+  }
+
+  // In demo mode, fallback to a default tenant if no specific tenant is identified
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true" || process.env.NODE_ENV === "development") {
+    const defaultTenantId = process.env.DEFAULT_TENANT_ID || "demo-tenant-1" // Use a hardcoded default if env var is missing
+    const tenant = await getTenantById(defaultTenantId)
+    if (tenant) return tenant
+  }
 
   return null
 }
 
-/**
- * Get tenant from request (server-side)
- */
-export async function getTenantFromRequest(request: NextRequest) {
-  const tenantId = getTenantIdFromRequest(request)
-  if (!tenantId) return null
-
-  try {
-    // In a real app, fetch tenant from database
-    // For now, return mock data
-    return {
-      id: tenantId,
-      name: "Mock Tenant",
-      slug: "mock-tenant",
-      plan: "Professional",
-    }
-  } catch (error) {
-    console.error("Error fetching tenant:", error)
-    return null
-  }
+export async function getTenantIdFromRequest(request: NextRequest): Promise<string | null> {
+  const tenant = await getTenantFromRequest(request)
+  return tenant?.id || null
 }
 
-/**
- * Get current tenant (server-side)
- */
-export async function getCurrentTenant() {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) return null
-
-    // In a real app, fetch user's primary tenant from database
-    // For now, return mock data
-    return {
-      id: "default-tenant",
-      name: "Default Tenant",
-      slug: "default-tenant",
-      plan: "Professional",
-    }
-  } catch (error) {
-    console.error("Error getting current tenant:", error)
-    return null
-  }
-}
-
-/**
- * Checks if a given tenant ID is valid
- */
-export const isValidTenantId = (tenantId: string): boolean => {
-  return typeof tenantId === "string" && tenantId.length > 0
-}
-
-/**
- * Get tenant configuration
- */
-export const getTenantConfig = async (tenantId: string): Promise<any> => {
-  // In a real app, fetch from database
-  return {
-    tenantId: tenantId,
-    theme: "default",
-    features: ["patients", "appointments", "clinical-notes"],
-    settings: {
-      allowPublicRegistration: false,
-      requireEmailVerification: true,
-    },
-  }
-}
+// Explicitly export getTenantId as requested by the error
+export { getTenantIdFromRequest as getTenantId }

@@ -1,26 +1,54 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import type { Timesheet } from "@/lib/services/timesheet-service"
-import { formatDate } from "@/lib/utils"
-import { DEFAULT_TENANT_ID } from "@/lib/tenant"
+import { Pencil, Trash2, Check, X } from "lucide-react"
+import { format } from "date-fns"
+import type { Timesheet } from "@/types"
 
 interface TimesheetTableProps {
-  initialTimesheets: Timesheet[]
+  initialTimesheets?: Timesheet[]
+  tenantId?: string
+  userOnly?: boolean
 }
 
-export function TimesheetTable({ initialTimesheets }: TimesheetTableProps) {
+export function TimesheetTable({ initialTimesheets = [], tenantId, userOnly }: TimesheetTableProps) {
   const [timesheets, setTimesheets] = useState<Timesheet[]>(initialTimesheets)
-  const [isLoading, setIsLoading] = useState(false)
+  const [loading, setLoading] = useState(!initialTimesheets.length)
   const [error, setError] = useState<string | null>(null)
 
-  const approveTimesheet = async (id: string) => {
-    setIsLoading(true)
-    setError(null)
+  useEffect(() => {
+    if (initialTimesheets.length > 0) {
+      return // Skip fetching if we have initial data
+    }
 
+    async function fetchTimesheets() {
+      try {
+        setLoading(true)
+        const response = await fetch(
+          `/api/timesheets?tenantId=${tenantId || ""}&userOnly=${userOnly ? "true" : "false"}`,
+        )
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch timesheets")
+        }
+
+        const data = await response.json()
+        setTimesheets(data)
+      } catch (err) {
+        console.error("Error fetching timesheets:", err)
+        setError("Failed to load timesheets. Please try again later.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTimesheets()
+  }, [tenantId, userOnly, initialTimesheets.length])
+
+  const handleApprove = async (id: string) => {
     try {
       const response = await fetch(`/api/timesheets/${id}`, {
         method: "PATCH",
@@ -28,125 +56,145 @@ export function TimesheetTable({ initialTimesheets }: TimesheetTableProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          action: "approve",
-          approvedBy: "demo-user", // In a real app, this would be the current user's ID
-          tenantId: DEFAULT_TENANT_ID, // Always use the default tenant ID
+          status: "approved",
+          approved: true,
         }),
       })
 
-      const result = await response.json()
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to approve timesheet")
+      if (!response.ok) {
+        throw new Error("Failed to approve timesheet")
       }
 
-      // Update the timesheets state
-      setTimesheets(timesheets.map((t) => (t.id === id ? result.data : t)))
+      // Update the local state
+      setTimesheets(
+        timesheets.map((timesheet) =>
+          timesheet.id === id ? { ...timesheet, status: "approved", approved: true } : timesheet,
+        ),
+      )
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    } finally {
-      setIsLoading(false)
+      console.error("Error approving timesheet:", err)
+      // Show error message to user
     }
   }
 
-  const deleteTimesheet = async (id: string) => {
+  const handleReject = async (id: string) => {
+    try {
+      const response = await fetch(`/api/timesheets/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "rejected",
+          approved: false,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to reject timesheet")
+      }
+
+      // Update the local state
+      setTimesheets(
+        timesheets.map((timesheet) =>
+          timesheet.id === id ? { ...timesheet, status: "rejected", approved: false } : timesheet,
+        ),
+      )
+    } catch (err) {
+      console.error("Error rejecting timesheet:", err)
+      // Show error message to user
+    }
+  }
+
+  const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this timesheet?")) {
       return
     }
 
-    setIsLoading(true)
-    setError(null)
-
     try {
-      const response = await fetch(`/api/timesheets/${id}?tenantId=${DEFAULT_TENANT_ID}`, {
+      const response = await fetch(`/api/timesheets/${id}`, {
         method: "DELETE",
       })
 
-      const result = await response.json()
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to delete timesheet")
+      if (!response.ok) {
+        throw new Error("Failed to delete timesheet")
       }
 
-      // Remove the deleted timesheet from state
-      setTimesheets(timesheets.filter((t) => t.id !== id))
+      // Remove from local state
+      setTimesheets(timesheets.filter((timesheet) => timesheet.id !== id))
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    } finally {
-      setIsLoading(false)
+      console.error("Error deleting timesheet:", err)
+      // Show error message to user
     }
   }
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-green-100 text-green-800"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "rejected":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  if (loading) {
+    return <div className="text-center py-4">Loading timesheets...</div>
+  }
+
+  if (error) {
+    return <div className="text-center py-4 text-red-500">{error}</div>
+  }
+
+  if (timesheets.length === 0) {
+    return <div className="text-center py-4">No timesheets found.</div>
   }
 
   return (
-    <div>
-      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
-
+    <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Date</TableHead>
-            <TableHead>Start Time</TableHead>
-            <TableHead>End Time</TableHead>
-            <TableHead>Break (min)</TableHead>
+            <TableHead>Staff Member</TableHead>
+            <TableHead>Hours</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Actions</TableHead>
+            <TableHead>Notes</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {timesheets.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-4">
-                No timesheets found
+          {timesheets.map((timesheet) => (
+            <TableRow key={timesheet.id}>
+              <TableCell>{format(new Date(timesheet.date), "dd MMM yyyy")}</TableCell>
+              <TableCell>{timesheet.userName}</TableCell>
+              <TableCell>{timesheet.hoursWorked}</TableCell>
+              <TableCell>
+                <Badge
+                  variant={
+                    timesheet.status === "approved"
+                      ? "success"
+                      : timesheet.status === "rejected"
+                        ? "destructive"
+                        : "outline"
+                  }
+                >
+                  {timesheet.status.charAt(0).toUpperCase() + timesheet.status.slice(1)}
+                </Badge>
+              </TableCell>
+              <TableCell>{timesheet.notes}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  {!userOnly && timesheet.status === "pending" && (
+                    <>
+                      <Button variant="outline" size="icon" onClick={() => handleApprove(timesheet.id)} title="Approve">
+                        <Check className="h-4 w-4 text-green-500" />
+                      </Button>
+                      <Button variant="outline" size="icon" onClick={() => handleReject(timesheet.id)} title="Reject">
+                        <X className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </>
+                  )}
+                  <Button variant="outline" size="icon" title="Edit">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => handleDelete(timesheet.id)} title="Delete">
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
-          ) : (
-            timesheets.map((timesheet) => (
-              <TableRow key={timesheet.id}>
-                <TableCell>{formatDate(timesheet.date)}</TableCell>
-                <TableCell>{timesheet.startTime}</TableCell>
-                <TableCell>{timesheet.endTime}</TableCell>
-                <TableCell>{timesheet.breakDuration}</TableCell>
-                <TableCell>
-                  <Badge className={getStatusBadgeColor(timesheet.status)}>{timesheet.status}</Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex space-x-2">
-                    {timesheet.status === "pending" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => approveTimesheet(timesheet.id!)}
-                        disabled={isLoading}
-                      >
-                        Approve
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => deleteTimesheet(timesheet.id!)}
-                      disabled={isLoading}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
+          ))}
         </TableBody>
       </Table>
     </div>

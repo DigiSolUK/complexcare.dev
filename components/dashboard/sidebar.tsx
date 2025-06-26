@@ -6,136 +6,218 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  Users,
-  FileText,
+  BarChart3,
   Calendar,
-  Settings,
-  Home,
   ClipboardList,
+  FileText,
+  Home,
+  Settings,
+  Users,
+  Wallet,
+  Clock,
+  FileCheck,
+  Shield,
+  Briefcase,
+  FileEdit,
   PieChart,
-  User,
-  CreditCard,
-  BarChart,
-  Menu,
+  LightbulbIcon,
+  Brain,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-}
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-export function Sidebar({ className, open, onOpenChange }: SidebarProps) {
+export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
 
-  const routes = [
-    {
-      label: "Dashboard",
-      icon: Home,
-      href: "/dashboard",
-      active: pathname === "/dashboard",
-    },
-    {
-      label: "Patients",
-      icon: Users,
-      href: "/patients",
-      active: pathname === "/patients" || pathname.startsWith("/patients/"),
-    },
-    {
-      label: "Clinical Notes",
-      icon: FileText,
-      href: "/clinical-notes",
-      active: pathname === "/clinical-notes" || pathname.startsWith("/clinical-notes/"),
-    },
-    {
-      label: "Appointments",
-      icon: Calendar,
-      href: "/appointments",
-      active: pathname === "/appointments" || pathname.startsWith("/appointments/"),
-    },
-    {
-      label: "Tasks",
-      icon: ClipboardList,
-      href: "/tasks",
-      active: pathname === "/tasks" || pathname.startsWith("/tasks/"),
-    },
-    {
-      label: "Analytics",
-      icon: BarChart,
-      href: "/analytics",
-      active: pathname === "/analytics" || pathname.startsWith("/analytics/"),
-    },
-    {
-      label: "Reports",
-      icon: PieChart,
-      href: "/reports",
-      active: pathname === "/reports" || pathname.startsWith("/reports/"),
-    },
-    {
-      label: "Billing",
-      icon: CreditCard,
-      href: "/billing",
-      active: pathname === "/billing" || pathname.startsWith("/billing/"),
-    },
-    {
-      label: "Profile",
-      icon: User,
-      href: "/profile",
-      active: pathname === "/profile" || pathname.startsWith("/profile/"),
-    },
-    {
-      label: "Settings",
-      icon: Settings,
-      href: "/settings",
-      active: pathname === "/settings" || pathname.startsWith("/settings/"),
-    },
-  ]
-
-  const sidebarContent = (
-    <div className={cn("flex h-full flex-col", className)}>
-      <div className="px-3 py-2">
-        <div className="flex h-16 items-center px-4">
-          <Link href="/" className="flex items-center">
-            <span className="text-xl font-bold">ComplexCare CRM</span>
-          </Link>
-        </div>
-      </div>
-      <ScrollArea className="flex-1 overflow-auto py-2">
-        <nav className="grid gap-1 px-2">
-          {routes.map((route) => (
+  return (
+    <div className={cn("pb-12", className)}>
+      <div className="space-y-4 py-4">
+        <div className="px-4 py-2">
+          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">Main</h2>
+          <div className="space-y-1">
             <Link
-              key={route.href}
-              href={route.href}
+              href="/dashboard"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                route.active ? "bg-accent text-accent-foreground" : "transparent",
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname === "/dashboard" ? "bg-accent text-accent-foreground" : "transparent",
               )}
             >
-              <route.icon className="h-5 w-5" />
-              {route.label}
+              <Home className="mr-2 h-4 w-4" />
+              <span>Dashboard</span>
             </Link>
-          ))}
-        </nav>
-      </ScrollArea>
+            <Link
+              href="/patients"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/patients") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              <span>Patients</span>
+            </Link>
+            <Link
+              href="/care-professionals"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/care-professionals") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              <span>Care Professionals</span>
+            </Link>
+            <Link
+              href="/appointments"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/appointments") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              <span>Appointments</span>
+            </Link>
+            <Link
+              href="/care-plans"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/care-plans") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <ClipboardList className="mr-2 h-4 w-4" />
+              <span>Care Plans</span>
+            </Link>
+            <Link
+              href="/tasks"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/tasks") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <FileCheck className="mr-2 h-4 w-4" />
+              <span>Tasks</span>
+            </Link>
+            <Link
+              href="/ai-tools"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/ai-tools") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <LightbulbIcon className="mr-2 h-4 w-4" />
+              <span>AI Tools</span>
+            </Link>
+            <Link
+              href="/clinical-decision-support"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/clinical-decision-support") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Brain className="mr-2 h-4 w-4" />
+              <span>Clinical Decision Support</span>
+            </Link>
+          </div>
+        </div>
+        <div className="px-4 py-2">
+          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">Administration</h2>
+          <div className="space-y-1">
+            <Link
+              href="/timesheets"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/timesheets") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Clock className="mr-2 h-4 w-4" />
+              <span>Timesheets</span>
+            </Link>
+            <Link
+              href="/documents"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/documents") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              <span>Documents</span>
+            </Link>
+            <Link
+              href="/invoicing"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/invoicing") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Wallet className="mr-2 h-4 w-4" />
+              <span>Invoicing</span>
+            </Link>
+            <Link
+              href="/compliance"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/compliance") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Compliance</span>
+            </Link>
+            <Link
+              href="/recruitment"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/recruitment") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Briefcase className="mr-2 h-4 w-4" />
+              <span>Recruitment</span>
+            </Link>
+          </div>
+        </div>
+        <div className="px-4 py-2">
+          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">System</h2>
+          <div className="space-y-1">
+            <Link
+              href="/content"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/content") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <FileEdit className="mr-2 h-4 w-4" />
+              <span>Content</span>
+            </Link>
+            <Link
+              href="/analytics"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/analytics") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <BarChart3 className="mr-2 h-4 w-4" />
+              <span>Analytics</span>
+            </Link>
+            <Link
+              href="/reports"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/reports") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <PieChart className="mr-2 h-4 w-4" />
+              <span>Reports</span>
+            </Link>
+            <Link
+              href="/settings"
+              className={cn(
+                "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                pathname.startsWith("/settings") ? "bg-accent text-accent-foreground" : "transparent",
+              )}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
-  )
-
-  return (
-    <>
-      <aside className="hidden h-screen w-64 border-r md:block">{sidebarContent}</aside>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="md:hidden absolute left-4 top-4 z-50">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle Menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="p-0">
-          {sidebarContent}
-        </SheetContent>
-      </Sheet>
-    </>
   )
 }

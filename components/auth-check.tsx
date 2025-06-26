@@ -3,6 +3,6 @@
 import type React from "react"
 
 export function AuthCheck({ children }: { children: React.ReactNode }) {
-  // Always render children in the preview environment
+  // In demo mode, we allow all access
   return <>{children}</>
 }

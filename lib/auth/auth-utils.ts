@@ -1,6 +1,6 @@
 // lib/auth/auth-utils.ts
 
-import { getSession } from "@/lib/auth"
+import { getSession } from "@/lib/auth" // Import getSession and the demo 'auth' object
 import { ROLE_PERMISSIONS, ROLES, type Role, type Permission } from "./permissions"
 
 // Get the current user ID from the session
@@ -27,4 +27,12 @@ export async function hasPermission(userId: string, tenantId: string, permission
   }
 
   return false
+}
+
+/**
+ * In demo mode, this function returns the mock session.
+ * In a real application, this would be NextAuth.js's `auth()` function.
+ */
+export async function getAuth() {
+  return await getSession()
 }

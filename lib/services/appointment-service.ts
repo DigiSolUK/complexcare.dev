@@ -1,158 +1,112 @@
-import { v4 as uuidv4 } from "uuid"
-import { getAll, getById, insert, update, remove, sql } from "../db-connection"
-import { DEFAULT_TENANT_ID } from "../constants"
+import { tenantQuery, tenantInsert, tenantUpdate, tenantDelete } from "@/lib/db-utils"
 
 export type Appointment = {
   id: string
   tenant_id: string
   patient_id: string
-  care_professional_id: string
-  appointment_date: string
-  appointment_time: string
+  care_professional_id: string | null
+  title: string
+  description: string | null
+  start_time: string
   end_time: string
-  duration_minutes: number
-  status: string
-  appointment_type: string
-  location: string
-  notes?: string
+  location: string | null
+  status: "scheduled" | "confirmed" | "completed" | "cancelled" | "no_show"
+  notes: string | null
   created_at: string
   updated_at: string
-  deleted_at?: string
+  created_by: string
+  updated_by: string
 }
 
-export async function getAllAppointments(
-  tenantId: string = DEFAULT_TENANT_ID,
-  limit = 100,
-  offset = 0,
-): Promise<Appointment[]> {
-  return getAll<Appointment>("appointments", tenantId, limit, offset, "appointment_date DESC, appointment_time DESC")
+// Get all appointments for a tenant
+export async function getAppointments(tenantId: string): Promise<Appointment[]> {
+  return tenantQuery<Appointment>(tenantId, `SELECT * FROM appointments ORDER BY start_time DESC`)
 }
 
-export async function getAppointmentById(
-  id: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<Appointment | null> {
-  return getById<Appointment>("appointments", id, tenantId)
+// Get appointment count for a tenant
+export async function getAppointmentCount(tenantId: string): Promise<number> {
+  const result = await tenantQuery<{ count: number }>(tenantId, `SELECT COUNT(*) as count FROM appointments`)
+  return result[0]?.count || 0
 }
 
-export async function getAppointmentsByPatient(
-  patientId: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-  limit = 100,
-  offset = 0,
-): Promise<Appointment[]> {
-  try {
-    const query = `
-      SELECT * FROM appointments
-      WHERE tenant_id = $1
-      AND patient_id = $2
-      AND deleted_at IS NULL
-      ORDER BY appointment_date DESC, appointment_time DESC
-      LIMIT $3 OFFSET $4
-    `
-    const result = await sql.query(query, [tenantId, patientId, limit, offset])
-    return result.rows as Appointment[]
-  } catch (error) {
-    console.error("Error getting appointments by patient:", error)
-    throw error
-  }
+// Get appointments for a patient
+export async function getAppointmentsForPatient(tenantId: string, patientId: string): Promise<Appointment[]> {
+  return tenantQuery<Appointment>(
+    tenantId,
+    `SELECT * FROM appointments WHERE patient_id = $1 ORDER BY start_time DESC`,
+    [patientId],
+  )
 }
 
-export async function getAppointmentsByCareProfessional(
+// Get appointments for a care professional
+export async function getAppointmentsForCareProfessional(
+  tenantId: string,
   careProfessionalId: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-  limit = 100,
-  offset = 0,
 ): Promise<Appointment[]> {
-  try {
-    const query = `
-      SELECT * FROM appointments
-      WHERE tenant_id = $1
-      AND care_professional_id = $2
-      AND deleted_at IS NULL
-      ORDER BY appointment_date DESC, appointment_time DESC
-      LIMIT $3 OFFSET $4
-    `
-    const result = await sql.query(query, [tenantId, careProfessionalId, limit, offset])
-    return result.rows as Appointment[]
-  } catch (error) {
-    console.error("Error getting appointments by care professional:", error)
-    throw error
-  }
+  return tenantQuery<Appointment>(
+    tenantId,
+    `SELECT * FROM appointments WHERE care_professional_id = $1 ORDER BY start_time DESC`,
+    [careProfessionalId],
+  )
 }
 
-export async function getUpcomingAppointments(
-  tenantId: string = DEFAULT_TENANT_ID,
-  limit = 10,
-): Promise<Appointment[]> {
-  try {
-    const today = new Date().toISOString().split("T")[0]
-    const query = `
-      SELECT * FROM appointments
-      WHERE tenant_id = $1
-      AND deleted_at IS NULL
-      AND appointment_date >= $2
-      AND status = 'scheduled'
-      ORDER BY appointment_date ASC, appointment_time ASC
-      LIMIT $3
-    `
-    const result = await sql.query(query, [tenantId, today, limit])
-    return result.rows as Appointment[]
-  } catch (error) {
-    console.error("Error getting upcoming appointments:", error)
-    throw error
-  }
+// Get upcoming appointments
+export async function getUpcomingAppointments(tenantId: string, limit = 5): Promise<Appointment[]> {
+  const now = new Date().toISOString()
+  return tenantQuery<Appointment>(
+    tenantId,
+    `SELECT * FROM appointments 
+     WHERE start_time > $1 
+     AND status IN ('scheduled', 'confirmed') 
+     ORDER BY start_time ASC 
+     LIMIT $2`,
+    [now, limit],
+  )
 }
 
+// Get an appointment by ID
+export async function getAppointmentById(tenantId: string, appointmentId: string): Promise<Appointment | null> {
+  const appointments = await tenantQuery<Appointment>(tenantId, `SELECT * FROM appointments WHERE id = $1`, [
+    appointmentId,
+  ])
+  return appointments.length > 0 ? appointments[0] : null
+}
+
+// Create a new appointment
 export async function createAppointment(
-  data: Omit<Appointment, "id" | "tenant_id" | "created_at" | "updated_at" | "deleted_at">,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<Appointment | null> {
-  const appointmentData = {
-    ...data,
-    id: uuidv4(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-
-  return insert<Appointment>("appointments", appointmentData, tenantId)
+  tenantId: string,
+  appointmentData: Omit<Appointment, "id" | "tenant_id" | "created_at" | "updated_at">,
+  userId: string,
+): Promise<Appointment> {
+  const now = new Date().toISOString()
+  const appointments = await tenantInsert<Appointment>(tenantId, "appointments", {
+    ...appointmentData,
+    created_at: now,
+    updated_at: now,
+    created_by: userId,
+    updated_by: userId,
+  })
+  return appointments[0]
 }
 
+// Update an appointment
 export async function updateAppointment(
-  id: string,
-  data: Partial<Appointment>,
-  tenantId: string = DEFAULT_TENANT_ID,
+  tenantId: string,
+  appointmentId: string,
+  appointmentData: Partial<Appointment>,
+  userId: string,
 ): Promise<Appointment | null> {
-  const updateData = {
-    ...data,
-    updated_at: new Date().toISOString(),
-  }
-
-  return update<Appointment>("appointments", id, updateData, tenantId)
+  const now = new Date().toISOString()
+  const appointments = await tenantUpdate<Appointment>(tenantId, "appointments", appointmentId, {
+    ...appointmentData,
+    updated_at: now,
+    updated_by: userId,
+  })
+  return appointments.length > 0 ? appointments[0] : null
 }
 
-export async function deleteAppointment(id: string, tenantId: string = DEFAULT_TENANT_ID): Promise<boolean> {
-  return remove("appointments", id, tenantId, true)
-}
-
-export async function getAppointmentsByDateRange(
-  startDate: string,
-  endDate: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<Appointment[]> {
-  try {
-    const query = `
-      SELECT * FROM appointments
-      WHERE tenant_id = $1
-      AND deleted_at IS NULL
-      AND appointment_date >= $2
-      AND appointment_date <= $3
-      ORDER BY appointment_date ASC, appointment_time ASC
-    `
-    const result = await sql.query(query, [tenantId, startDate, endDate])
-    return result.rows as Appointment[]
-  } catch (error) {
-    console.error("Error getting appointments by date range:", error)
-    throw error
-  }
+// Delete an appointment
+export async function deleteAppointment(tenantId: string, appointmentId: string): Promise<Appointment | null> {
+  const appointments = await tenantDelete<Appointment>(tenantId, "appointments", appointmentId)
+  return appointments.length > 0 ? appointments[0] : null
 }

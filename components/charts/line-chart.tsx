@@ -1,81 +1,71 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
 import {
-  LineChart as RechartsLineChart,
   Line,
-  XAxis,
-  YAxis,
+  LineChart as RechartsLineChart,
   CartesianGrid,
-  Tooltip,
   Legend,
   ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts"
-import { Card } from "@/components/ui/card"
 
 interface LineChartProps {
-  data: any[]
+  data: Array<{
+    name: string
+    value: number
+  }>
   xAxisKey: string
-  yAxisKeys: string[]
-  height?: number
+  yAxisKey: string
+  categories: string[]
   colors?: string[]
+  valueFormatter?: (value: number) => string
 }
 
 export function LineChart({
   data,
   xAxisKey,
-  yAxisKeys,
-  height = 300,
-  colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
+  yAxisKey,
+  categories,
+  colors = ["#0ea5e9"],
+  valueFormatter = (value: number) => `${value}`,
 }: LineChartProps) {
-  const [chartWidth, setChartWidth] = useState(0)
-  const chartRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (chartRef.current) {
-      setChartWidth(chartRef.current.getBoundingClientRect().width)
-    }
-
-    const handleResize = () => {
-      if (chartRef.current) {
-        setChartWidth(chartRef.current.getBoundingClientRect().width)
-      }
-    }
-
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [])
-
-  if (!data || data.length === 0) {
-    return (
-      <Card className="flex items-center justify-center h-[300px] bg-muted/10">
-        <p className="text-muted-foreground">No data available</p>
-      </Card>
-    )
-  }
-
   return (
-    <div ref={chartRef} style={{ width: "100%", height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsLineChart
-          data={data}
-          margin={{
-            top: 20,
-            right: 30,
-            left: 20,
-            bottom: 5,
+    <ResponsiveContainer width="100%" height="100%">
+      <RechartsLineChart
+        data={data}
+        margin={{
+          top: 5,
+          right: 30,
+          left: 20,
+          bottom: 5,
+        }}
+      >
+        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+        <XAxis dataKey={xAxisKey} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+        <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={valueFormatter} />
+        <Tooltip
+          formatter={valueFormatter}
+          contentStyle={{
+            backgroundColor: "hsl(var(--background))",
+            borderColor: "hsl(var(--border))",
+            borderRadius: "var(--radius)",
           }}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey={xAxisKey} />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          {yAxisKeys.map((key, index) => (
-            <Line key={key} type="monotone" dataKey={key} stroke={colors[index % colors.length]} activeDot={{ r: 8 }} />
-          ))}
-        </RechartsLineChart>
-      </ResponsiveContainer>
-    </div>
+        />
+        <Legend />
+        {categories.map((category, index) => (
+          <Line
+            key={category}
+            type="monotone"
+            dataKey={yAxisKey}
+            stroke={colors[index % colors.length]}
+            strokeWidth={2}
+            dot={{ r: 4 }}
+            activeDot={{ r: 6 }}
+          />
+        ))}
+      </RechartsLineChart>
+    </ResponsiveContainer>
   )
 }

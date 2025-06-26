@@ -98,7 +98,7 @@
 
 @layer components {
   .healthcare-gradient {
-    @apply bg-gradient-to-r from-blue-500 to-cyan-500;
+    @apply bg-gradient-to-r from-healthcare-primary to-healthcare-secondary;
   }
 
   .healthcare-card {

@@ -1,55 +1,55 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { format } from "date-fns"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const formSchema = z.object({
-  staffId: z.string().min(1, "Staff ID is required"),
-  staffName: z.string().min(1, "Staff name is required"),
-  date: z.date({
-    required_error: "Date is required",
-  }),
-  hoursWorked: z.coerce.number().positive("Hours must be positive"),
-  notes: z.string().optional(),
-})
-
-type FormValues = z.infer<typeof formSchema>
-
 interface CreateTimesheetDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  tenantId: string
+  tenantId?: string
 }
 
-export function CreateTimesheetDialog({ open, onOpenChange, tenantId }: CreateTimesheetDialogProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export function CreateTimesheetDialog({ tenantId }: CreateTimesheetDialogProps) {
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState<Date>()
+  const [hours, setHours] = useState("")
+  const [notes, setNotes] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      staffId: "",
-      staffName: "",
-      date: new Date(),
-      hoursWorked: 8,
-      notes: "",
-    },
-  })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
 
-  const onSubmit = async (data: FormValues) => {
+    if (!date) {
+      setError("Please select a date")
+      return
+    }
+
+    if (!hours || isNaN(Number.parseFloat(hours))) {
+      setError("Please enter valid hours")
+      return
+    }
+
     try {
-      setIsSubmitting(true)
+      setLoading(true)
+      setError(null)
 
       const response = await fetch("/api/timesheets", {
         method: "POST",
@@ -57,9 +57,13 @@ export function CreateTimesheetDialog({ open, onOpenChange, tenantId }: CreateTi
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...data,
-          date: format(data.date, "yyyy-MM-dd"),
-          tenantId: tenantId || "ba367cfe-6de0-4180-9566-1002b75cf82c",
+          date,
+          hoursWorked: Number.parseFloat(hours),
+          notes,
+          tenantId: tenantId || "default",
+          status: "pending",
+          approved: false,
+          userOnly: true,
         }),
       })
 
@@ -68,117 +72,78 @@ export function CreateTimesheetDialog({ open, onOpenChange, tenantId }: CreateTi
       }
 
       // Reset form and close dialog
-      form.reset()
-      onOpenChange(false)
-    } catch (error) {
-      console.error("Error creating timesheet:", error)
+      setDate(undefined)
+      setHours("")
+      setNotes("")
+      setOpen(false)
+    } catch (err) {
+      console.error("Error creating timesheet:", err)
+      setError("Failed to create timesheet. Please try again.")
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>Add Timesheet</Button>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Add New Timesheet</DialogTitle>
-          <DialogDescription>Enter the timesheet details below.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="staffId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Staff ID</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter staff ID" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="staffName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Staff Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter staff name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                        >
-                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="hoursWorked"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Hours Worked</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="Enter hours worked" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Enter any additional notes" className="resize-none" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-end space-x-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Submitting..." : "Submit"}
-              </Button>
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Add New Timesheet</DialogTitle>
+            <DialogDescription>Record your working hours for a specific date.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="date">Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="date"
+                    variant={"outline"}
+                    className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, "PPP") : <span>Select a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                </PopoverContent>
+              </Popover>
             </div>
-          </form>
-        </Form>
+            <div className="grid gap-2">
+              <Label htmlFor="hours">Hours Worked</Label>
+              <Input
+                id="hours"
+                type="number"
+                step="0.5"
+                min="0.5"
+                max="24"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                placeholder="Enter hours worked"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add any notes about this timesheet"
+              />
+            </div>
+            {error && <div className="text-sm text-red-500">{error}</div>}
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Submitting..." : "Submit Timesheet"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

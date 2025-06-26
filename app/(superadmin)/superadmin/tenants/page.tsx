@@ -1,24 +1,20 @@
 import type { Metadata } from "next"
-import { TenantTable } from "@/components/superadmin/tenant-table"
-import { getAllTenants } from "@/lib/actions/tenant-management-actions"
+import { TenantManagement } from "@/components/tenant/tenant-management"
 
 export const metadata: Metadata = {
-  title: "Tenant Management - Superadmin",
-  description: "Manage all tenants in the ComplexCare CRM system",
+  title: "Tenant Management",
+  description: "Manage all tenants in the system",
 }
 
-export default async function TenantsPage() {
-  // Fetch all tenants
-  const tenants = await getAllTenants()
-
+export default function TenantsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Tenant Management</h1>
-        <p className="text-muted-foreground">Manage all tenants in the ComplexCare CRM system</p>
+        <p className="text-muted-foreground">Manage all tenants in the system</p>
       </div>
 
-      <TenantTable tenants={tenants} />
+      <TenantManagement />
     </div>
   )
 }

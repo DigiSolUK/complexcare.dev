@@ -1,9 +1,6 @@
 // Update the import for executeQuery to use the correct database connection
 import { executeQuery } from "@/lib/db"
 import type { Tenant, TenantUser, TenantInvitation } from "@/types"
-import { sql } from "@/lib/db"
-import { DEFAULT_TENANT_ID } from "../tenant"
-import { getCachedTenant, cacheTenant, invalidateTenantCache } from "../redis/tenant-cache"
 
 // Get all tenants
 export async function getAllTenants(): Promise<Tenant[]> {
@@ -21,21 +18,21 @@ export async function getAllTenants(): Promise<Tenant[]> {
 }
 
 // Get tenant by ID
-export async function getTenantById(tenantId: string = DEFAULT_TENANT_ID) {
-  return getCachedTenant(tenantId, async () => {
-    try {
-      const result = await sql.query("SELECT * FROM tenants WHERE id = $1", [tenantId])
+export async function getTenantById(id: string): Promise<Tenant | null> {
+  try {
+    const tenants = await executeQuery<Tenant>(
+      `
+      SELECT * FROM tenants 
+      WHERE id = $1 AND deleted_at IS NULL
+    `,
+      [id],
+    )
 
-      if (result.length === 0) {
-        return null
-      }
-
-      return result[0]
-    } catch (error) {
-      console.error("Error fetching tenant:", error)
-      return null
-    }
-  })
+    return tenants.length > 0 ? tenants[0] : null
+  } catch (error) {
+    console.error(`Error fetching tenant with ID ${id}:`, error)
+    throw error
+  }
 }
 
 // Get tenant by slug
@@ -56,24 +53,41 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
   }
 }
 
-export async function createTenant(data: any) {
+// Create a new tenant
+export async function createTenant(tenantData: Partial<Tenant>): Promise<Tenant> {
   try {
-    // Build columns and values dynamically
-    const fields = Object.keys(data)
-    const columns = fields.join(", ")
-    const placeholders = fields.map((_, i) => `$${i + 1}`).join(", ")
-    const values = fields.map((field) => data[field])
+    // Generate a slug from the name if not provided
+    if (!tenantData.slug && tenantData.name) {
+      tenantData.slug = tenantData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+    }
 
-    const query = `
-      INSERT INTO tenants (${columns}, created_at, updated_at)
-      VALUES (${placeholders}, NOW(), NOW())
-      RETURNING *
-    `
-
-    const result = await sql.query(query, values)
-
-    // Cache the new tenant
-    await cacheTenant(result[0].id, result[0])
+    const result = await executeQuery<Tenant>(
+      `
+      INSERT INTO tenants (
+        name, 
+        slug, 
+        domain, 
+        status, 
+        subscription_tier, 
+        settings, 
+        branding
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7
+      ) RETURNING *
+    `,
+      [
+        tenantData.name,
+        tenantData.slug,
+        tenantData.domain || null,
+        tenantData.status || "active",
+        tenantData.subscription_tier || "basic",
+        JSON.stringify(tenantData.settings || {}),
+        JSON.stringify(tenantData.branding || {}),
+      ],
+    )
 
     return result[0]
   } catch (error) {
@@ -82,28 +96,72 @@ export async function createTenant(data: any) {
   }
 }
 
-export async function updateTenant(tenantId: string, data: any) {
+// Update a tenant
+export async function updateTenant(id: string, tenantData: Partial<Tenant>): Promise<Tenant> {
   try {
-    // Build SET clause dynamically
-    const fields = Object.keys(data)
-    const setClause = fields.map((field, i) => `${field} = $${i + 2}`).join(", ")
-    const values = [tenantId, ...fields.map((field) => data[field])]
+    const updateFields = []
+    const values = []
+    let paramIndex = 1
 
-    const query = `
-      UPDATE tenants
-      SET ${setClause}, updated_at = NOW()
-      WHERE id = $1
+    // Build dynamic update query based on provided fields
+    if (tenantData.name !== undefined) {
+      updateFields.push(`name = $${paramIndex++}`)
+      values.push(tenantData.name)
+    }
+
+    if (tenantData.slug !== undefined) {
+      updateFields.push(`slug = $${paramIndex++}`)
+      values.push(tenantData.slug)
+    }
+
+    if (tenantData.domain !== undefined) {
+      updateFields.push(`domain = $${paramIndex++}`)
+      values.push(tenantData.domain)
+    }
+
+    if (tenantData.status !== undefined) {
+      updateFields.push(`status = $${paramIndex++}`)
+      values.push(tenantData.status)
+    }
+
+    if (tenantData.subscription_tier !== undefined) {
+      updateFields.push(`subscription_tier = $${paramIndex++}`)
+      values.push(tenantData.subscription_tier)
+    }
+
+    if (tenantData.settings !== undefined) {
+      updateFields.push(`settings = $${paramIndex++}`)
+      values.push(JSON.stringify(tenantData.settings))
+    }
+
+    if (tenantData.branding !== undefined) {
+      updateFields.push(`branding = $${paramIndex++}`)
+      values.push(JSON.stringify(tenantData.branding))
+    }
+
+    updateFields.push(`updated_at = $${paramIndex++}`)
+    values.push(new Date())
+
+    // Add tenant ID as the last parameter
+    values.push(id)
+
+    const result = await executeQuery<Tenant>(
+      `
+      UPDATE tenants 
+      SET ${updateFields.join(", ")} 
+      WHERE id = $${paramIndex} AND deleted_at IS NULL
       RETURNING *
-    `
+    `,
+      values,
+    )
 
-    const result = await sql.query(query, values)
-
-    // Invalidate cache
-    await invalidateTenantCache(tenantId)
+    if (result.length === 0) {
+      throw new Error(`Tenant with ID ${id} not found or already deleted`)
+    }
 
     return result[0]
   } catch (error) {
-    console.error("Error updating tenant:", error)
+    console.error(`Error updating tenant with ID ${id}:`, error)
     throw error
   }
 }
@@ -208,7 +266,7 @@ export async function getTenantUsers(tenantId: string): Promise<TenantUser[]> {
       `
       SELECT tu.*, u.email, u.name
       FROM tenant_users tu
-      JOIN neon_auth.users_sync u ON tu.user_id = u.id
+      JOIN public.users u ON tu.user_id = u.id
       WHERE tu.tenant_id = $1 AND tu.deleted_at IS NULL
       ORDER BY tu.is_primary DESC, u.name ASC
     `,
@@ -324,15 +382,24 @@ export async function acceptTenantInvitation(token: string, userId: string): Pro
 }
 
 // Get tenants for a user
-export async function getUserTenants(userId: string) {
-  // Mock implementation
-  return [
-    {
-      id: process.env.DEFAULT_TENANT_ID,
-      name: "Default Tenant",
-      status: "active",
-    },
-  ]
+export async function getUserTenants(userId: string): Promise<Tenant[]> {
+  try {
+    const tenants = await executeQuery<Tenant>(
+      `
+      SELECT t.*
+      FROM tenants t
+      JOIN tenant_users tu ON t.id = tu.tenant_id
+      WHERE tu.user_id = $1 AND tu.deleted_at IS NULL AND t.deleted_at IS NULL
+      ORDER BY tu.is_primary DESC, t.name ASC
+    `,
+      [userId],
+    )
+
+    return tenants
+  } catch (error) {
+    console.error(`Error fetching tenants for user ${userId}:`, error)
+    throw error
+  }
 }
 
 // Get user's primary tenant
@@ -357,11 +424,39 @@ export async function getUserPrimaryTenant(userId: string): Promise<Tenant | nul
 }
 
 // Set user's primary tenant
-export async function setUserPrimaryTenant(userId: string, tenantId: string) {
-  // Mock implementation
-  return {
-    id: tenantId,
-    name: "Default Tenant",
-    status: "active",
+export async function setUserPrimaryTenant(userId: string, tenantId: string): Promise<boolean> {
+  try {
+    // Start a transaction
+    await executeQuery("BEGIN")
+
+    // Unset any existing primary tenant
+    await executeQuery(
+      `
+      UPDATE tenant_users
+      SET is_primary = false, updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1 AND is_primary = true
+    `,
+      [userId],
+    )
+
+    // Set the new primary tenant
+    const result = await executeQuery(
+      `
+      UPDATE tenant_users
+      SET is_primary = true, updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+      RETURNING id
+    `,
+      [userId, tenantId],
+    )
+
+    // Commit the transaction
+    await executeQuery("COMMIT")
+
+    return result.length > 0
+  } catch (error) {
+    await executeQuery("ROLLBACK")
+    console.error(`Error setting primary tenant ${tenantId} for user ${userId}:`, error)
+    throw error
   }
 }

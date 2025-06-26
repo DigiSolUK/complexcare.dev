@@ -12,12 +12,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import { Calendar, CheckCircle2, Clock, FileText, User, AlertCircle, Target, ListChecks } from "lucide-react"
+import { Calendar, CheckCircle2, Clock, FileText, User, AlertCircle, Target, ListChecks, Trash2 } from "lucide-react"
+import type { CarePlan } from "@/types"
+import { format } from "date-fns"
 
 interface CarePlanViewDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  carePlan: any | null
+  carePlan: CarePlan | null
 }
 
 export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanViewDialogProps) {
@@ -50,10 +52,33 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
             <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
           </Badge>
         )
+      case "cancelled":
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600">
+            <Trash2 className="mr-1 h-3 w-3" /> Cancelled
+          </Badge>
+        )
       default:
         return <Badge>{status}</Badge>
     }
   }
+
+  // Placeholder for progress calculation (if not stored directly in DB)
+  const calculateProgress = (plan: CarePlan) => {
+    // This is a simplified placeholder. In a real app, progress would be based on completed tasks/interventions.
+    if (plan.status === "completed") return 100
+    if (plan.status === "cancelled") return 0
+    const startDate = new Date(plan.start_date)
+    const endDate = plan.end_date ? new Date(plan.end_date) : null
+    if (!endDate || new Date() < startDate) return 0
+    if (new Date() > endDate) return 99 // Almost complete if past end date but not marked completed
+
+    const totalDuration = endDate.getTime() - startDate.getTime()
+    const elapsedDuration = new Date().getTime() - startDate.getTime()
+    return Math.min(100, Math.round((elapsedDuration / totalDuration) * 100))
+  }
+
+  const progress = calculateProgress(carePlan)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,7 +87,7 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
           <DialogTitle className="text-2xl">{carePlan.title}</DialogTitle>
           <DialogDescription className="flex items-center gap-2 mt-1">
             <span>
-              Patient: <strong>{carePlan.patientName}</strong> ({carePlan.patientId})
+              Patient: <strong>{carePlan.patient_name}</strong> ({carePlan.patient_id.substring(0, 8)})
             </span>
             <span className="mx-2">•</span>
             {getStatusBadge(carePlan.status)}
@@ -74,9 +99,9 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center">
               <h3 className="font-medium">Overall Progress</h3>
-              <span className="text-sm font-medium">{carePlan.progress}%</span>
+              <span className="text-sm font-medium">{progress}%</span>
             </div>
-            <Progress value={carePlan.progress} className="h-2" />
+            <Progress value={progress} className="h-2" />
           </div>
 
           <Separator />
@@ -86,7 +111,7 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
             <h3 className="font-medium mb-2 flex items-center">
               <FileText className="mr-2 h-4 w-4" /> Description
             </h3>
-            <p className="text-sm text-muted-foreground">{carePlan.description}</p>
+            <p className="text-sm text-muted-foreground">{carePlan.description || "No description provided."}</p>
           </div>
 
           {/* Dates */}
@@ -95,19 +120,19 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
               <h3 className="font-medium flex items-center">
                 <Calendar className="mr-2 h-4 w-4" /> Start Date
               </h3>
-              <p className="text-sm">{new Date(carePlan.startDate).toLocaleDateString()}</p>
+              <p className="text-sm">{format(new Date(carePlan.start_date), "PPP")}</p>
             </div>
             <div className="flex flex-col gap-1">
               <h3 className="font-medium flex items-center">
                 <Calendar className="mr-2 h-4 w-4" /> End Date
               </h3>
-              <p className="text-sm">{new Date(carePlan.endDate).toLocaleDateString()}</p>
+              <p className="text-sm">{carePlan.end_date ? format(new Date(carePlan.end_date), "PPP") : "N/A"}</p>
             </div>
             <div className="flex flex-col gap-1">
               <h3 className="font-medium flex items-center">
                 <Calendar className="mr-2 h-4 w-4" /> Next Review
               </h3>
-              <p className="text-sm">{new Date(carePlan.reviewDate).toLocaleDateString()}</p>
+              <p className="text-sm">{carePlan.review_date ? format(new Date(carePlan.review_date), "PPP") : "N/A"}</p>
             </div>
           </div>
 
@@ -119,11 +144,15 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
               <Target className="mr-2 h-4 w-4" /> Goals
             </h3>
             <ul className="list-disc pl-5 space-y-1">
-              {carePlan.goals.split(",").map((goal: string, index: number) => (
-                <li key={index} className="text-sm">
-                  {goal.trim()}
-                </li>
-              ))}
+              {carePlan.goals && carePlan.goals.split(",").filter(Boolean).length > 0 ? (
+                carePlan.goals.split(",").map((goal: string, index: number) => (
+                  <li key={index} className="text-sm">
+                    {goal.trim()}
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm text-muted-foreground">No goals defined.</li>
+              )}
             </ul>
           </div>
 
@@ -133,11 +162,15 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
               <ListChecks className="mr-2 h-4 w-4" /> Interventions
             </h3>
             <ul className="list-disc pl-5 space-y-1">
-              {carePlan.interventions.split(",").map((intervention: string, index: number) => (
-                <li key={index} className="text-sm">
-                  {intervention.trim()}
-                </li>
-              ))}
+              {carePlan.interventions && carePlan.interventions.split(",").filter(Boolean).length > 0 ? (
+                carePlan.interventions.split(",").map((intervention: string, index: number) => (
+                  <li key={index} className="text-sm">
+                    {intervention.trim()}
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm text-muted-foreground">No interventions defined.</li>
+              )}
             </ul>
           </div>
 
@@ -148,7 +181,7 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
             <h3 className="font-medium mb-2 flex items-center">
               <User className="mr-2 h-4 w-4" /> Assigned To
             </h3>
-            <p className="text-sm">{carePlan.assignedTo}</p>
+            <p className="text-sm">{carePlan.assigned_to_name || "Not assigned"}</p>
           </div>
         </div>
 
@@ -156,7 +189,7 @@ export function CarePlanViewDialog({ open, onOpenChange, carePlan }: CarePlanVie
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button>Edit Care Plan</Button>
+          {/* <Button>Edit Care Plan</Button> */}
         </DialogFooter>
       </DialogContent>
     </Dialog>

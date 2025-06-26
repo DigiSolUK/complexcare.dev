@@ -1,81 +1,103 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
 import {
-  BarChart as RechartsBarChart,
   Bar,
-  XAxis,
-  YAxis,
+  BarChart as RechartsBarChart,
   CartesianGrid,
-  Tooltip,
   Legend,
   ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts"
-import { Card } from "@/components/ui/card"
 
 interface BarChartProps {
-  data: any[]
+  data: Array<{
+    name: string
+    value: number
+  }>
   xAxisKey: string
-  yAxisKeys: string[]
-  height?: number
+  yAxisKey: string
+  categories: string[]
+  index?: string
   colors?: string[]
+  valueFormatter?: (value: number) => string
+  layout?: "horizontal" | "vertical"
 }
 
 export function BarChart({
   data,
   xAxisKey,
-  yAxisKeys,
-  height = 300,
-  colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
+  yAxisKey,
+  categories,
+  colors = ["#0ea5e9"],
+  valueFormatter = (value: number) => `${value}`,
+  layout = "horizontal",
 }: BarChartProps) {
-  const [chartWidth, setChartWidth] = useState(0)
-  const chartRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (chartRef.current) {
-      setChartWidth(chartRef.current.getBoundingClientRect().width)
-    }
-
-    const handleResize = () => {
-      if (chartRef.current) {
-        setChartWidth(chartRef.current.getBoundingClientRect().width)
-      }
-    }
-
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [])
-
-  if (!data || data.length === 0) {
-    return (
-      <Card className="flex items-center justify-center h-[300px] bg-muted/10">
-        <p className="text-muted-foreground">No data available</p>
-      </Card>
-    )
-  }
-
   return (
-    <div ref={chartRef} style={{ width: "100%", height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsBarChart
-          data={data}
-          margin={{
-            top: 20,
-            right: 30,
-            left: 20,
-            bottom: 5,
+    <ResponsiveContainer width="100%" height="100%">
+      <RechartsBarChart
+        data={data}
+        layout={layout}
+        margin={{
+          top: 5,
+          right: 30,
+          left: 20,
+          bottom: 60,
+        }}
+      >
+        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+        {layout === "horizontal" ? (
+          <>
+            <XAxis
+              dataKey={xAxisKey}
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              angle={-45}
+              textAnchor="end"
+              height={70}
+            />
+            <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={valueFormatter} />
+          </>
+        ) : (
+          <>
+            <XAxis
+              type="number"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={valueFormatter}
+            />
+            <YAxis
+              dataKey={xAxisKey}
+              type="category"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              width={150}
+            />
+          </>
+        )}
+        <Tooltip
+          formatter={valueFormatter}
+          contentStyle={{
+            backgroundColor: "hsl(var(--background))",
+            borderColor: "hsl(var(--border))",
+            borderRadius: "var(--radius)",
           }}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey={xAxisKey} />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          {yAxisKeys.map((key, index) => (
-            <Bar key={key} dataKey={key} fill={colors[index % colors.length]} />
-          ))}
-        </RechartsBarChart>
-      </ResponsiveContainer>
-    </div>
+        />
+        <Legend />
+        {categories.map((category, index) => (
+          <Bar
+            key={category}
+            dataKey={yAxisKey}
+            fill={colors[index % colors.length]}
+            radius={[4, 4, 0, 0]}
+            maxBarSize={60}
+          />
+        ))}
+      </RechartsBarChart>
+    </ResponsiveContainer>
   )
 }

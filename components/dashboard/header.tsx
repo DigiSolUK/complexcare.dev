@@ -1,68 +1,51 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Bell, Search, User } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { ModeToggle } from "@/components/mode-toggle"
+import { Button } from "@/components/ui/button"
+import { UserMenu } from "@/components/user-menu"
+import { TenantSwitcher } from "@/components/tenant-switcher"
+import { useTenant } from "@/lib/tenant-context"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Menu } from "lucide-react"
 
-export function DashboardHeader() {
-  const pathname = usePathname()
+interface HeaderProps {
+  toggleSidebar: () => void
+}
+
+export function Header({ toggleSidebar }: HeaderProps) {
+  const { currentTenant, isLoading } = useTenant()
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6">
-      <div className="flex flex-1 items-center gap-4 md:gap-8">
-        <Link href="/dashboard" className="hidden items-center gap-2 md:flex">
-          <span className="hidden font-bold sm:inline-block">ComplexCare CRM</span>
-        </Link>
-        <form className="flex-1 md:flex-initial">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search..."
-              className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[300px]"
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+      <Button variant="outline" size="icon" className="md:hidden" onClick={toggleSidebar}>
+        <Menu className="h-5 w-5" />
+        <span className="sr-only">Toggle sidebar</span>
+      </Button>
+      <div className="flex flex-1 items-center gap-4">
+        <Link href="/" className="flex items-center gap-2">
+          {isLoading ? (
+            <Skeleton className="h-8 w-8 rounded-full" />
+          ) : currentTenant?.branding?.logoUrl ? (
+            <img
+              src={currentTenant.branding.logoUrl || "/placeholder.svg"}
+              alt={currentTenant.name}
+              className="h-8 w-8 rounded-full object-contain"
             />
-          </div>
-        </form>
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              {currentTenant?.name.charAt(0) || "C"}
+            </div>
+          )}
+          <span className="text-lg font-semibold">
+            {isLoading ? <Skeleton className="h-6 w-32" /> : currentTenant?.name || "ComplexCare CRM"}
+          </span>
+        </Link>
       </div>
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" className="rounded-full">
-          <Bell className="h-4 w-4" />
-          <span className="sr-only">Notifications</span>
-        </Button>
+      <div className="flex items-center gap-4">
+        <TenantSwitcher />
         <ModeToggle />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="rounded-full">
-              <User className="h-4 w-4" />
-              <span className="sr-only">User menu</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/profile">Profile</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings">Settings</Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/api/auth/signout">Sign out</Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <UserMenu />
       </div>
     </header>
   )

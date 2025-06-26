@@ -1,122 +1,152 @@
+import { Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Calendar, FileText, ClipboardList } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ErrorBoundary } from "@/components/error-boundary"
+import { DashboardStats } from "@/components/dashboard/dashboard-stats"
+import { RecentPatients } from "@/components/dashboard/recent-patients"
+import { TasksList } from "@/components/dashboard/tasks-list"
+import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments"
 
-export const metadata = {
-  title: "Dashboard | ComplexCare CRM",
-  description: "View your key metrics and performance indicators",
+async function getDashboardData() {
+  try {
+    // This is mock data - in a real app, you would fetch this from your database
+    return {
+      patientCount: 128,
+      patientGrowth: 12,
+      appointmentsToday: 24,
+      appointmentsPending: 5,
+      carePlansActive: 87,
+      carePlansReview: 12,
+      staffCompliance: 94,
+      certificationsExpiring: 3,
+      tasksAssigned: 42,
+      tasksCompleted: 18,
+      outstandingInvoices: 12450,
+      overduePayments: 4,
+    }
+  } catch (error) {
+    console.error("Error fetching dashboard data:", error)
+    return {
+      patientCount: 0,
+      patientGrowth: 0,
+      appointmentsToday: 0,
+      appointmentsPending: 0,
+      carePlansActive: 0,
+      carePlansReview: 0,
+      staffCompliance: 0,
+      certificationsExpiring: 0,
+      tasksAssigned: 0,
+      tasksCompleted: 0,
+      outstandingInvoices: 0,
+      overduePayments: 0,
+    }
+  }
 }
 
-// Loading component for Suspense
-function LoadingCard() {
+export default async function DashboardPage() {
+  const dashboardData = await getDashboardData()
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="animate-pulse bg-gray-200 h-6 w-1/2 rounded"></CardTitle>
-        <CardDescription className="animate-pulse bg-gray-200 h-4 w-3/4 rounded"></CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="animate-pulse bg-gray-200 h-24 rounded"></div>
-      </CardContent>
-    </Card>
+    <ErrorBoundary componentPath="app/(dashboard)/dashboard/page.tsx">
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">Welcome to your Complex Care CRM dashboard</p>
+          </div>
+        </div>
+
+        {/* Dashboard Stats */}
+        <Suspense fallback={<DashboardStatsSkeleton />}>
+          <DashboardStats data={dashboardData} />
+        </Suspense>
+
+        <Tabs defaultValue="overview" className="mt-6">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="patients">Patients</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-4 mt-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Card className="col-span-2">
+                <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+                  <CardDescription>Your recent patient activity</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px] flex items-center justify-center">
+                    <p className="text-muted-foreground">Activity chart will be displayed here</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upcoming Appointments</CardTitle>
+                  <CardDescription>Your schedule for today</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Suspense fallback={<Skeleton className="h-[300px]" />}>
+                    <UpcomingAppointments />
+                  </Suspense>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="patients" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Patients</CardTitle>
+                <CardDescription>Recently updated patient records</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Suspense fallback={<Skeleton className="h-[400px]" />}>
+                  <RecentPatients />
+                </Suspense>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="tasks" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tasks</CardTitle>
+                <CardDescription>Your assigned tasks and to-dos</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Suspense fallback={<Skeleton className="h-[400px]" />}>
+                  <TasksList />
+                </Suspense>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </ErrorBoundary>
   )
 }
 
-export default function DashboardPage() {
+function DashboardStatsSkeleton() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">25</div>
-            <p className="text-xs text-muted-foreground">+2 from last week</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Appointments Today</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">3 remaining</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clinical Notes</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">42</div>
-            <p className="text-xs text-muted-foreground">+5 this week</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">3 high priority</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle>Recent Patients</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="border-b pb-2">
-                <p className="font-medium">John Doe</p>
-                <p className="text-sm text-muted-foreground">Diabetes Type 2</p>
-              </div>
-              <div className="border-b pb-2">
-                <p className="font-medium">Jane Smith</p>
-                <p className="text-sm text-muted-foreground">Hypertension</p>
-              </div>
-              <div className="border-b pb-2">
-                <p className="font-medium">Robert Johnson</p>
-                <p className="text-sm text-muted-foreground">Asthma</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle>Upcoming Appointments</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="border-b pb-2">
-                <p className="font-medium">John Doe</p>
-                <p className="text-sm text-muted-foreground">10:00 AM - Dr. Wilson</p>
-              </div>
-              <div className="border-b pb-2">
-                <p className="font-medium">Sarah Williams</p>
-                <p className="text-sm text-muted-foreground">11:30 AM - Nurse Johnson</p>
-              </div>
-              <div className="border-b pb-2">
-                <p className="font-medium">Michael Brown</p>
-                <p className="text-sm text-muted-foreground">2:15 PM - Dr. Wilson</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {Array(6)
+        .fill(0)
+        .map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-24 mb-1" />
+              <Skeleton className="h-4 w-32" />
+            </CardContent>
+          </Card>
+        ))}
     </div>
   )
 }

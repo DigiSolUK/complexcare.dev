@@ -1,92 +1,15 @@
-// Core entity types
-export interface Tenant {
+export type Tenant = {
   id: string
   name: string
   slug: string
+  domain?: string | null
   status: string
-  plan: string
+  subscription_tier: string
+  settings?: any // JSONB
+  branding?: any // JSONB
   created_at: string
   updated_at: string
-  deleted_at: string | null
-  settings: TenantSettings
-}
-
-export interface TenantSettings {
-  theme?: string
-  logo_url?: string
-  primary_color?: string
-  secondary_color?: string
-  features?: {
-    appointments?: boolean
-    billing?: boolean
-    messaging?: boolean
-    reports?: boolean
-  }
-  [key: string]: any
-}
-
-export interface User {
-  id: string
-  email: string
-  first_name: string
-  last_name: string
-  role: string
-  status: string
-  created_at: string
-  updated_at: string
-  deleted_at: string | null
-  tenant_memberships?: TenantMembership[]
-}
-
-export interface TenantMembership {
-  user_id: string
-  tenant_id: string
-  role: string
-  is_primary: boolean
-  created_at: string
-  updated_at: string
-}
-
-// API response types
-export interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
-  message?: string
-}
-
-export interface PaginatedResponse<T> {
-  data: T[]
-  meta: {
-    total: number
-    page: number
-    pageSize: number
-    totalPages: number
-  }
-}
-
-// Form and validation types
-export interface FormErrors {
-  [key: string]: string
-}
-
-// Dashboard types
-export interface DashboardStats {
-  patientCount: number
-  appointmentsToday: number
-  tasksOverdue: number
-  recentActivity: ActivityItem[]
-}
-
-export interface ActivityItem {
-  id: string
-  type: string
-  description: string
-  timestamp: string
-  user_id?: string
-  user_name?: string
-  entity_id?: string
-  entity_type?: string
+  deleted_at?: string | null
 }
 
 export type TenantUser = {
@@ -95,12 +18,12 @@ export type TenantUser = {
   user_id: string
   role: string
   is_primary: boolean
-  created_at: Date
-  updated_at: Date
-  deleted_at: Date | null
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
   // Joined fields
-  email?: string
-  name?: string
+  email?: string | null
+  name?: string | null
 }
 
 export type TenantInvitation = {
@@ -109,57 +32,73 @@ export type TenantInvitation = {
   email: string
   role: string
   token: string
-  expires_at: Date
-  created_at: Date
-  updated_at: Date
-  accepted_at: Date | null
+  expires_at: string
+  created_at: string
+  updated_at: string
+  accepted_at?: string | null
 }
 
-export interface Patient {
+export type User = {
+  id: string
+  tenant_id: string
+  email: string
+  name?: string | null
+  role: string
+  image?: string | null
+  phone?: string | null
+  address?: any // JSONB
+  city?: string | null
+  postcode?: string | null
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
+}
+
+export type Patient = {
   id: string
   tenant_id: string
   first_name: string
   last_name: string
-  date_of_birth: string
-  gender?: string
-  contact_number?: string
-  email?: string
-  address?: string
-  medical_record_number?: string
-  primary_care_provider?: string
-  created_at: string
-  updated_at: string
-  avatar_url?: string
+  date_of_birth: string // 'YYYY-MM-DD' string
+  gender?: string | null
+  contact_number?: string | null
+  email?: string | null
+  address?: any // JSONB
+  medical_record_number?: string | null
+  primary_care_provider?: string | null
+  avatar_url?: string | null
+  created_at?: string
+  updated_at?: string
+  created_by?: string | null
+  updated_by?: string | null
+  status?: string
 }
 
 export interface CareProfessional {
   id: string
+  tenant_id: string
   first_name: string
   last_name: string
-  title?: string
+  title?: string | null
   email: string
-  phone?: string
+  phone?: string | null
   role: string
-  specialization?: string
-  qualification?: string
-  license_number?: string
-  employment_status?: string
-  start_date?: string
-  is_active?: boolean
-  status?: string
-  tenantId?: string
-  tenant_id?: string
-  created_at?: string
-  updated_at?: string
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  created_by?: string
-  updated_by?: string
-  address?: string
-  notes?: string
-  emergency_contact_name?: string
-  emergency_contact_phone?: string
-  avatar_url?: string
+  specialization?: string | null
+  qualification?: string | null
+  license_number?: string | null
+  employment_status?: string | null
+  start_date?: string | null // 'YYYY-MM-DD' string
+  is_active: boolean
+  status: string
+  address?: any // JSONB
+  notes?: string | null
+  emergency_contact_name?: string | null
+  emergency_contact_phone?: string | null
+  avatar_url?: string | null
+  created_at: string
+  updated_at: string
+  created_by?: string | null
+  updated_by?: string | null
 }
 
 export type CarePlan = {
@@ -167,52 +106,58 @@ export type CarePlan = {
   tenant_id: string
   patient_id: string
   title: string
-  description: string | null
+  description?: string | null
   status: string
-  start_date: Date
-  end_date: Date | null
-  review_date: string | null
-  assigned_to: string | null
-  created_at: Date
-  updated_at: Date
+  start_date: string // 'YYYY-MM-DD' string
+  end_date?: string | null // 'YYYY-MM-DD' string
+  review_date?: string | null // 'YYYY-MM-DD' string
+  assigned_to?: string | null // UUID of care_professional
+  created_at: string
+  updated_at: string
   created_by: string
-  updated_by: string | null
+  updated_by?: string | null
+  // Joined fields for display
+  patient_name?: string
+  assigned_to_name?: string
 }
 
 export type Appointment = {
   id: string
   tenant_id: string
   patient_id: string
-  care_professional_id: string
-  appointment_date: Date
-  appointment_time: string
+  care_professional_id?: string | null // Can be null if not assigned
+  appointment_date: string // 'YYYY-MM-DD' string
+  appointment_time: string // 'HH:MM:SS' string
   duration_minutes: number
   appointment_type: string
-  location: string | null
+  location?: string | null
   status: string
-  notes: string | null
-  created_at: Date
-  updated_at: Date
+  notes?: string | null
+  created_at: string
+  updated_at: string
   created_by: string
-  updated_by: string | null
+  updated_by?: string | null
+  // Joined fields for display
+  patient_name?: string
+  care_professional_name?: string
 }
 
 export type Task = {
   id: string
   tenant_id: string
   title: string
-  description: string | null
+  description?: string | null
   status: string
   priority: string
-  due_date: Date
-  assigned_to: string | null
+  due_date: string // 'YYYY-MM-DD' string
+  assigned_to?: string | null
   created_by: string
-  updated_by: string | null
-  related_to_type: string | null
-  related_to_id: string | null
-  created_at: Date
-  updated_at: Date
-  completed_at: Date | null
+  updated_by?: string | null
+  related_to_type?: string | null
+  related_to_id?: string | null
+  created_at: string
+  updated_at: string
+  completed_at?: string | null
 }
 
 export type PatientNote = {
@@ -220,14 +165,16 @@ export type PatientNote = {
   tenant_id: string
   patient_id: string
   care_professional_id: string
-  note_date: Date
+  note_date: string // 'YYYY-MM-DD' string
   note_type: string
   content: string
   is_private: boolean
-  created_at: Date
-  updated_at: Date
+  created_at: string
+  updated_at: string
   created_by: string
-  updated_by: string | null
+  updated_by?: string | null
+  // Joined fields for display
+  care_professional_name?: string
 }
 
 export type TenantFeature = {
@@ -235,9 +182,9 @@ export type TenantFeature = {
   tenant_id: string
   feature_key: string
   is_enabled: boolean
-  config: any
-  created_at: Date
-  updated_at: Date
+  config?: any
+  created_at: string
+  updated_at: string
 }
 
 export type TenantSetting = {
@@ -245,8 +192,8 @@ export type TenantSetting = {
   tenant_id: string
   key: string
   value: string
-  created_at: Date
-  updated_at: Date
+  created_at: string
+  updated_at: string
 }
 
 // Types for timesheets, payroll, and credentials
@@ -262,10 +209,10 @@ export interface Timesheet {
   breakDurationMinutes: number
   totalHours: number
   status: string
-  notes?: string
-  approvedBy?: string
+  notes?: string | null
+  approvedBy?: string | null
   approverName?: string
-  approvedAt?: string
+  approvedAt?: string | null
   createdAt: string
   updatedAt: string
   userOnly?: boolean
@@ -288,12 +235,12 @@ export type Payroll = {
   bonus: number
   deductions: number
   total_pay: number
-  payment_date: string | null
-  payment_reference: string | null
+  payment_date?: string | null
+  payment_reference?: string | null
   status: "draft" | "processed" | "paid"
-  notes: string | null
-  created_at: Date
-  updated_at: Date
+  notes?: string | null
+  created_at: string
+  updated_at: string
   user_name?: string
 }
 
@@ -305,13 +252,13 @@ export interface ProfessionalCredential {
   credential_type: string
   credential_number: string
   issue_date: string
-  expiry_date?: string
+  expiry_date?: string | null
   verification_status: string
-  verified_by?: string
+  verified_by?: string | null
   verifier_name?: string
-  verification_date?: string
-  verification_notes?: string
-  document_url?: string
+  verification_date?: string | null
+  verification_notes?: string | null
+  document_url?: string | null
   created_at: string
   updated_at: string
   reminders?: CredentialReminder[]
@@ -323,7 +270,7 @@ export interface CredentialReminder {
   credential_id: string
   reminder_date: string
   reminder_sent: boolean
-  sent_at?: string
+  sent_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -337,9 +284,9 @@ export interface Invoice {
   patient_name?: string
   amount: number
   due_date: string
-  paid_date?: string
+  paid_date?: string | null
   invoice_number: string
-  description?: string
+  description?: string | null
   status: string
   created_at: string
   updated_at: string
@@ -367,8 +314,8 @@ export interface ApiKey {
   name: string
   key: string
   scopes: string[]
-  expires_at?: string
-  last_used_at?: string
+  expires_at?: string | null
+  last_used_at?: string | null
   created_by: string
   created_by_name?: string
   created_at: string

@@ -1,253 +1,177 @@
 import { neon } from "@neondatabase/serverless"
-import { DEFAULT_TENANT_ID } from "./constants"
+import { v4 as uuidv4 } from "uuid"
 
-// Check if we're in a browser environment
-const isBrowser = typeof window !== "undefined"
-
-// Get the database URL from environment variables
-const getDatabaseUrl = () => {
-  // In browser/client components, we should never try to connect directly
-  if (isBrowser) {
-    console.warn("Attempted to access database from client component")
-    return null
-  }
-
-  // Try to get the database URL from various environment variables
-  const dbUrl =
-    process.env.DATABASE_URL ||
-    process.env.production_DATABASE_URL ||
-    process.env.production_POSTGRES_URL ||
-    process.env.AUTH_DATABASE_URL
-
-  if (!dbUrl) {
-    console.error("No database connection string found in environment variables")
-  }
-
-  return dbUrl
+function isValidUUID(uuid: string) {
+  if (!uuid) return false
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)
 }
 
-// Create a safe SQL client
-const createSqlClient = () => {
-  const dbUrl = getDatabaseUrl()
-
-  // If we're in a browser or don't have a database URL, return a mock client
-  if (isBrowser || !dbUrl) {
-    return {
-      query: async (...args: any[]) => {
-        console.warn("Mock SQL client used. Database operations will not work.")
-        return { rows: [] }
-      },
-    }
-  }
-
-  // Otherwise, create a real Neon client
-  try {
-    return neon(dbUrl)
-  } catch (error) {
-    console.error("Failed to create Neon SQL client:", error)
-    return {
-      query: async (...args: any[]) => {
-        console.error("Database client initialization failed")
-        return { rows: [] }
-      },
-    }
-  }
-}
-
-// Create and export the SQL client
-export const sql = createSqlClient()
-
-// Legacy alias for compatibility
-export const db = sql
-
-// Helper function to execute queries with tenant context
-export async function executeQuery(
-  query: string,
-  params: any[] = [],
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<any[]> {
-  if (isBrowser) {
-    console.error("Database query attempted in browser environment")
-    return []
-  }
-
-  try {
-    const result = await sql.query(query, params)
-    return result.rows || []
-  } catch (error) {
-    console.error("Database query error:", error)
-    return []
-  }
-}
-
-// Helper function to get a connection with tenant context
-export async function withTenant(tenantId = DEFAULT_TENANT_ID) {
-  if (isBrowser) {
-    console.error("Database connection attempted in browser environment")
-    return {
-      query: async () => ({ rows: [] }),
-    }
-  }
-
-  return {
-    query: async (text: string, params: any[] = []) => {
-      try {
-        const result = await sql.query(text, params)
-        return result
-      } catch (error) {
-        console.error("Database query error:", error)
-        return { rows: [] }
-      }
-    },
-  }
-}
-
-// Add the missing exports for tenant operations
-export async function tenantQuery(query: string, params: any[] = [], tenantId: string = DEFAULT_TENANT_ID) {
-  if (isBrowser) {
-    console.error("Database query attempted in browser environment")
-    return { rows: [] }
-  }
-
-  try {
-    // Add tenant_id filter to the query if it contains a WHERE clause
-    let tenantQuery = query
-    if (query.toLowerCase().includes("where")) {
-      tenantQuery = query.replace(/where/i, `WHERE tenant_id = '${tenantId}' AND`)
-    } else if (query.toLowerCase().includes("from")) {
-      // Add WHERE clause if there isn't one
-      const fromIndex = query.toLowerCase().indexOf("from")
-      const restOfQuery = query.substring(fromIndex)
-
-      // Check if there's a GROUP BY, ORDER BY, or LIMIT after FROM
-      const groupByIndex = restOfQuery.toLowerCase().indexOf("group by")
-      const orderByIndex = restOfQuery.toLowerCase().indexOf("order by")
-      const limitIndex = restOfQuery.toLowerCase().indexOf("limit")
-
-      let insertIndex = query.length
-      if (groupByIndex > 0) insertIndex = fromIndex + groupByIndex
-      else if (orderByIndex > 0) insertIndex = fromIndex + orderByIndex
-      else if (limitIndex > 0) insertIndex = fromIndex + limitIndex
-
-      tenantQuery = query.substring(0, insertIndex) + ` WHERE tenant_id = '${tenantId}' ` + query.substring(insertIndex)
-    }
-
-    const result = await sql.query(tenantQuery, params)
-    return result
-  } catch (error) {
-    console.error("Tenant query error:", error)
-    return { rows: [] }
-  }
-}
-
-export async function tenantInsert(
+/**
+ * Builds a parameterized SQL UPDATE query string and its corresponding values array.
+ * @param table The name of the table to update.
+ * @param data An object containing the columns and values to update.
+ * @param where An object specifying the WHERE clause conditions (e.g., { id: 'some-uuid', tenant_id: 'another-uuid' }).
+ * @returns An object containing the query string and the array of values.
+ */
+export function buildUpdateQuery(
   table: string,
   data: Record<string, any>,
-  tenantId: string = DEFAULT_TENANT_ID,
-  returningAll = true,
-) {
-  if (isBrowser) {
-    console.error("Database insert attempted in browser environment")
-    return { rows: [] }
+  where: Record<string, any>,
+): { query: string; values: any[] } {
+  const dataEntries = Object.entries(data).filter(([, value]) => value !== undefined)
+  const whereEntries = Object.entries(where)
+
+  if (dataEntries.length === 0) {
+    throw new Error("No fields to update.")
   }
 
+  const values: any[] = []
+  let paramIndex = 1
+
+  const setClauses = dataEntries.map(([key, value]) => {
+    values.push(value)
+    return `${key} = $${paramIndex++}`
+  })
+
+  // Always update the updated_at timestamp
+  setClauses.push(`updated_at = NOW()`)
+
+  const whereClauses = whereEntries.map(([key, value]) => {
+    values.push(value)
+    return `${key} = $${paramIndex++}`
+  })
+
+  const query = `
+    UPDATE ${table}
+    SET ${setClauses.join(", ")}
+    WHERE ${whereClauses.join(" AND ")}
+    RETURNING *;
+  `
+
+  return { query, values }
+}
+
+// Execute a query for a specific tenant
+export async function tenantQuery<T>(tenantId: string, queryText: string, params: any[] = []): Promise<T[]> {
+  if (!isValidUUID(tenantId)) {
+    console.warn("Invalid tenant ID provided. Skipping query execution.")
+    return []
+  }
   try {
-    // Add tenant_id to the data
-    const dataWithTenant = { ...data, tenant_id: tenantId }
+    // Get the database URL from environment variables
+    const databaseUrl = process.env.DATABASE_URL
 
-    // Build the insert query
-    const columns = Object.keys(dataWithTenant)
-    const values = Object.values(dataWithTenant)
-    const placeholders = values.map((_, i) => `$${i + 1}`).join(", ")
+    if (!databaseUrl) {
+      console.error("DATABASE_URL environment variable is not set.")
+      return []
+    }
 
-    const query = `
-      INSERT INTO ${table} (${columns.join(", ")})
-      VALUES (${placeholders})
-      ${returningAll ? "RETURNING *" : ""}
-    `
+    // Create a SQL client
+    const sql = neon(databaseUrl)
 
-    const result = await sql.query(query, values)
-    return result
+    // Log the query for debugging
+    console.log(`Executing query for tenant ${tenantId}:`, queryText, params)
+
+    // Execute the query
+    const result = await sql.query(queryText, params)
+    console.log(`Query result rows: ${result.rows?.length || 0}`)
+
+    return result.rows as T[]
   } catch (error) {
-    console.error("Tenant insert error:", error)
-    return { rows: [] }
+    console.error("Error executing tenant query:", error)
+    return []
   }
 }
 
-export async function tenantUpdate(
-  table: string,
-  id: string,
-  data: Record<string, any>,
-  tenantId: string = DEFAULT_TENANT_ID,
-  idField = "id",
-) {
-  if (isBrowser) {
-    console.error("Database update attempted in browser environment")
-    return { rows: [] }
+// Insert a record for a specific tenant (simplified for now)
+export async function tenantInsert<T>(tenantId: string, table: string, data: any): Promise<T[]> {
+  if (!isValidUUID(tenantId)) {
+    console.warn("Invalid tenant ID provided. Skipping insert operation.")
+    return []
   }
-
   try {
-    // Build the update query
-    const setClause = Object.entries(data)
-      .map(([key, _], i) => `${key} = $${i + 1}`)
-      .join(", ")
+    // Get the database URL from environment variables
+    const databaseUrl = process.env.DATABASE_URL
 
-    const values = [...Object.values(data), id, tenantId]
+    if (!databaseUrl) {
+      console.error("DATABASE_URL environment variable is not set.")
+      return []
+    }
+
+    // Create a SQL client
+    const sql = neon(databaseUrl)
+
+    if (!data.id) {
+      data.id = uuidv4()
+    }
+    data.tenant_id = tenantId
 
     const query = `
-      UPDATE ${table}
-      SET ${setClause}
-      WHERE ${idField} = $${Object.keys(data).length + 1}
-      AND tenant_id = $${Object.keys(data).length + 2}
+      INSERT INTO ${table} (${Object.keys(data).join(", ")})
+      VALUES (${Object.values(data)
+        .map((v, i) => `$${i + 1}`)
+        .join(", ")})
       RETURNING *
     `
 
+    const values = Object.values(data)
+
+    // Log the query for debugging
+    console.log(`Executing insert for tenant ${tenantId}:`, query, values)
+
+    // Execute the query
     const result = await sql.query(query, values)
-    return result
+    console.log(`Query result rows: ${result.rows?.length || 0}`)
+
+    return result.rows as T[]
   } catch (error) {
-    console.error("Tenant update error:", error)
-    return { rows: [] }
+    console.error("Error executing tenant insert:", error)
+    return []
   }
 }
 
-export async function tenantDelete(
-  table: string,
-  id: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-  idField = "id",
-  softDelete = false,
-) {
-  if (isBrowser) {
-    console.error("Database delete attempted in browser environment")
-    return { rows: [] }
+// Update a record for a specific tenant (simplified for now)
+export async function tenantUpdate<T>(tenantId: string, table: string, id: string, data: any): Promise<T[]> {
+  if (!isValidUUID(tenantId) || !isValidUUID(id)) {
+    console.warn("Invalid tenant or record ID provided. Skipping update operation.")
+    return []
   }
-
   try {
-    let query
+    // Get the database URL from environment variables
+    const databaseUrl = process.env.DATABASE_URL
 
-    if (softDelete) {
-      // Soft delete - update deleted_at field
-      query = `
-        UPDATE ${table}
-        SET deleted_at = NOW()
-        WHERE ${idField} = $1
-        AND tenant_id = $2
-        RETURNING *
-      `
-    } else {
-      // Hard delete
-      query = `
-        DELETE FROM ${table}
-        WHERE ${idField} = $1
-        AND tenant_id = $2
-        RETURNING *
-      `
+    if (!databaseUrl) {
+      console.error("DATABASE_URL environment variable is not set.")
+      return []
     }
 
-    const result = await sql.query(query, [id, tenantId])
-    return result
+    // Create a SQL client
+    const sql = neon(databaseUrl)
+
+    const { query, values } = buildUpdateQuery(table, data, { id, tenant_id: tenantId })
+
+    // Log the query for debugging
+    console.log(`Executing update for tenant ${tenantId}:`, query, values)
+
+    // Execute the query
+    const result = await sql.query(query, values)
+    console.log(`Query result rows: ${result.rows?.length || 0}`)
+
+    return result.rows as T[]
   } catch (error) {
-    console.error("Tenant delete error:", error)
-    return { rows: [] }
+    console.error("Error executing tenant update:", error)
+    return []
   }
+}
+
+// Delete a record for a specific tenant (simplified for now)
+export async function tenantDelete<T>(tenantId: string, table: string, id: string): Promise<T[]> {
+  return [] as T[]
+}
+
+// Helper function to get mock data based on the query
+// This function should be removed or disabled in production
+function getMockData<T>(query: string): T[] {
+  console.warn("FALLING BACK TO MOCK DATA. THIS SHOULD NOT HAPPEN IN PRODUCTION.")
+  return [] as T[]
 }

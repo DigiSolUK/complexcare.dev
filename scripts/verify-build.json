@@ -1,5 +1,0 @@
-{
-  "name": "verify-build",
-  "description": "Script to verify the build process",
-  "steps": ["npm run lint", "npm run build", "echo 'Build completed successfully!'"]
-}

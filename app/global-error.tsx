@@ -1,9 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { AlertTriangle } from "lucide-react"
-
 export default function GlobalError({
   error,
   reset,
@@ -11,35 +7,23 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  useEffect(() => {
-    // Log the error to console in production
-    console.error("Global error:", error)
-  }, [error])
-
   return (
     <html>
       <body>
-        <div className="flex min-h-screen flex-col items-center justify-center p-4">
-          <div className="text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="p-3 bg-red-100 rounded-full">
-                <AlertTriangle className="h-8 w-8 text-red-600" />
-              </div>
-            </div>
-
-            <h1 className="text-2xl font-bold">Critical Error</h1>
-            <p className="text-gray-600 max-w-md">
-              A critical error occurred. Please refresh the page or contact support if the problem persists.
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50">
+          <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Application Error</h2>
+            <p className="mb-6 text-gray-600">
+              A critical error has occurred. Please try refreshing the page or contact support.
             </p>
-
-            <div className="flex gap-3 justify-center pt-4">
-              <Button onClick={reset}>Try Again</Button>
-              <Button variant="outline" onClick={() => window.location.reload()}>
-                Refresh Page
-              </Button>
+            <div className="space-y-4">
+              <button
+                onClick={reset}
+                className="inline-block px-6 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Try Again
+              </button>
             </div>
-
-            {error.digest && <p className="text-xs text-gray-500 mt-4">Error ID: {error.digest}</p>}
           </div>
         </div>
       </body>
