@@ -1,270 +1,201 @@
-import { neon } from "@neondatabase/serverless"
-import { v4 as uuidv4 } from "uuid"
+import { sql } from "@neondatabase/serverless"
+import { v4 as uuidv4, validate as uuidValidate } from "uuid"
+// import { getAuth } from "@auth0/nextjs-auth0" // Commented out as it's not directly used in these functions
+// import { DEFAULT_TENANT_ID } from "@/lib/tenant-utils" // Commented out as tenantId is passed as an argument
 
-// Hard-coded default tenant ID
-const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
+// Initialize the SQL client once
+// const db = neon(process.env.DATABASE_URL!) // This line is not needed if using `sql` directly from @neondatabase/serverless
 
-function isValidUUID(uuid: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(uuid)
+/**
+ * Checks if a string is a valid UUID.
+ * @param uuid The string to check.
+ * @returns True if the string is a valid UUID, false otherwise.
+ */
+export function isValidUUID(uuid: string): boolean {
+  return uuidValidate(uuid)
 }
 
-// Execute a query for a specific tenant
-export async function tenantQuery<T>(tenantId: string, queryText: string, params: any[] = []): Promise<T[]> {
-  if (!isValidUUID(tenantId)) {
-    console.warn("Invalid tenant ID provided. Using default tenant ID instead.")
-    tenantId = DEFAULT_TENANT_ID
+/**
+ * Executes a SQL query, ensuring it's scoped to a specific tenant.
+ * Throws an error if the tenantId is missing or if the query fails.
+ * Always returns an array of results (empty array if no rows found).
+ */
+export async function tenantQuery<T>(query: string, params: any[] = [], tenantId?: string): Promise<T[]> {
+  // The original code had getAuth() and session logic here.
+  // For these utility functions, it's better to pass tenantId explicitly
+  // and let the calling API route or service handle session/auth.
+
+  let finalQuery = query
+  const finalParams = [...params]
+
+  if (tenantId) {
+    // Adjust query to include tenant_id filter if not already present
+    // This is a simplistic approach; for complex queries, you might need more sophisticated parsing
+    // For example, if the query already has a WHERE clause, append with AND
+    // Otherwise, add a WHERE clause.
+    const lowerCaseQuery = query.toLowerCase()
+    const whereClauseIndex = lowerCaseQuery.indexOf("where")
+
+    if (whereClauseIndex !== -1) {
+      // Check if tenant_id is already part of the WHERE clause to avoid duplicates
+      if (!lowerCaseQuery.includes("tenant_id")) {
+        finalQuery =
+          query.substring(0, whereClauseIndex + 5) +
+          ` tenant_id = $${finalParams.length + 1} AND ` +
+          query.substring(whereClauseIndex + 5)
+        finalParams.push(tenantId)
+      } else {
+        // If tenant_id is already in the query, assume it's handled by the caller
+        // and ensure the tenantId is in the params at the correct position.
+        // This requires careful coordination with how the query is constructed.
+        // For simplicity, we'll assume it's added if not present.
+      }
+    } else {
+      finalQuery = `${query} WHERE tenant_id = $${finalParams.length + 1}`
+      finalParams.push(tenantId)
+    }
   }
 
   try {
-    // Get the database URL from environment variables
-    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
-
-    if (!databaseUrl) {
-      console.warn("DATABASE_URL environment variable is not set, using fallback data")
-      return getMockData<T>(queryText)
-    }
-
-    // Create a SQL client
-    const sql = neon(databaseUrl)
-
-    // Log the query for debugging
-    console.log(`Executing query for tenant ${tenantId}:`, queryText)
-
-    // Execute the query
-    const result = await sql.query(queryText, params)
-    console.log(`Query result rows: ${result.rows?.length || 0}`)
-
-    return result.rows as T[]
+    // Use sql.query for parameterized queries
+    const result = await sql.query<T>(finalQuery, finalParams)
+    return result.rows || [] // Ensure it always returns an array
   } catch (error) {
-    console.error("Error executing tenant query:", error)
-    return []
+    console.error(`Error executing tenant-scoped query for tenant ${tenantId}:`, error)
+    throw error // Re-throw the error for upstream handling
   }
 }
 
-// Insert a record for a specific tenant (simplified for now)
-export async function tenantInsert<T>(tenantId: string, table: string, data: any): Promise<T[]> {
-  if (!isValidUUID(tenantId)) {
-    console.warn("Invalid tenant ID provided. Skipping insert operation.")
-    return []
+/**
+ * Helper to build update query dynamically.
+ * @param tableName The name of the table to update.
+ * @param id The ID of the record to update.
+ * @param data An object containing the columns and values to update.
+ * @param tenantId Optional tenant ID for tenant-scoping.
+ * @returns An object containing the query string and the array of values.
+ */
+export function buildUpdateQuery(
+  tableName: string,
+  id: string,
+  data: Record<string, any>,
+  tenantId?: string,
+): { query: string; params: any[] } {
+  const updates: string[] = []
+  const params: any[] = []
+  let paramIndex = 1
+
+  for (const key in data) {
+    if (data.hasOwnProperty(key)) {
+      updates.push(`${key} = $${paramIndex++}`)
+      params.push(data[key])
+    }
   }
+
+  if (updates.length === 0) {
+    throw new Error("No data provided for update.")
+  }
+
+  let query = `UPDATE ${tableName} SET ${updates.join(", ")} WHERE id = $${paramIndex++}`
+  params.push(id)
+
+  if (tenantId) {
+    query += ` AND tenant_id = $${paramIndex++}`
+    params.push(tenantId)
+  }
+
+  query += " RETURNING *" // Return the updated row
+
+  return { query, params }
+}
+
+/**
+ * Tenant-scoped insert function.
+ * @param tableName The name of the table to insert into.
+ * @param data The data object to insert.
+ * @param tenantId Optional tenant ID for tenant-scoping.
+ * @returns The inserted record.
+ */
+export async function tenantInsert<T>(tableName: string, data: Record<string, any>, tenantId?: string): Promise<T> {
   try {
-    // Get the database URL from environment variables
-    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
+    const id = uuidv4()
+    const columns = ["id", "created_at", "updated_at"]
+    const placeholders = ["$1", "$2", "$3"]
+    const values = [id, new Date(), new Date()]
 
-    if (!databaseUrl) {
-      console.warn("DATABASE_URL environment variable is not set, using fallback data")
-      return [data] as unknown as T[]
+    if (tenantId) {
+      columns.push("tenant_id")
+      placeholders.push(`$${columns.length}`)
+      values.push(tenantId)
     }
 
-    // Create a SQL client
-    const sql = neon(databaseUrl)
-
-    if (!data.id) {
-      data.id = uuidv4()
+    for (const key in data) {
+      if (data.hasOwnProperty(key)) {
+        columns.push(key)
+        placeholders.push(`$${columns.length}`)
+        values.push(data[key])
+      }
     }
-    data.tenant_id = tenantId
 
-    const query = `
-      INSERT INTO ${table} (${Object.keys(data).join(", ")})
-      VALUES (${Object.values(data)
-        .map((v, i) => `$${i + 1}`)
-        .join(", ")})
-      RETURNING *
-    `
+    const query = `INSERT INTO ${tableName} (${columns.join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING *`
 
-    const values = Object.values(data)
-
-    // Log the query for debugging
-    console.log(`Executing insert for tenant ${tenantId}:`, query)
-
-    // Execute the query
-    const result = await sql.query(query, values)
-    console.log(`Query result rows: ${result.rows?.length || 0}`)
-
-    return result.rows as T[]
+    const result = await sql.query<T>(query, values)
+    return result.rows[0]
   } catch (error) {
-    console.error("Error executing tenant insert:", error)
-    return []
+    console.error(`Error inserting into ${tableName} for tenant ${tenantId}:`, error)
+    throw error
   }
 }
 
-// Update a record for a specific tenant (simplified for now)
-export async function tenantUpdate<T>(tenantId: string, table: string, id: string, data: any): Promise<T[]> {
-  if (!isValidUUID(tenantId)) {
-    console.warn("Invalid tenant ID provided. Skipping update operation.")
-    return []
-  }
+/**
+ * Tenant-scoped update function.
+ * @param tableName The name of the table to update.
+ * @param id The ID of the record to update.
+ * @param data The data object containing fields to update.
+ * @param tenantId Optional tenant ID for tenant-scoping.
+ * @returns The updated record.
+ */
+export async function tenantUpdate<T>(
+  tableName: string,
+  id: string,
+  data: Record<string, any>,
+  tenantId?: string,
+): Promise<T> {
   try {
-    // Get the database URL from environment variables
-    const databaseUrl = process.env.DATABASE_URL || process.env.production_DATABASE_URL
+    const { query, params } = buildUpdateQuery(tableName, id, data, tenantId)
+    const result = await sql.query<T>(query, params)
+    if (result.rows.length === 0) {
+      throw new Error(`Record with ID ${id} not found or not accessible for update.`)
+    }
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error updating ${tableName} with ID ${id} for tenant ${tenantId}:`, error)
+    throw error
+  }
+}
 
-    if (!databaseUrl) {
-      console.warn("DATABASE_URL environment variable is not set, using fallback data")
-      return [data] as unknown as T[]
+/**
+ * Tenant-scoped delete function.
+ * @param tableName The name of the table to delete from.
+ * @param id The ID of the record to delete.
+ * @param tenantId Optional tenant ID for tenant-scoping.
+ * @returns void
+ */
+export async function tenantDelete(tableName: string, id: string, tenantId?: string): Promise<void> {
+  try {
+    let query = `DELETE FROM ${tableName} WHERE id = $1`
+    const params = [id]
+
+    if (tenantId) {
+      query += ` AND tenant_id = $2`
+      params.push(tenantId)
     }
 
-    // Create a SQL client
-    const sql = neon(databaseUrl)
-
-    const updateFields = Object.entries(data)
-      .map(([key, value]) => `${key} = '${value}'`)
-      .join(", ")
-
-    const query = `
-      UPDATE ${table}
-      SET ${updateFields}
-      WHERE tenant_id = '${tenantId}' AND id = '${id}'
-      RETURNING *
-    `
-
-    // Log the query for debugging
-    console.log(`Executing update for tenant ${tenantId}:`, query)
-
-    // Execute the query
-    const result = await sql.query(query)
-    console.log(`Query result rows: ${result.rows?.length || 0}`)
-
-    return result.rows as T[]
+    const result = await sql.query(query, params)
+    if (result.rowCount === 0) {
+      throw new Error(`Record with ID ${id} not found or not accessible for deletion.`)
+    }
   } catch (error) {
-    console.error("Error executing tenant update:", error)
-    return []
+    console.error(`Error deleting from ${tableName} with ID ${id} for tenant ${tenantId}:`, error)
+    throw error
   }
-}
-
-// Delete a record for a specific tenant (simplified for now)
-export async function tenantDelete<T>(tenantId: string, table: string, id: string): Promise<T[]> {
-  return [] as T[]
-}
-
-// Helper function to get mock data based on the query
-function getMockData<T>(query: string): T[] {
-  // Check what kind of data is being requested
-  if (query.toLowerCase().includes("care_professionals")) {
-    return [
-      {
-        id: "cp-001",
-        tenant_id: "demo-tenant",
-        first_name: "Sarah",
-        last_name: "Johnson",
-        email: "sarah.johnson@example.com",
-        phone: "07700 900123",
-        role: "Registered Nurse",
-        specialization: "Palliative Care",
-        qualification: "RN, BSc Nursing",
-        license_number: "RN123456",
-        employment_status: "Full-time",
-        start_date: "2021-03-15",
-        is_active: true,
-        created_at: "2021-03-10T00:00:00Z",
-        updated_at: "2023-01-15T00:00:00Z",
-        created_by: "admin",
-        updated_by: "admin",
-        address: "123 Care Street, London",
-        notes: "Specialized in complex care management",
-        emergency_contact_name: "Michael Johnson",
-        emergency_contact_phone: "07700 900456",
-        avatar_url: "https://randomuser.me/api/portraits/women/44.jpg",
-      },
-      {
-        id: "cp-002",
-        tenant_id: "demo-tenant",
-        first_name: "James",
-        last_name: "Williams",
-        email: "james.williams@example.com",
-        phone: "07700 900234",
-        role: "Physiotherapist",
-        specialization: "Neurological Rehabilitation",
-        qualification: "BSc Physiotherapy, MSc Neuro Rehab",
-        license_number: "PT789012",
-        employment_status: "Part-time",
-        start_date: "2022-01-10",
-        is_active: true,
-        created_at: "2021-12-20T00:00:00Z",
-        updated_at: "2023-02-05T00:00:00Z",
-        created_by: "admin",
-        updated_by: "admin",
-        address: "456 Therapy Lane, Manchester",
-        notes: "Specializes in stroke rehabilitation",
-        emergency_contact_name: "Emma Williams",
-        emergency_contact_phone: "07700 900567",
-        avatar_url: "https://randomuser.me/api/portraits/men/32.jpg",
-      },
-    ] as unknown as T[]
-  } else if (query.toLowerCase().includes("patients")) {
-    return [
-      {
-        id: "pat-001",
-        tenant_id: "demo-tenant",
-        first_name: "John",
-        last_name: "Doe",
-        date_of_birth: "1975-05-15",
-        gender: "Male",
-        address: "123 Main St, London",
-        phone: "07700 900111",
-        email: "john.doe@example.com",
-        emergency_contact: "Jane Doe",
-        emergency_phone: "07700 900222",
-        medical_conditions: "Hypertension, Diabetes",
-        allergies: "Penicillin",
-        notes: "Prefers morning appointments",
-        created_at: "2022-01-10T00:00:00Z",
-        updated_at: "2023-03-15T00:00:00Z",
-        is_active: true,
-        avatar_url: "https://randomuser.me/api/portraits/men/22.jpg",
-      },
-      {
-        id: "pat-002",
-        tenant_id: "demo-tenant",
-        first_name: "Emily",
-        last_name: "Smith",
-        email: "emily.smith@example.com",
-        status: "active",
-        date_of_birth: "1982-11-30",
-        gender: "Female",
-        address: "456 High St, Manchester",
-        phone: "07700 900333",
-        emergency_contact: "Michael Smith",
-        emergency_phone: "07700 900444",
-        medical_conditions: "Asthma",
-        allergies: "Latex",
-        notes: "Requires wheelchair access",
-        created_at: "2022-02-15T00:00:00Z",
-        updated_at: "2023-04-10T00:00:00Z",
-        is_active: true,
-        avatar_url: "https://randomuser.me/api/portraits/women/22.jpg",
-      },
-    ] as unknown as T[]
-  } else if (query.toLowerCase().includes("timesheets")) {
-    return [
-      {
-        id: "ts-001",
-        tenant_id: "demo-tenant",
-        user_id: "cp-001",
-        userName: "Sarah Johnson",
-        date: "2023-04-15",
-        hoursWorked: 8,
-        status: "approved",
-        approved: true,
-        notes: "Regular shift",
-        createdAt: "2023-04-15T16:35:00Z",
-        updatedAt: "2023-04-16T10:00:00Z",
-      },
-      {
-        id: "ts-002",
-        tenant_id: "demo-tenant",
-        user_id: "cp-002",
-        userName: "James Williams",
-        date: "2023-04-15",
-        hoursWorked: 7.25,
-        status: "approved",
-        approved: true,
-        notes: "Patient assessments",
-        createdAt: "2023-04-15T17:05:00Z",
-        updatedAt: "2023-04-16T10:05:00Z",
-      },
-    ] as unknown as T[]
-  }
-
-  // Default empty array
-  return [] as T[]
 }

@@ -1,146 +1,165 @@
 import { neon } from "@neondatabase/serverless"
+import { getSession } from "@/lib/auth"
+import { validate as uuidValidate, version as uuidVersion } from "uuid"
 
-const DEFAULT_TENANT_ID = "default"
+const sql = neon(process.env.DATABASE_URL!)
 
-export async function logError(
-  tenantId: string = DEFAULT_TENANT_ID,
-  message: string,
-  stack: string | null,
-  severity: "critical" | "high" | "medium" | "low",
-  metadata: any,
-): Promise<void> {
+export interface ErrorLogData {
+  id: string
+  tenant_id: string
+  message: string
+  stack?: string
+  componentPath?: string
+  url?: string
+  method?: string
+  statusCode?: number
+  requestData?: any
+  browserInfo?: any
+  severity?: "low" | "medium" | "high" | "critical"
+}
+
+function isValidUUID(uuid: string) {
+  return uuidValidate(uuid) && uuidVersion(uuid) === 4
+}
+
+export async function logError(errorData: ErrorLogData) {
   try {
-    const sql = neon(process.env.DATABASE_URL!)
+    // Get current user and tenant information
+    const session = await getSession()
+    let tenantId = session?.user?.tenantId || process.env.DEFAULT_TENANT_ID
 
-    await sql`
-      INSERT INTO error_logs (tenant_id, message, stack, severity, metadata)
-      VALUES (${tenantId}, ${message}, ${stack}, ${severity}, ${metadata})
-    `
+    // Ensure tenantId is not null or undefined
+    if (!tenantId) {
+      console.warn("Tenant ID is missing, using default tenant ID")
+      tenantId = "ba367cfe-6de0-4180-9566-1002b75cf82c" // Use the default tenant ID
+    }
+
+    let userId = session?.user?.id
+
+    // Validate tenantId
+    if (tenantId && !isValidUUID(tenantId)) {
+      console.warn("Invalid tenant ID provided. Skipping tenant ID in error logging.")
+      tenantId = "ba367cfe-6de0-4180-9566-1002b75cf82c" // Or use a default valid UUID if appropriate
+    }
+
+    // Validate userId
+    if (userId && !isValidUUID(userId)) {
+      console.warn("Invalid user ID provided. Skipping user ID in error logging.")
+      userId = null // Set userId to null if it's not a valid UUID
+    }
+
+    // Insert error into database
+    const result = await sql`
+   INSERT INTO application_errors (
+     tenant_id,
+     user_id,
+     message,
+     stack,
+     component_path,
+     url,
+     method,
+     status_code,
+     request_data,
+     browser_info,
+     environment,
+     severity
+   ) VALUES (
+     ${tenantId},
+     ${userId},
+     ${errorData.message},
+     ${errorData.stack || null},
+     ${errorData.componentPath || null},
+     ${errorData.url || null},
+     ${errorData.method || null},
+     ${errorData.statusCode || null},
+     ${errorData.requestData ? JSON.stringify(errorData.requestData) : null},
+     ${errorData.browserInfo ? JSON.stringify(errorData.browserInfo) : null},
+     ${process.env.NODE_ENV || "development"},
+     ${errorData.severity || "medium"}
+   )
+   RETURNING id
+ `
+
+    return { success: true, errorId: result[0].id }
   } catch (error) {
-    console.error("Error logging error:", error)
+    console.error("Failed to log error to database:", error)
+    return { success: false, error }
   }
 }
 
-/**
- * Alias for logError to satisfy imports looking for `captureException`.
- */
-export const captureException = logError
-
-export async function getErrorLogs(
-  tenantId: string = DEFAULT_TENANT_ID,
-  filters?: {
+export async function getErrors(
+  options: {
+    tenantId?: string
+    resolved?: boolean
     severity?: string
-    status?: string
-    startDate?: Date
-    endDate?: Date
-  },
-): Promise<{ errors: any[]; stats: any }> {
+    limit?: number
+    offset?: number
+  } = {},
+) {
   try {
-    const sql = neon(process.env.DATABASE_URL!)
+    const session = await getSession()
+    const tenantId = options.tenantId || session?.user?.tenantId || process.env.DEFAULT_TENANT_ID
 
     let query = `
-      SELECT * FROM error_logs
-      WHERE tenant_id = $1
-    `
-    const params: any[] = [tenantId]
+   SELECT * FROM application_errors 
+   WHERE tenant_id = $1
+ `
+
+    const queryParams: any[] = [tenantId]
     let paramIndex = 2
 
-    if (filters?.severity && filters.severity !== "all") {
-      query += ` AND severity = $${paramIndex++}`
-      params.push(filters.severity)
+    if (options.resolved !== undefined) {
+      query += ` AND resolved = $${paramIndex}`
+      queryParams.push(options.resolved)
+      paramIndex++
     }
 
-    if (filters?.status && filters.status !== "all") {
-      query += ` AND status = $${paramIndex++}`
-      params.push(filters.status)
+    if (options.severity) {
+      query += ` AND severity = $${paramIndex}`
+      queryParams.push(options.severity)
+      paramIndex++
     }
 
-    if (filters?.startDate) {
-      query += ` AND created_at >= $${paramIndex++}`
-      params.push(filters.startDate)
+    query += ` ORDER BY created_at DESC`
+
+    if (options.limit) {
+      query += ` LIMIT $${paramIndex}`
+      queryParams.push(options.limit)
+      paramIndex++
     }
 
-    if (filters?.endDate) {
-      query += ` AND created_at <= $${paramIndex++}`
-      params.push(filters.endDate)
+    if (options.offset) {
+      query += ` OFFSET $${paramIndex}`
+      queryParams.push(options.offset)
+      paramIndex++
     }
 
-    query += ` ORDER BY created_at DESC LIMIT 100`
-
-    const errorsResult = await sql.query(query, params)
-    const errors = errorsResult.rows
-
-    // Get stats
-    const statsResult = await sql`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(CASE WHEN status = 'new' THEN 1 END) as new,
-        COUNT(CASE WHEN status = 'investigating' THEN 1 END) as investigating,
-        COUNT(CASE WHEN status = 'resolved' THEN 1 END) as resolved,
-        COUNT(CASE WHEN severity = 'critical' THEN 1 END) as critical,
-        COUNT(CASE WHEN severity = 'high' THEN 1 END) as high,
-        COUNT(CASE WHEN severity = 'medium' THEN 1 END) as low
-      FROM error_logs
-      WHERE tenant_id = ${tenantId}
-      AND created_at >= NOW() - INTERVAL '30 days'
-    `
-    const stats = statsResult[0]
-
-    return {
-      errors,
-      stats,
-    }
+    const result = await sql.query(query, queryParams)
+    return { success: true, errors: result.rows }
   } catch (error) {
-    console.error("Error fetching error logs:", error)
-    return { errors: [], stats: {} }
+    console.error("Failed to fetch errors:", error)
+    return { success: false, error }
   }
 }
 
-export async function resolveError(
-  errorId: string,
-  resolvedBy: string,
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<boolean> {
+export async function markErrorAsResolved(errorId: string, notes?: string) {
   try {
-    const sql = neon(process.env.DATABASE_URL!)
+    const session = await getSession()
+    const userId = session?.user?.id
 
-    const result = await sql`
-      UPDATE error_logs
-      SET 
-        status = 'resolved',
-        resolved_at = NOW(),
-        resolved_by = ${resolvedBy}
-      WHERE id = ${errorId}
-      AND tenant_id = ${tenantId}
-    `
+    await sql`
+   UPDATE application_errors
+   SET 
+     resolved = true,
+     resolution_notes = ${notes || null},
+     resolved_by = ${userId || null},
+     resolved_at = NOW()
+   WHERE id = ${errorId}
+ `
 
-    return result.rowCount > 0
+    return { success: true }
   } catch (error) {
-    console.error("Error resolving error log:", error)
-    return false
-  }
-}
-
-export async function updateErrorStatus(
-  errorId: string,
-  status: "new" | "investigating" | "resolved",
-  tenantId: string = DEFAULT_TENANT_ID,
-): Promise<boolean> {
-  try {
-    const sql = neon(process.env.DATABASE_URL!)
-
-    const result = await sql`
-      UPDATE error_logs
-      SET 
-        status = ${status},
-        updated_at = NOW()
-      WHERE id = ${errorId}
-      AND tenant_id = ${tenantId}
-    `
-
-    return result.rowCount > 0
-  } catch (error) {
-    console.error("Error updating error status:", error)
-    return false
+    console.error("Failed to mark error as resolved:", error)
+    return { success: false, error }
   }
 }

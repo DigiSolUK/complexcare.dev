@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
+import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -13,62 +14,106 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
+import type { Patient, CareProfessional } from "@/types"
+import { useToast } from "@/hooks/use-toast"
 
 const formSchema = z.object({
-  patientId: z.string().min(1, { message: "Patient is required" }),
+  patient_id: z.string().min(1, { message: "Patient is required" }),
   title: z.string().min(3, { message: "Title must be at least 3 characters" }),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   status: z.enum(["draft", "active", "completed", "cancelled"]),
-  startDate: z.date(),
-  endDate: z.date().optional(),
-  reviewDate: z.date(),
-  assignedTo: z.string().min(1, { message: "Assigned staff is required" }),
-  goals: z.string().min(1, { message: "At least one goal is required" }),
-  interventions: z.string().min(1, { message: "At least one intervention is required" }),
+  start_date: z.date(),
+  end_date: z.date().nullable().optional(),
+  review_date: z.date().nullable(),
+  assigned_to: z.string().nullable().optional(),
+  goals: z.string().nullable().optional(),
+  interventions: z.string().nullable().optional(),
 })
-
-// Demo data for dropdowns
-const demoPatients = [
-  { id: "PT78923", name: "Emma Thompson" },
-  { id: "PT45678", name: "James Wilson" },
-  { id: "PT12345", name: "Olivia Parker" },
-  { id: "PT34567", name: "Robert Davis" },
-  { id: "PT56789", name: "Sophia Martinez" },
-]
-
-const demoStaff = [
-  { id: "ST001", name: "Dr. Sarah Johnson" },
-  { id: "ST002", name: "Dr. Michael Chen" },
-  { id: "ST003", name: "Dr. Emily Rodriguez" },
-  { id: "ST004", name: "Dr. James Wilson" },
-  { id: "ST005", name: "Dr. Lisa Thompson" },
-]
 
 interface CarePlanFormProps {
   onSubmit?: (data: z.infer<typeof formSchema>) => void
   defaultValues?: Partial<z.infer<typeof formSchema>>
   isEdit?: boolean
+  onCancel?: () => void
 }
 
-export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePlanFormProps) {
+export function CarePlanForm({ onSubmit, defaultValues, isEdit = false, onCancel }: CarePlanFormProps) {
+  const { toast } = useToast()
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [careProfessionals, setCareProfessionals] = useState<CareProfessional[]>([])
+  const [loadingPatients, setLoadingPatients] = useState(true)
+  const [loadingCareProfessionals, setLoadingCareProfessionals] = useState(true)
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues || {
-      patientId: "",
-      title: "",
-      description: "",
-      status: "draft",
-      startDate: new Date(),
-      goals: "",
-      interventions: "",
-      assignedTo: "",
+    defaultValues: {
+      patient_id: defaultValues?.patient_id || "",
+      title: defaultValues?.title || "",
+      description: defaultValues?.description || null,
+      status: defaultValues?.status || "draft",
+      start_date: defaultValues?.start_date || new Date(),
+      end_date: defaultValues?.end_date || null,
+      review_date: defaultValues?.review_date || null,
+      assigned_to: defaultValues?.assigned_to || null,
+      goals: defaultValues?.goals || null,
+      interventions: defaultValues?.interventions || null,
     },
   })
 
+  useEffect(() => {
+    async function fetchData() {
+      // Fetch Patients
+      try {
+        setLoadingPatients(true)
+        const patientsResponse = await fetch("/api/patients")
+        if (!patientsResponse.ok) throw new Error("Failed to fetch patients")
+        const patientsData: Patient[] = await patientsResponse.json()
+        setPatients(patientsData)
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: `Failed to load patients: ${error.message}`,
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingPatients(false)
+      }
+
+      // Fetch Care Professionals
+      try {
+        setLoadingCareProfessionals(true)
+        const cpResponse = await fetch("/api/care-professionals")
+        if (!cpResponse.ok) throw new Error("Failed to fetch care professionals")
+        const cpData: CareProfessional[] = await cpResponse.json()
+        setCareProfessionals(cpData)
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: `Failed to load care professionals: ${error.message}`,
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingCareProfessionals(false)
+      }
+    }
+    fetchData()
+  }, [toast])
+
   const handleSubmit = (data: z.infer<typeof formSchema>) => {
-    console.log("Form data:", data)
+    // Convert Date objects to 'YYYY-MM-DD' strings for database
+    const formattedData = {
+      ...data,
+      start_date: format(data.start_date, "yyyy-MM-dd"),
+      end_date: data.end_date ? format(data.end_date, "yyyy-MM-dd") : null,
+      review_date: data.review_date ? format(data.review_date, "yyyy-MM-dd") : null,
+      // Ensure empty strings become null for optional text fields
+      description: data.description === "" ? null : data.description,
+      goals: data.goals === "" ? null : data.goals,
+      interventions: data.interventions === "" ? null : data.interventions,
+      assigned_to: data.assigned_to === "" ? null : data.assigned_to,
+    }
     if (onSubmit) {
-      onSubmit(data)
+      onSubmit(formattedData)
     }
   }
 
@@ -79,22 +124,29 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
           {/* Patient Selection */}
           <FormField
             control={form.control}
-            name="patientId"
+            name="patient_id"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Patient</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger disabled={loadingPatients}>
                       <SelectValue placeholder="Select a patient" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {demoPatients.map((patient) => (
-                      <SelectItem key={patient.id} value={patient.id}>
-                        {patient.name} ({patient.id})
+                    {patients.length === 0 && !loadingPatients ? (
+                      <SelectItem value="" disabled>
+                        No patients available
                       </SelectItem>
-                    ))}
+                    ) : (
+                      patients.map((patient) => (
+                        <SelectItem key={patient.id} value={patient.id}>
+                          {patient.first_name} {patient.last_name} (
+                          {patient.medical_record_number || patient.id.substring(0, 8)})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -129,7 +181,8 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
                 <Textarea
                   placeholder="Describe the care plan objectives and approach..."
                   className="min-h-[100px]"
-                  {...field}
+                  value={field.value || ""} // Ensure controlled component
+                  onChange={field.onChange}
                 />
               </FormControl>
               <FormMessage />
@@ -145,7 +198,7 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
@@ -166,7 +219,7 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
           {/* Start Date */}
           <FormField
             control={form.control}
-            name="startDate"
+            name="start_date"
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Start Date</FormLabel>
@@ -194,7 +247,7 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
           {/* Review Date */}
           <FormField
             control={form.control}
-            name="reviewDate"
+            name="review_date"
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Next Review Date</FormLabel>
@@ -211,7 +264,12 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
                     </FormControl>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                    <Calendar
+                      mode="single"
+                      selected={field.value || undefined}
+                      onSelect={field.onChange}
+                      initialFocus
+                    />
                   </PopoverContent>
                 </Popover>
                 <FormMessage />
@@ -220,25 +278,61 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
           />
         </div>
 
+        {/* End Date */}
+        <FormField
+          control={form.control}
+          name="end_date"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>End Date (Optional)</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant={"outline"}
+                      className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                    >
+                      {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={field.value || undefined} onSelect={field.onChange} initialFocus />
+                </PopoverContent>
+              </Popover>
+              <FormDescription>The expected completion date for this care plan.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         {/* Assigned To */}
         <FormField
           control={form.control}
-          name="assignedTo"
+          name="assigned_to"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Assigned To</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <FormLabel>Assigned To (Care Professional)</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || ""}>
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger disabled={loadingCareProfessionals}>
                     <SelectValue placeholder="Select staff member" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {demoStaff.map((staff) => (
-                    <SelectItem key={staff.id} value={staff.id}>
-                      {staff.name}
+                  <SelectItem value="">Not Assigned</SelectItem> {/* Option for no assignment */}
+                  {careProfessionals.length === 0 && !loadingCareProfessionals ? (
+                    <SelectItem value="" disabled>
+                      No care professionals available
                     </SelectItem>
-                  ))}
+                  ) : (
+                    careProfessionals.map((staff) => (
+                      <SelectItem key={staff.id} value={staff.id}>
+                        {staff.first_name} {staff.last_name} ({staff.role})
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -255,9 +349,10 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
               <FormLabel>Goals</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Enter goals, one per line or separated by commas..."
+                  placeholder="Enter goals, one per line or separated by commas (e.g., Goal 1, Goal 2)..."
                   className="min-h-[100px]"
-                  {...field}
+                  value={field.value || ""}
+                  onChange={field.onChange}
                 />
               </FormControl>
               <FormDescription>
@@ -277,9 +372,10 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
               <FormLabel>Interventions</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Enter interventions, one per line or separated by commas..."
+                  placeholder="Enter interventions, one per line or separated by commas (e.g., Intervention A, Intervention B)..."
                   className="min-h-[100px]"
-                  {...field}
+                  value={field.value || ""}
+                  onChange={field.onChange}
                 />
               </FormControl>
               <FormDescription>
@@ -291,7 +387,7 @@ export function CarePlanForm({ onSubmit, defaultValues, isEdit = false }: CarePl
         />
 
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline">
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
           <Button type="submit">{isEdit ? "Update" : "Create"} Care Plan</Button>

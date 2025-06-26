@@ -1,24 +1,25 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { tenantQuery } from "@/lib/db-utils"
+import { NextResponse } from "next/server"
+import { getCarePlansForPatient } from "@/lib/services/care-plan-service"
+import { auth } from "@/lib/auth"
+import { getTenantId } from "@/lib/tenant-utils"
 
-const DEFAULT_TENANT_ID = "ba367cfe-6de0-4180-9566-1002b75cf82c"
-
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tenantId = getTenantId(request)
+    if (!tenantId) {
+      return NextResponse.json({ error: "Tenant ID is required" }, { status: 400 })
+    }
+
     const patientId = params.id
-
-    // Get care plans for this patient
-    const carePlans = await tenantQuery(
-      DEFAULT_TENANT_ID,
-      `SELECT * FROM care_plans 
-       WHERE patient_id = $1 
-       ORDER BY start_date DESC`,
-      [patientId],
-    )
-
+    const carePlans = await getCarePlansForPatient(tenantId, patientId)
     return NextResponse.json(carePlans)
   } catch (error) {
-    console.error("Error fetching patient care plans:", error)
-    return NextResponse.json({ error: "Failed to fetch patient care plans" }, { status: 500 })
+    console.error("Failed to fetch care plans for patient:", error)
+    return NextResponse.json({ error: "Failed to fetch care plans for patient" }, { status: 500 })
   }
 }

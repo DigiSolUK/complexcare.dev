@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSession } from "@/lib/auth0-adapter"
+import { getSession } from "@auth0/nextjs-auth0"
 
 export async function GET(request: Request) {
   try {
@@ -8,7 +8,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Mock data for tenant statistics
+    // In a real implementation, this would query your database
+    // For now, we'll return mock data
     return NextResponse.json({
       total_tenants: 5,
       active_tenants: 4,

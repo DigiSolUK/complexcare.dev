@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/use-toast"
 export function ApiKeysSection() {
   const { toast } = useToast()
   const [showApiKey, setShowApiKey] = useState(false)
-  const [apiKey, setApiKey] = useState("•••••••••••••••••••••••••••••��")
+  const [apiKey, setApiKey] = useState("••••••••••••••••••••••••••••••")
   const [isRegenerating, setIsRegenerating] = useState(false)
 
   const toggleApiKeyVisibility = () => {

@@ -1,45 +1,138 @@
 "use client"
 
 import { useEffect } from "react"
-import { captureException } from "@/lib/services/error-logging-service"
 
 export function GlobalErrorHandler() {
   useEffect(() => {
-    // Handler for uncaught exceptions
-    const errorHandler = (event: ErrorEvent) => {
-      event.preventDefault()
-      captureException(event.error, {
-        source: event.filename,
-        line: event.lineno,
-        column: event.colno,
-        type: "uncaught-exception",
-      })
+    // Store original console.error
+    const originalConsoleError = console.error
 
-      // You could show a global error toast here
-      console.error("Uncaught error:", event.error)
+    // Override console.error to log errors to server
+    console.error = (...args) => {
+      // Call original console.error
+      originalConsoleError.apply(console, args)
+
+      // Extract error information
+      const errorMessage = args.map((arg) => (typeof arg === "object" ? JSON.stringify(arg) : String(arg))).join(" ")
+
+      // Log error to server
+      fetch("/api/error-logging", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: `Console error: ${errorMessage}`,
+          componentPath: "console",
+          severity: "medium",
+          browserInfo: {
+            userAgent: navigator.userAgent,
+            url: window.location.href,
+          },
+        }),
+      }).catch(async (err) => {
+        let errorToLog = "Unknown error during error logging."
+        if (err instanceof Response) {
+          try {
+            const text = await err.text()
+            errorToLog = `Failed to log error to server: ${err.status} ${err.statusText} - ${text}`
+          } catch (readErr) {
+            errorToLog = `Failed to log error to server: ${err.status} ${err.statusText} - Could not read response body.`
+          }
+        } else if (err instanceof Error) {
+          errorToLog = `Failed to log error to server: ${err.message} - ${err.stack}`
+        } else {
+          errorToLog = `Failed to log error to server: ${String(err)}`
+        }
+        originalConsoleError(errorToLog)
+      })
     }
 
-    // Handler for unhandled promise rejections
-    const rejectionHandler = (event: PromiseRejectionEvent) => {
-      event.preventDefault()
-      captureException(event.reason, {
-        type: "unhandled-rejection",
+    // Handle unhandled promise rejections
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      // Log error to server
+      fetch("/api/error-logging", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: `Unhandled promise rejection: ${event.reason}`,
+          stack: event.reason?.stack,
+          componentPath: "unhandled-promise",
+          severity: "high",
+          browserInfo: {
+            userAgent: navigator.userAgent,
+            url: window.location.href,
+          },
+        }),
+      }).catch(async (err) => {
+        let errorToLog = "Unknown error during unhandled rejection logging."
+        if (err instanceof Response) {
+          try {
+            const text = await err.text()
+            errorToLog = `Failed to log unhandled rejection to server: ${err.status} ${err.statusText} - ${text}`
+          } catch (readErr) {
+            errorToLog = `Failed to log unhandled rejection to server: ${err.status} ${err.statusText} - Could not read response body.`
+          }
+        } else if (err instanceof Error) {
+          errorToLog = `Failed to log unhandled rejection to server: ${err.message} - ${err.stack}`
+        } else {
+          errorToLog = `Failed to log unhandled rejection to server: ${String(err)}`
+        }
+        originalConsoleError(errorToLog)
       })
+    }
 
-      // You could show a global error toast here
-      console.error("Unhandled rejection:", event.reason)
+    // Handle uncaught errors
+    const handleUncaughtError = (event: ErrorEvent) => {
+      // Log error to server
+      fetch("/api/error-logging", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: event.message,
+          stack: event.error?.stack,
+          componentPath: event.filename || "unknown",
+          severity: "high",
+          browserInfo: {
+            userAgent: navigator.userAgent,
+            url: window.location.href,
+            lineNumber: event.lineno,
+            columnNumber: event.colno,
+          },
+        }),
+      }).catch(async (err) => {
+        let errorToLog = "Unknown error during uncaught error logging."
+        if (err instanceof Response) {
+          try {
+            const text = await err.text()
+            errorToLog = `Failed to log uncaught error to server: ${err.status} ${err.statusText} - ${text}`
+          } catch (readErr) {
+            errorToLog = `Failed to log uncaught error to server: ${err.status} ${err.statusText} - Could not read response body.`
+          }
+        } else if (err instanceof Error) {
+          errorToLog = `Failed to log uncaught error to server: ${err.message} - ${err.stack}`
+        } else {
+          errorToLog = `Failed to log uncaught error to server: ${String(err)}`
+        }
+        originalConsoleError(errorToLog)
+      })
     }
 
     // Add event listeners
-    window.addEventListener("error", errorHandler)
-    window.addEventListener("unhandledrejection", rejectionHandler)
+    window.addEventListener("unhandledrejection", handleUnhandledRejection)
+    window.addEventListener("error", handleUncaughtError)
 
-    // Clean up
+    // Clean up on unmount
     return () => {
-      window.removeEventListener("error", errorHandler)
-      window.removeEventListener("unhandledrejection", rejectionHandler)
+      console.error = originalConsoleError
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection)
+      window.removeEventListener("error", handleUncaughtError)
     }
   }, [])
 
-  return null // This component doesn't render anything
+  return null
 }

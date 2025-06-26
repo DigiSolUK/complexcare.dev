@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   CheckCircle2,
   Clock,
@@ -12,6 +12,8 @@ import {
   AlertCircle,
   Calendar,
 } from "lucide-react"
+import { format } from "date-fns"
+import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -25,129 +27,56 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Progress } from "@/components/ui/progress"
 import { CarePlanViewDialog } from "./care-plan-view-dialog"
+import type { CarePlan } from "@/types"
+import { useToast } from "@/hooks/use-toast"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import { EditCarePlanDialog } from "./edit-care-plan-dialog"
 
-// Demo data for care plans
-const demoCarePlans = [
-  {
-    id: "550e8400-e29b-41d4-a716-446655440000",
-    patientName: "Emma Thompson",
-    patientId: "PT78923",
-    title: "Diabetes Management Plan",
-    description:
-      "Comprehensive plan for managing Type 2 Diabetes including blood sugar monitoring, diet, exercise, and medication management.",
-    status: "active",
-    progress: 65,
-    startDate: "2023-12-15",
-    endDate: "2024-06-15",
-    reviewDate: "2024-03-15",
-    assignedTo: "Dr. Sarah Johnson",
-    goals: "Maintain HbA1c below 7.0%, Reduce weight by 5kg, Establish regular exercise routine",
-    interventions: "Daily glucose monitoring, Weekly dietitian consultation, Monthly endocrinologist review",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440001",
-    patientName: "James Wilson",
-    patientId: "PT45678",
-    title: "Post-Surgery Recovery Plan",
-    description:
-      "Recovery plan following hip replacement surgery focusing on mobility, pain management, and rehabilitation.",
-    status: "active",
-    progress: 40,
-    startDate: "2024-01-10",
-    endDate: "2024-04-10",
-    reviewDate: "2024-02-10",
-    assignedTo: "Dr. Michael Chen",
-    goals: "Achieve independent mobility, Manage post-operative pain, Prevent complications",
-    interventions: "Physical therapy 3x weekly, Pain management protocol, Wound care and monitoring",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440002",
-    patientName: "Olivia Parker",
-    patientId: "PT12345",
-    title: "Chronic Pain Management",
-    description:
-      "Multidisciplinary approach to managing chronic lower back pain with focus on non-pharmacological interventions.",
-    status: "review",
-    progress: 75,
-    startDate: "2024-01-05",
-    endDate: "2024-07-05",
-    reviewDate: "2024-02-05",
-    assignedTo: "Dr. Emily Rodriguez",
-    goals: "Reduce pain intensity by 30%, Improve functional capacity, Reduce reliance on pain medication",
-    interventions: "Physical therapy, Cognitive behavioral therapy, Acupuncture, Mindfulness training",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440003",
-    patientName: "Robert Davis",
-    patientId: "PT34567",
-    title: "Cardiac Rehabilitation Plan",
-    description:
-      "Comprehensive cardiac rehabilitation following myocardial infarction focusing on exercise, diet, and lifestyle modifications.",
-    status: "active",
-    progress: 50,
-    startDate: "2023-12-20",
-    endDate: "2024-06-20",
-    reviewDate: "2024-03-20",
-    assignedTo: "Dr. James Wilson",
-    goals: "Improve cardiovascular fitness, Implement heart-healthy diet, Manage stress effectively",
-    interventions: "Supervised exercise program, Nutritional counseling, Stress management techniques",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440004",
-    patientName: "Sophia Martinez",
-    patientId: "PT56789",
-    title: "Mental Health Support Plan",
-    description:
-      "Comprehensive mental health support plan for managing anxiety and depression with therapy and lifestyle interventions.",
-    status: "pending",
-    progress: 10,
-    startDate: "2024-01-15",
-    endDate: "2024-07-15",
-    reviewDate: "2024-02-15",
-    assignedTo: "Dr. Lisa Thompson",
-    goals: "Reduce anxiety symptoms, Improve sleep quality, Develop healthy coping mechanisms",
-    interventions: "Weekly therapy sessions, Daily mindfulness practice, Sleep hygiene protocol",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440005",
-    patientName: "William Johnson",
-    patientId: "PT90123",
-    title: "Physical Therapy Plan",
-    description:
-      "Rehabilitation plan for recovery from sports injury focusing on strength, flexibility, and gradual return to activity.",
-    status: "active",
-    progress: 80,
-    startDate: "2023-12-10",
-    endDate: "2024-03-10",
-    reviewDate: "2024-02-10",
-    assignedTo: "Dr. Robert Brown",
-    goals: "Restore full range of motion, Rebuild muscle strength, Return to pre-injury activity level",
-    interventions: "Targeted exercise program, Manual therapy, Gradual activity progression",
-  },
-  {
-    id: "550e8400-e29b-41d4-a716-446655440006",
-    patientName: "Ava Robinson",
-    patientId: "PT23456",
-    title: "Nutritional Support Plan",
-    description:
-      "Nutritional intervention plan for malnutrition following extended hospitalization with focus on weight gain and nutrient repletion.",
-    status: "active",
-    progress: 30,
-    startDate: "2024-01-02",
-    endDate: "2024-04-02",
-    reviewDate: "2024-02-02",
-    assignedTo: "Dr. Sarah Johnson",
-    goals: "Achieve healthy weight gain, Correct nutritional deficiencies, Establish sustainable eating patterns",
-    interventions: "High-calorie, nutrient-dense diet plan, Nutritional supplements, Weekly dietitian follow-up",
-  },
-]
+interface CarePlanTableProps {
+  initialCarePlans?: CarePlan[]
+}
 
-export function CarePlanTable() {
-  const [carePlans, setCarePlans] = useState(demoCarePlans)
-  const [selectedPlan, setSelectedPlan] = useState<(typeof demoCarePlans)[0] | null>(null)
+export function CarePlanTable({ initialCarePlans }: CarePlanTableProps) {
+  const { data: session } = useSession()
+  const { toast } = useToast()
+  const [carePlans, setCarePlans] = useState<CarePlan[]>(initialCarePlans || [])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedPlan, setSelectedPlan] = useState<CarePlan | null>(null)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+
+  const fetchCarePlans = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch("/api/care-plans")
+      if (!response.ok) {
+        throw new Error("Failed to fetch care plans")
+      }
+      const data: CarePlan[] = await response.json()
+      setCarePlans(data)
+    } catch (err: any) {
+      setError(err.message || "An unknown error occurred")
+      toast({
+        title: "Error",
+        description: `Failed to load care plans: ${err.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    if (!initialCarePlans) {
+      fetchCarePlans()
+    } else {
+      setLoading(false)
+    }
+  }, [fetchCarePlans, initialCarePlans])
 
   // Function to get status badge color
   const getStatusBadge = (status: string) => {
@@ -176,14 +105,71 @@ export function CarePlanTable() {
             <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
           </Badge>
         )
+      case "cancelled":
+        return (
+          <Badge className="bg-red-500 hover:bg-red-600">
+            <Trash2 className="mr-1 h-3 w-3" /> Cancelled
+          </Badge>
+        )
       default:
         return <Badge>{status}</Badge>
     }
   }
 
-  const handleViewPlan = (plan: (typeof demoCarePlans)[0]) => {
+  const handleViewPlan = (plan: CarePlan) => {
     setSelectedPlan(plan)
     setViewDialogOpen(true)
+  }
+
+  const handleEditPlan = (plan: CarePlan) => {
+    setSelectedPlan(plan)
+    setEditDialogOpen(true)
+  }
+
+  const handleDeletePlan = (plan: CarePlan) => {
+    setSelectedPlan(plan)
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!selectedPlan?.id) return
+
+    try {
+      const response = await fetch(`/api/care-plans/${selectedPlan.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete care plan")
+      }
+
+      toast({
+        title: "Success",
+        description: "Care plan deleted successfully.",
+      })
+      fetchCarePlans() // Refresh the list
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: `Failed to delete care plan: ${err.message}`,
+        variant: "destructive",
+      })
+    } finally {
+      setDeleteConfirmOpen(false)
+      setSelectedPlan(null)
+    }
+  }
+
+  if (loading) {
+    return <div className="text-center py-8">Loading care plans...</div>
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-500">{error}</div>
+  }
+
+  if (carePlans.length === 0) {
+    return <div className="text-center py-8 text-muted-foreground">No care plans found.</div>
   }
 
   return (
@@ -195,7 +181,6 @@ export function CarePlanTable() {
               <TableHead className="w-[80px]">ID</TableHead>
               <TableHead>Patient</TableHead>
               <TableHead>Care Plan</TableHead>
-              <TableHead>Progress</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Review Date</TableHead>
               <TableHead>Assigned To</TableHead>
@@ -210,28 +195,22 @@ export function CarePlanTable() {
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback className="bg-primary/10">
-                        {plan.patientName
-                          .split(" ")
+                        {plan.patient_name
+                          ?.split(" ")
                           .map((n) => n[0])
                           .join("")}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <span className="font-medium">{plan.patientName}</span>
-                      <span className="text-xs text-muted-foreground">{plan.patientId}</span>
+                      <span className="font-medium">{plan.patient_name}</span>
+                      <span className="text-xs text-muted-foreground">{plan.patient_id.substring(0, 8)}</span>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>{plan.title}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Progress value={plan.progress} className="h-2 w-[100px]" />
-                    <span className="text-xs text-muted-foreground">{plan.progress}%</span>
-                  </div>
-                </TableCell>
                 <TableCell>{getStatusBadge(plan.status)}</TableCell>
-                <TableCell>{new Date(plan.reviewDate).toLocaleDateString()}</TableCell>
-                <TableCell>{plan.assignedTo}</TableCell>
+                <TableCell>{plan.review_date ? format(new Date(plan.review_date), "PPP") : "N/A"}</TableCell>
+                <TableCell>{plan.assigned_to_name || "N/A"}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -246,7 +225,7 @@ export function CarePlanTable() {
                         <FileText className="mr-2 h-4 w-4" />
                         View details
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEditPlan(plan)}>
                         <PencilLine className="mr-2 h-4 w-4" />
                         Edit plan
                       </DropdownMenuItem>
@@ -259,7 +238,7 @@ export function CarePlanTable() {
                         Change assigned staff
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem className="text-destructive" onClick={() => handleDeletePlan(plan)}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete plan
                       </DropdownMenuItem>
@@ -273,6 +252,21 @@ export function CarePlanTable() {
       </div>
 
       <CarePlanViewDialog open={viewDialogOpen} onOpenChange={setViewDialogOpen} carePlan={selectedPlan} />
+      <EditCarePlanDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        carePlan={selectedPlan}
+        onSuccess={fetchCarePlans}
+      />
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Confirm Deletion"
+        description={`Are you sure you want to delete the care plan "${selectedPlan?.title}"? This action cannot be undone.`}
+        onConfirm={confirmDelete}
+        confirmText="Delete"
+        variant="destructive"
+      />
     </>
   )
 }

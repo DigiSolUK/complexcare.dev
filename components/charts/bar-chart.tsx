@@ -1,42 +1,102 @@
 "use client"
 
-import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
-import { useTheme } from "next-themes"
+import {
+  Bar,
+  BarChart as RechartsBarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 interface BarChartProps {
-  data: {
+  data: Array<{
     name: string
     value: number
-  }[]
+  }>
+  xAxisKey: string
+  yAxisKey: string
+  categories: string[]
+  index?: string
   colors?: string[]
+  valueFormatter?: (value: number) => string
+  layout?: "horizontal" | "vertical"
 }
 
-export function BarChart({ data, colors = ["#3b82f6"] }: BarChartProps) {
-  const { theme } = useTheme()
-  const isDark = theme === "dark"
-
+export function BarChart({
+  data,
+  xAxisKey,
+  yAxisKey,
+  categories,
+  colors = ["#0ea5e9"],
+  valueFormatter = (value: number) => `${value}`,
+  layout = "horizontal",
+}: BarChartProps) {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <RechartsBarChart data={data}>
-        <XAxis dataKey="name" stroke={isDark ? "#888888" : "#888888"} fontSize={12} tickLine={false} axisLine={false} />
-        <YAxis
-          stroke={isDark ? "#888888" : "#888888"}
-          fontSize={12}
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(value) => `${value}`}
-        />
+      <RechartsBarChart
+        data={data}
+        layout={layout}
+        margin={{
+          top: 5,
+          right: 30,
+          left: 20,
+          bottom: 60,
+        }}
+      >
+        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+        {layout === "horizontal" ? (
+          <>
+            <XAxis
+              dataKey={xAxisKey}
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              angle={-45}
+              textAnchor="end"
+              height={70}
+            />
+            <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={valueFormatter} />
+          </>
+        ) : (
+          <>
+            <XAxis
+              type="number"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={valueFormatter}
+            />
+            <YAxis
+              dataKey={xAxisKey}
+              type="category"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              width={150}
+            />
+          </>
+        )}
         <Tooltip
-          cursor={{ fill: "transparent" }}
+          formatter={valueFormatter}
           contentStyle={{
-            backgroundColor: isDark ? "#1f2937" : "#ffffff",
-            border: "none",
-            borderRadius: "4px",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+            backgroundColor: "hsl(var(--background))",
+            borderColor: "hsl(var(--border))",
+            borderRadius: "var(--radius)",
           }}
-          formatter={(value: number) => [`${value}`, "Count"]}
         />
-        <Bar dataKey="value" fill={colors[0]} radius={[4, 4, 0, 0]} />
+        <Legend />
+        {categories.map((category, index) => (
+          <Bar
+            key={category}
+            dataKey={yAxisKey}
+            fill={colors[index % colors.length]}
+            radius={[4, 4, 0, 0]}
+            maxBarSize={60}
+          />
+        ))}
       </RechartsBarChart>
     </ResponsiveContainer>
   )

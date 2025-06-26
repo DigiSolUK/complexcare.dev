@@ -1,119 +1,65 @@
-import { executeQuery, getById, insert, update, remove } from "@/lib/db"
-import bcrypt from "bcryptjs"
+import { executeQuery } from "../db"
 
 export interface User {
   id: string
-  name: string
-  email: string
-  role: string
   tenant_id: string
+  email: string
+  name: string
+  role: string
   created_at: string
   updated_at: string
   deleted_at: string | null
 }
 
-// Get user by ID
-export async function getUserById(id: string): Promise<User | null> {
-  return getById<User>("users", id)
-}
-
-// Get user by email
-export async function getUserByEmail(email: string): Promise<User | null> {
-  try {
-    const users = await executeQuery<User>(`SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1`, [
-      email,
-    ])
-    return users.length > 0 ? users[0] : null
-  } catch (error) {
-    console.error(`Error fetching user with email ${email}:`, error)
-    throw error
-  }
-}
-
-// Create a new user
-export async function createUser(userData: {
+export interface Tenant {
+  id: string
   name: string
-  email: string
-  password: string
-  role?: string
-  tenant_id?: string
-}): Promise<User> {
-  try {
-    // Hash the password
-    const passwordHash = await bcrypt.hash(userData.password, 10)
-
-    // Prepare user data
-    const data = {
-      name: userData.name,
-      email: userData.email,
-      password_hash: passwordHash,
-      role: userData.role || "user",
-      tenant_id: userData.tenant_id,
-      created_at: new Date(),
-      updated_at: new Date(),
-    }
-
-    return insert<User>("users", data)
-  } catch (error) {
-    console.error("Error creating user:", error)
-    throw error
-  }
+  subscription_tier: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
 }
 
-// Update a user
-export async function updateUser(
-  id: string,
-  userData: Partial<{
-    name: string
-    email: string
-    password: string
-    role: string
-    tenant_id: string
-  }>,
-): Promise<User> {
-  try {
-    const data: Record<string, any> = {
-      ...userData,
-      updated_at: new Date(),
-    }
+export async function getUserById(userId: string): Promise<User | null> {
+  const query = `
+    SELECT * FROM public.users
+    WHERE id = $1 
+    AND deleted_at IS NULL
+  `
 
-    // If password is provided, hash it
-    if (userData.password) {
-      data.password_hash = await bcrypt.hash(userData.password, 10)
-      delete data.password
-    }
-
-    return update<User>("users", id, data)
-  } catch (error) {
-    console.error(`Error updating user with ID ${id}:`, error)
-    throw error
-  }
+  const results = await executeQuery<User>(query, [userId])
+  return results.length > 0 ? results[0] : null
 }
 
-// Delete a user (soft delete)
-export async function deleteUser(id: string): Promise<boolean> {
-  return remove("users", id)
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const query = `
+    SELECT * FROM public.users
+    WHERE email = $1 
+    AND deleted_at IS NULL
+  `
+
+  const results = await executeQuery<User>(query, [email])
+  return results.length > 0 ? results[0] : null
 }
 
-// Get all users for a tenant
-export async function getTenantUsers(tenantId: string): Promise<User[]> {
-  try {
-    return executeQuery<User>(`SELECT * FROM users WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY name ASC`, [
-      tenantId,
-    ])
-  } catch (error) {
-    console.error(`Error fetching users for tenant ${tenantId}:`, error)
-    throw error
-  }
+export async function getTenantById(tenantId: string): Promise<Tenant | null> {
+  const query = `
+    SELECT * FROM tenants 
+    WHERE id = $1 
+    AND deleted_at IS NULL
+  `
+
+  const results = await executeQuery<Tenant>(query, [tenantId])
+  return results.length > 0 ? results[0] : null
 }
 
-// Add the missing exported function
-export async function getTenantById(id: string): Promise<{ id: string } | null> {
-  try {
-    const tenants = await executeQuery<{ id: string }>(`SELECT id FROM tenants WHERE id = $1 LIMIT 1`, [id])
-    return tenants.length > 0 ? tenants[0] : null
-  } catch (error) {
-    console.error(`Error fetching tenant with ID ${id}:`, error)
-    return null
-  }
+export async function getUsersByTenant(tenantId: string): Promise<User[]> {
+  const query = `
+    SELECT * FROM public.users
+    WHERE tenant_id = $1 
+    AND deleted_at IS NULL
+    ORDER BY name
+  `
+
+  return executeQuery<User>(query, [tenantId])
 }

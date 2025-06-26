@@ -7,25 +7,47 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button"
 import { PlusCircle } from "lucide-react"
 import { CarePlanForm } from "./care-plan-form"
+import { useToast } from "@/hooks/use-toast"
 
 interface CreateCarePlanDialogProps {
   trigger?: React.ReactNode
+  onSuccess?: () => void // Callback to refresh data after creation
 }
 
-export function CreateCarePlanDialog({ trigger }: CreateCarePlanDialogProps) {
+export function CreateCarePlanDialog({ trigger, onSuccess }: CreateCarePlanDialogProps) {
   const [open, setOpen] = useState(false)
+  const { toast } = useToast()
 
   const handleSubmit = async (data: any) => {
     try {
-      // In a real app, this would call an API to create the care plan
-      console.log("Creating care plan:", data)
+      const response = await fetch("/api/care-plans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
 
-      // Close the dialog after successful submission
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create care plan")
+      }
+
+      toast({
+        title: "Success",
+        description: "Care plan created successfully.",
+      })
       setOpen(false)
-
-      // Show success message or refresh data
-    } catch (error) {
+      if (onSuccess) {
+        onSuccess()
+      }
+    } catch (error: any) {
       console.error("Error creating care plan:", error)
+      toast({
+        title: "Error",
+        description: `Failed to create care plan: ${error.message}`,
+        variant: "destructive",
+      })
     }
   }
 
@@ -43,7 +65,7 @@ export function CreateCarePlanDialog({ trigger }: CreateCarePlanDialogProps) {
         <DialogHeader>
           <DialogTitle>Create New Care Plan</DialogTitle>
         </DialogHeader>
-        <CarePlanForm onSubmit={handleSubmit} />
+        <CarePlanForm onSubmit={handleSubmit} onCancel={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   )

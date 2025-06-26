@@ -41,7 +41,8 @@ export function CredentialTable({ filter = "all", userId }: CredentialTableProps
           throw new Error("Failed to fetch credentials")
         }
         const data = await response.json()
-        setCredentials(data)
+        // Ensure data is an array and filter out any null/undefined entries
+        setCredentials(Array.isArray(data) ? data.filter(Boolean) : [])
       } catch (err) {
         setError("Error loading credentials. Please try again.")
         console.error(err)
@@ -53,7 +54,8 @@ export function CredentialTable({ filter = "all", userId }: CredentialTableProps
     fetchCredentials()
   }, [filter, userId])
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | null | undefined) => {
+    if (!status) return <Badge variant="secondary">Unknown</Badge> // Use a default variant
     switch (status) {
       case "verified":
         return <Badge className="bg-green-100 text-green-800">Verified</Badge>
@@ -68,7 +70,8 @@ export function CredentialTable({ filter = "all", userId }: CredentialTableProps
     }
   }
 
-  const getCredentialTypeName = (type: string) => {
+  const getCredentialTypeName = (type: string | null | undefined) => {
+    if (!type) return "Unknown Type"
     switch (type) {
       case "nmc_pin":
         return "NMC PIN"
@@ -152,7 +155,7 @@ export function CredentialTable({ filter = "all", userId }: CredentialTableProps
   if (credentials.length === 0) {
     return (
       <div className="text-center p-8 text-gray-500">
-        No credentials found. {filter !== "all" && `Try changing the filter or `}
+        No credentials found. {filter !== "all" && "Try changing the filter or "}
         Add a new credential to get started.
       </div>
     )
