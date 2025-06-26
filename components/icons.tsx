@@ -38,7 +38,13 @@ import {
   RefreshCw,
   TrendingUpIcon,
   UserCircle,
+  SunIcon,
+  MoonIcon,
+  CopyIcon,
+  XCircleIcon,
+  BarChartIcon,
 } from "lucide-react"
+import { User, LogOut, Search } from "some-icon-library" // Placeholder for actual import paths
 
 export const Icons = {
   spinner: RefreshCw,
@@ -48,9 +54,9 @@ export const Icons = {
   user: User,
   settings: Settings,
   logOut: LogOut,
-  sun: Sun,
-  moon: Moon,
-  copy: Copy,
+  sun: SunIcon,
+  moon: MoonIcon,
+  copy: CopyIcon,
   trash: Trash2,
   alertTriangle: AlertTriangle,
   alertCircle: AlertCircle,
@@ -62,7 +68,7 @@ export const Icons = {
   building: Building2,
   creditCard: CreditCard,
   shield: Shield,
-  barChart: BarChart3,
+  barChart: BarChartIcon,
   fileUp: FileUp,
   folderOpen: FolderOpen,
   fileCode: FileCode,
@@ -81,7 +87,7 @@ export const Icons = {
   pill: Pill,
   eye: Eye,
   fileEdit: FileEdit,
-  xCircle: XCircle,
+  xCircle: XCircleIcon,
   globe: Globe,
   clock: Clock,
   newspaper: Newspaper,
@@ -156,6 +162,7 @@ function Copy(props: any) {
     </svg>
   )
 }
+
 function XCircle(props: any) {
   return (
     <svg
@@ -176,5 +183,3 @@ function XCircle(props: any) {
     </svg>
   )
 }
-\
-"
