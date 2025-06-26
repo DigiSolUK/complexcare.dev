@@ -1,204 +1,147 @@
-import { neon } from "@neondatabase/serverless"
 import { sql } from "@neondatabase/serverless"
-import { getAuth } from "@auth0/nextjs-auth0"
-import { DEFAULT_TENANT_ID } from "@/lib/tenant-utils"
+import { v4 as uuidv4, validate as uuidValidate } from "uuid"
 
-// Initialize the SQL client once
-const db = neon(process.env.DATABASE_URL!)
-
-/**
- * Checks if a string is a valid UUID.
- * @param uuid The string to check.
- * @returns True if the string is a valid UUID, false otherwise.
- */
-export function isValidUUID(uuid: string) {
-  if (!uuid) return false
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)
+// Helper to validate UUIDs
+export function isValidUUID(uuid: string): boolean {
+  return uuidValidate(uuid)
 }
 
-/**
- * Executes a SQL query, ensuring it's scoped to a specific tenant.
- * Throws an error if the tenantId is missing or if the query fails.
- * Always returns an array of results (empty array if no rows found).
- */
-export async function tenantQuery<T>(query: string, params: any[] = [], options?: { tenantId?: string }): Promise<T[]> {
-  const { getSession } = getAuth()
-  const session = await getSession()
-  const userTenantId = session?.user?.tenantId
-
-  const effectiveTenantId = options?.tenantId || userTenantId || DEFAULT_TENANT_ID
-
-  if (!effectiveTenantId) {
-    console.error("Error: No tenant ID available for tenantQuery.")
-    return [] // Return an empty array if no tenant ID is available
-  }
-
-  // Ensure the query includes a tenant_id filter
-  const tenantFilteredQuery = `${query} WHERE tenant_id = $${params.length + 1}`
-  const allParams = [...params, effectiveTenantId]
-
+// Tenant-scoped query function
+export async function tenantQuery<T>(query: string, params: any[] = [], tenantId?: string): Promise<T[]> {
   try {
-    const result = await sql.query<T>(tenantFilteredQuery, allParams)
-    return result.rows || [] // Ensure an array is always returned
+    let finalQuery = query
+    const finalParams = [...params]
+
+    if (tenantId) {
+      // Assuming the first parameter is always the tenant_id for tenant-scoped queries
+      // This is a convention, adjust if your queries handle tenant_id differently
+      finalParams.unshift(tenantId)
+      // Adjust query to include tenant_id filter if not already present
+      // This is a simplistic approach; for complex queries, you might need more sophisticated parsing
+      if (!query.includes("tenant_id = $1")) {
+        const whereClauseIndex = query.toLowerCase().indexOf("where")
+        if (whereClauseIndex !== -1) {
+          finalQuery =
+            query.substring(0, whereClauseIndex + 5) + "tenant_id = $1 AND " + query.substring(whereClauseIndex + 5)
+        } else {
+          finalQuery = `${query} WHERE tenant_id = $1`
+        }
+      }
+    }
+
+    // Use sql.query for parameterized queries
+    const result = await sql.query<T>(finalQuery, finalParams)
+    return result.rows || [] // Ensure it always returns an array
   } catch (error) {
-    console.error(`Error executing tenant-scoped query for tenant ${effectiveTenantId}:`, error)
-    return [] // Return an empty array on error
+    console.error(`Error executing tenant-scoped query for tenant ${tenantId}:`, error)
+    throw error
   }
 }
 
-/**
- * Inserts a record into a specified table for a given tenant.
- * Automatically assigns a UUID if not provided and sets the tenant_id.
- * @param tenantId The ID of the tenant.
- * @param table The name of the table.
- * @param data The data object to insert.
- * @returns An array of the inserted records.
- */
-export async function tenantInsert<T>(
+// Helper to build update query dynamically
+export function buildUpdateQuery(
   tableName: string,
-  data: Partial<T>,
-  options?: { tenantId?: string },
-): Promise<T | null> {
-  const { getSession } = getAuth()
-  const session = await getSession()
-  const userTenantId = session?.user?.tenantId
+  id: string,
+  data: Record<string, any>,
+  tenantId?: string,
+): { query: string; params: any[] } {
+  const updates: string[] = []
+  const params: any[] = []
+  let paramIndex = 1
 
-  const effectiveTenantId = options?.tenantId || userTenantId || DEFAULT_TENANT_ID
-
-  if (!effectiveTenantId) {
-    console.error("Error: No tenant ID available for tenantInsert.")
-    return null
+  for (const key in data) {
+    if (data.hasOwnProperty(key)) {
+      updates.push(`${key} = $${paramIndex++}`)
+      params.push(data[key])
+    }
   }
 
-  const columns = Object.keys(data)
-  const values = Object.values(data)
-  const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ")
+  if (updates.length === 0) {
+    throw new Error("No data provided for update.")
+  }
 
-  const query = `INSERT INTO ${tableName} (${columns.join(", ")}, tenant_id) VALUES (${placeholders}, $${columns.length + 1}) RETURNING *`
-  const allValues = [...values, effectiveTenantId]
+  let query = `UPDATE ${tableName} SET ${updates.join(", ")} WHERE id = $${paramIndex++}`
+  params.push(id)
 
+  if (tenantId) {
+    query += ` AND tenant_id = $${paramIndex++}`
+    params.push(tenantId)
+  }
+
+  query += " RETURNING *" // Return the updated row
+
+  return { query, params }
+}
+
+// Tenant-scoped insert function
+export async function tenantInsert<T>(tableName: string, data: Record<string, any>, tenantId?: string): Promise<T> {
   try {
-    const result = await sql.query<T>(query, allValues)
-    return result.rows[0] || null
+    const id = uuidv4()
+    const columns = ["id", "created_at", "updated_at"]
+    const placeholders = ["$1", "$2", "$3"]
+    const values = [id, new Date(), new Date()]
+
+    if (tenantId) {
+      columns.push("tenant_id")
+      placeholders.push(`$${columns.length}`)
+      values.push(tenantId)
+    }
+
+    for (const key in data) {
+      if (data.hasOwnProperty(key)) {
+        columns.push(key)
+        placeholders.push(`$${columns.length}`)
+        values.push(data[key])
+      }
+    }
+
+    const query = `INSERT INTO ${tableName} (${columns.join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING *`
+
+    const result = await sql.query<T>(query, values)
+    return result.rows[0]
   } catch (error) {
-    console.error(`Error inserting into ${tableName} for tenant ${effectiveTenantId}:`, error)
-    return null
+    console.error(`Error inserting into ${tableName} for tenant ${tenantId}:`, error)
+    throw error
   }
 }
 
-/**
- * Updates a record in a specified table for a given tenant and record ID.
- * Automatically updates the `updated_at` timestamp.
- * @param tenantId The ID of the tenant.
- * @param table The name of the table.
- * @param id The ID of the record to update.
- * @param data The data object containing fields to update.
- * @returns An array of the updated records.
- */
+// Tenant-scoped update function
 export async function tenantUpdate<T>(
   tableName: string,
   id: string,
-  data: Partial<T>,
-  options?: { tenantId?: string },
-): Promise<T | null> {
-  const { getSession } = getAuth()
-  const session = await getSession()
-  const userTenantId = session?.user?.tenantId
-
-  const effectiveTenantId = options?.tenantId || userTenantId || DEFAULT_TENANT_ID
-
-  if (!effectiveTenantId) {
-    console.error("Error: No tenant ID available for tenantUpdate.")
-    return null
-  }
-
-  const { query, values } = buildUpdateQuery(tableName, data, { id, tenant_id: effectiveTenantId })
-
-  try {
-    const result = await sql.query<T>(query, values)
-    return result.rows[0] || null
-  } catch (error) {
-    console.error(`Error updating ${tableName} (id: ${id}) for tenant ${effectiveTenantId}:`, error)
-    return null
-  }
-}
-
-/**
- * Deletes a record from a specified table for a given tenant and record ID.
- * @param tenantId The ID of the tenant.
- * @param table The name of the table.
- * @param id The ID of the record to delete.
- * @returns A boolean indicating if the deletion was successful.
- */
-export async function tenantDelete(tableName: string, id: string, options?: { tenantId?: string }): Promise<boolean> {
-  const { getSession } = getAuth()
-  const session = await getSession()
-  const userTenantId = session?.user?.tenantId
-
-  const effectiveTenantId = options?.tenantId || userTenantId || DEFAULT_TENANT_ID
-
-  if (!effectiveTenantId) {
-    console.error("Error: No tenant ID available for tenantDelete.")
-    return false
-  }
-
-  const query = `DELETE FROM ${tableName} WHERE id = $1 AND tenant_id = $2`
-  const params = [id, effectiveTenantId]
-
-  try {
-    const result = await sql.query(query, params)
-    return result.rowCount > 0
-  } catch (error) {
-    console.error(`Error deleting from ${tableName} (id: ${id}) for tenant ${effectiveTenantId}:`, error)
-    return false
-  }
-}
-
-/**
- * Builds a parameterized SQL UPDATE query string and its corresponding values array.
- * @param table The name of the table to update.
- * @param data An object containing the columns and values to update.
- * @param where An object specifying the WHERE clause conditions (e.g., { id: 'some-uuid', tenant_id: 'another-uuid' }).
- * @returns An object containing the query string and the array of values.
- */
-export function buildUpdateQuery(
-  table: string,
   data: Record<string, any>,
-  where: Record<string, any>,
-): { query: string; values: any[] } {
-  const dataEntries = Object.entries(data).filter(([, value]) => value !== undefined)
-  const whereEntries = Object.entries(where)
-
-  if (dataEntries.length === 0) {
-    throw new Error("No fields to update.")
+  tenantId?: string,
+): Promise<T> {
+  try {
+    const { query, params } = buildUpdateQuery(tableName, id, data, tenantId)
+    const result = await sql.query<T>(query, params)
+    if (result.rows.length === 0) {
+      throw new Error(`Record with ID ${id} not found or not accessible for update.`)
+    }
+    return result.rows[0]
+  } catch (error) {
+    console.error(`Error updating ${tableName} with ID ${id} for tenant ${tenantId}:`, error)
+    throw error
   }
+}
 
-  const values: any[] = []
-  let paramIndex = 1
+// Tenant-scoped delete function
+export async function tenantDelete(tableName: string, id: string, tenantId?: string): Promise<void> {
+  try {
+    let query = `DELETE FROM ${tableName} WHERE id = $1`
+    const params = [id]
 
-  const setClauses = dataEntries.map(([key, value]) => {
-    // Convert camelCase to snake_case for database columns
-    const snakeCaseKey = key.replace(/([A-Z])/g, "_$1").toLowerCase()
-    values.push(value)
-    return `${snakeCaseKey} = $${paramIndex++}`
-  })
+    if (tenantId) {
+      query += ` AND tenant_id = $2`
+      params.push(tenantId)
+    }
 
-  // Always update the updated_at timestamp
-  setClauses.push(`updated_at = NOW()`)
-
-  const whereClauses = whereEntries.map(([key, value]) => {
-    // Convert camelCase to snake_case for database columns
-    const snakeCaseKey = key.replace(/([A-Z])/g, "_$1").toLowerCase()
-    values.push(value)
-    return `${snakeCaseKey} = $${paramIndex++}`
-  })
-
-  const query = `
-    UPDATE ${table}
-    SET ${setClauses.join(", ")}
-    WHERE ${whereClauses.join(" AND ")}
-    RETURNING *;
-  `
-
-  return { query, values }
+    const result = await sql.query(query, params)
+    if (result.rowCount === 0) {
+      throw new Error(`Record with ID ${id} not found or not accessible for deletion.`)
+    }
+  } catch (error) {
+    console.error(`Error deleting from ${tableName} with ID ${id} for tenant ${tenantId}:`, error)
+    throw error
+  }
 }
