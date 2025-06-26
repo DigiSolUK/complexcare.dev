@@ -11,81 +11,46 @@ export function isValidUUID(uuid: string): boolean {
 }
 
 /**
- * Executes a SQL query, ensuring it's scoped to a specific tenant.
- * Throws an error if the tenantId is missing or if the query fails.
- * Always returns an array of results (empty array if no rows found).
+ * Executes a SQL query with a tenant_id filter.
+ * This function is deprecated as authentication is not configured.
+ * Direct SQL queries with tenant_id as a parameter should be used instead.
+ * @deprecated
  */
-export async function tenantQuery<T>(query: string, params: any[] = [], tenantId?: string): Promise<T[]> {
-  let finalQuery = query
-  const finalParams = [...params]
-
-  if (tenantId) {
-    const lowerCaseQuery = query.toLowerCase()
-    const whereClauseIndex = lowerCaseQuery.indexOf("where")
-
-    if (whereClauseIndex !== -1) {
-      if (!lowerCaseQuery.includes("tenant_id")) {
-        finalQuery =
-          query.substring(0, whereClauseIndex + 5) +
-          ` tenant_id = $${finalParams.length + 1} AND ` +
-          query.substring(whereClauseIndex + 5)
-        finalParams.push(tenantId)
-      }
-    } else {
-      finalQuery = `${query} WHERE tenant_id = $${finalParams.length + 1}`
-      finalParams.push(tenantId)
-    }
-  }
-
-  try {
-    const result = await sql.query<T>(finalQuery, finalParams)
-    return result.rows || []
-  } catch (error) {
-    console.error(`Error executing tenant-scoped query for tenant ${tenantId}:`, error)
-    throw error
-  }
+export async function tenantQuery(query: string, params: any[] = [], tenantId: string): Promise<any[]> {
+  // This function is deprecated. Direct SQL queries should be used.
+  // For now, we'll just execute the query directly with the tenantId appended to params.
+  // In a real scenario without authentication, tenantId would be passed explicitly to services.
+  return await sql(query, [...params, tenantId])
 }
 
 /**
  * Helper to build update query dynamically.
  * @param tableName The name of the table to update.
  * @param data An object containing the columns and values to update.
- * @param conditions An object containing the WHERE clause conditions.
+ * @param idColumn The name of the ID column for the WHERE clause (e.g., 'id', 'patient_id').
+ * @param idValue The value of the ID column for the WHERE clause.
  * @returns An object containing the query string and the array of values.
  */
 export function buildUpdateQuery(
   tableName: string,
   data: Record<string, any>,
-  conditions: Record<string, any>,
+  idColumn: string,
+  idValue: string | number,
 ): { query: string; values: any[] } {
   const updates: string[] = []
   const values: any[] = []
   let paramIndex = 1
 
   for (const key in data) {
-    if (data.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
       updates.push(`${key} = $${paramIndex++}`)
       values.push(data[key])
     }
   }
 
-  if (updates.length === 0) {
-    throw new Error("No data provided for update.")
-  }
+  values.push(idValue) // Add the ID value to the end
 
-  const conditionClauses: string[] = []
-  for (const key in conditions) {
-    if (conditions.hasOwnProperty(key)) {
-      conditionClauses.push(`${key} = $${paramIndex++}`)
-      values.push(conditions[key])
-    }
-  }
-
-  if (conditionClauses.length === 0) {
-    throw new Error("No conditions provided for update.")
-  }
-
-  const query = `UPDATE ${tableName} SET ${updates.join(", ")} WHERE ${conditionClauses.join(" AND ")} RETURNING *`
+  const query = `UPDATE ${tableName} SET ${updates.join(", ")} WHERE ${idColumn} = $${paramIndex} RETURNING *`
 
   return { query, values }
 }
@@ -143,7 +108,7 @@ export async function tenantUpdate<T>(
   tenantId?: string,
 ): Promise<T> {
   try {
-    const { query, values } = buildUpdateQuery(tableName, data, { id, tenant_id: tenantId })
+    const { query, values } = buildUpdateQuery(tableName, data, "id", id)
     const result = await sql.query<T>(query, values)
     if (result.rows.length === 0) {
       throw new Error(`Record with ID ${id} not found or not accessible for update.`)

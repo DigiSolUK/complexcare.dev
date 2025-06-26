@@ -1,18 +1,24 @@
-import type { ReactNode } from "react"
-import { Sidebar } from "@/components/dashboard/sidebar"
+import type React from "react"
+import { DashboardHeader } from "@/components/dashboard/header"
+import { DashboardSidebar } from "@/components/dashboard/sidebar"
+import { TenantProvider } from "@/lib/tenant-context" // Ensure this is imported
 
 export default function DashboardLayout({
   children,
 }: {
-  children: ReactNode
+  children: React.ReactNode
 }) {
-  // Removed the DemoBanner from here since it's already in the global layout
   return (
-    <div className="flex min-h-screen flex-col">
-      <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex-1 p-6 pt-4">{children}</main>
+    <TenantProvider>
+      {" "}
+      {/* Wrap with TenantProvider */}
+      <div className="flex min-h-screen w-full flex-col bg-muted/40">
+        <DashboardSidebar />
+        <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
+          <DashboardHeader />
+          <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">{children}</main>
+        </div>
       </div>
-    </div>
+    </TenantProvider>
   )
 }

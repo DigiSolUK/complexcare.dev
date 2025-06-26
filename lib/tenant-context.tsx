@@ -1,125 +1,37 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import type { Tenant } from "@/types"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
 interface TenantContextType {
-  currentTenant: Tenant | null
-  tenants: Tenant[]
-  isLoading: boolean
-  error: string | null
-  switchTenant: (tenantId: string) => Promise<void>
-  refreshTenants: () => Promise<void>
+  tenantId: string | null
+  setTenantId: (id: string | null) => void
 }
 
-const TenantContext = createContext<TenantContextType>({
-  currentTenant: null,
-  tenants: [],
-  isLoading: true,
-  error: null,
-  switchTenant: async () => {},
-  refreshTenants: async () => {},
-})
+const TenantContext = createContext<TenantContextType | undefined>(undefined)
 
-export const useTenant = () => useContext(TenantContext)
-
-export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null)
-  const [tenants, setTenants] = useState<Tenant[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchTenants = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Fetch user's tenants
-      const response = await fetch("/api/user/tenants")
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch tenants")
-      }
-
-      const tenantsData = await response.json()
-      setTenants(tenantsData)
-
-      // Fetch primary tenant
-      const primaryResponse = await fetch("/api/user/tenants/primary")
-
-      if (primaryResponse.ok) {
-        const primaryTenant = await primaryResponse.json()
-        setCurrentTenant(primaryTenant)
-      } else if (tenantsData.length > 0) {
-        // If no primary tenant is set but user has tenants, use the first one
-        setCurrentTenant(tenantsData[0])
-      }
-    } catch (err) {
-      console.error("Error fetching tenants:", err)
-      setError("Failed to load tenants. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const switchTenant = async (tenantId: string) => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Find the tenant in the list
-      const tenant = tenants.find((t) => t.id === tenantId)
-
-      if (!tenant) {
-        throw new Error("Tenant not found")
-      }
-
-      // Set as primary tenant
-      const response = await fetch("/api/user/tenants/primary", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ tenantId }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to switch tenant")
-      }
-
-      setCurrentTenant(tenant)
-
-      // Reload the page to refresh data for the new tenant
-      window.location.reload()
-    } catch (err) {
-      console.error("Error switching tenant:", err)
-      setError("Failed to switch tenant. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const refreshTenants = async () => {
-    await fetchTenants()
-  }
+export function TenantProvider({ children }: { children: ReactNode }) {
+  // In a production multi-tenant application with authentication,
+  // the tenantId would typically be derived from the authenticated user's session.
+  // Since authentication is not configured, we're using a default from environment variables.
+  const [tenantId, setTenantId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchTenants()
+    // Load the default tenant ID from environment variables
+    const defaultId = process.env.DEFAULT_TENANT_ID || null
+    if (defaultId) {
+      setTenantId(defaultId)
+    } else {
+      console.warn("DEFAULT_TENANT_ID is not set. Some features may not work correctly without a tenant ID.")
+    }
   }, [])
 
-  return (
-    <TenantContext.Provider
-      value={{
-        currentTenant,
-        tenants,
-        isLoading,
-        error,
-        switchTenant,
-        refreshTenants,
-      }}
-    >
-      {children}
-    </TenantContext.Provider>
-  )
+  return <TenantContext.Provider value={{ tenantId, setTenantId }}>{children}</TenantContext.Provider>
+}
+
+export function useTenant() {
+  const context = useContext(TenantContext)
+  if (context === undefined) {
+    throw new Error("useTenant must be used within a TenantProvider")
+  }
+  return context
 }

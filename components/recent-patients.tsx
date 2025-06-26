@@ -15,9 +15,9 @@ export function RecentPatients() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchPatients() {
+    const fetchPatients = async () => {
       if (!tenantId) {
-        setError("Tenant ID is missing. Cannot fetch patients.")
+        setError("No tenant ID available. Cannot fetch patients.")
         setLoading(false)
         return
       }
@@ -27,7 +27,7 @@ export function RecentPatients() {
         setPatients(fetchedPatients.slice(0, 5)) // Display up to 5 recent patients
       } catch (err) {
         console.error("Failed to fetch recent patients:", err)
-        setError("Failed to load recent patients.")
+        setError("Failed to load recent patients. Please try again.")
       } finally {
         setLoading(false)
       }
@@ -38,7 +38,7 @@ export function RecentPatients() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="col-span-1 md:col-span-2 lg:col-span-1">
         <CardHeader>
           <CardTitle>Recent Patients</CardTitle>
         </CardHeader>
@@ -59,7 +59,7 @@ export function RecentPatients() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="col-span-1 md:col-span-2 lg:col-span-1">
         <CardHeader>
           <CardTitle>Recent Patients</CardTitle>
         </CardHeader>
@@ -70,46 +70,39 @@ export function RecentPatients() {
     )
   }
 
-  if (patients.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Patients</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-500">No recent patients found.</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
-    <Card>
+    <Card className="col-span-1 md:col-span-2 lg:col-span-1">
       <CardHeader>
         <CardTitle>Recent Patients</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
-        {patients.map((patient) => (
-          <div key={patient.id} className="flex items-center gap-4">
-            <Avatar className="hidden h-9 w-9 sm:flex">
-              <AvatarImage
-                src={`/placeholder.svg?height=36&width=36&query=${patient.first_name}+${patient.last_name}`}
-                alt={`${patient.first_name} ${patient.last_name}`}
-              />
-              <AvatarFallback>
-                {patient.first_name[0]}
-                {patient.last_name[0]}
-              </AvatarFallback>
-            </Avatar>
-            <div className="grid gap-1">
-              <p className="text-sm font-medium leading-none">
-                {patient.first_name} {patient.last_name}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{patient.email}</p>
+        {patients.length === 0 ? (
+          <p className="text-muted-foreground">No recent patients found.</p>
+        ) : (
+          patients.map((patient) => (
+            <div key={patient.id} className="flex items-center gap-4">
+              <Avatar className="hidden h-9 w-9 sm:flex">
+                <AvatarImage
+                  src={`/placeholder.svg?text=${patient.first_name[0]}${patient.last_name[0]}`}
+                  alt={`${patient.first_name} ${patient.last_name}`}
+                />
+                <AvatarFallback>
+                  {patient.first_name[0]}
+                  {patient.last_name[0]}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid gap-1">
+                <p className="text-sm font-medium leading-none">
+                  {patient.first_name} {patient.last_name}
+                </p>
+                <p className="text-sm text-muted-foreground">NHS: {patient.nhs_number || "N/A"}</p>
+              </div>
+              <div className="ml-auto font-medium text-sm text-muted-foreground">
+                {patient.last_activity_at ? new Date(patient.last_activity_at).toLocaleDateString() : "N/A"}
+              </div>
             </div>
-            <div className="ml-auto font-medium text-sm">{patient.nhs_number}</div>
-          </div>
-        ))}
+          ))
+        )}
       </CardContent>
     </Card>
   )
