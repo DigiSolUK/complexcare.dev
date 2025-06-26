@@ -344,3 +344,26 @@ export type Medication = {
   created_at: string
   updated_at: string
 }
+
+export type PatientVital = {
+  id: string
+  tenant_id: string
+  patient_id: string
+  recorded_at: string // ISO string or 'YYYY-MM-DDTHH:MM:SSZ'
+  blood_pressure_systolic?: number | null
+  blood_pressure_diastolic?: number | null
+  heart_rate?: number | null
+  temperature?: number | null
+  respiratory_rate?: number | null
+  oxygen_saturation?: number | null
+  weight?: number | null
+  height?: number | null
+  bmi?: number | null
+  notes?: string | null
+  created_by?: string | null
+  updated_by?: string | null
+  created_at?: string
+  updated_at?: string
+  // Joined fields for display
+  created_by_name?: string
+}
