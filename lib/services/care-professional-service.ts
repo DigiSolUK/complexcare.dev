@@ -42,6 +42,11 @@ export async function getCareProfessionals(tenantId: string, searchQuery?: strin
     query += ` ORDER BY last_name, first_name`
 
     const result = await tenantQuery<any>(tenantId, query, params)
+    // Ensure result is an array before mapping
+    if (!Array.isArray(result)) {
+      console.error("tenantQuery did not return an array for getCareProfessionals:", result)
+      return [] // Return empty array to prevent .map error
+    }
     return result.map(mapCareProfessionalRow)
   } catch (error) {
     console.error("Error fetching care professionals:", error)
@@ -188,37 +193,6 @@ export async function getCareProfessionalsWithExpiringCredentials(
   daysThreshold = 30,
 ): Promise<any[]> {
   try {
-    // Check if we're in demo mode
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      // Return mock expiring credentials data
-      return [
-        {
-          id: "cp-001",
-          first_name: "Sarah",
-          last_name: "Johnson",
-          role: "Registered Nurse",
-          credential_id: "cred-001",
-          credential_type: "Nursing Registration",
-          credential_number: "RN123456",
-          expiry_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          verification_status: "verified",
-          avatar_url: "/placeholder.svg?height=44&width=44",
-        },
-        {
-          id: "cp-003",
-          first_name: "Emily",
-          last_name: "Brown",
-          role: "Occupational Therapist",
-          credential_id: "cred-005",
-          credential_type: "HCPC Registration",
-          credential_number: "OT345678",
-          expiry_date: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          verification_status: "verified",
-          avatar_url: "/placeholder.svg?height=68&width=68",
-        },
-      ]
-    }
-
     const result = await tenantQuery<any>(
       tenantId,
       `SELECT cp.id, cp.first_name, cp.last_name, cp.role, cp.avatar_url,
@@ -234,92 +208,23 @@ export async function getCareProfessionalsWithExpiringCredentials(
       ORDER BY pc.expiry_date ASC`,
       [tenantId, daysThreshold],
     )
+    if (!Array.isArray(result)) {
+      console.error("tenantQuery did not return an array for expiring credentials:", result)
+      return []
+    }
     return result.map((row: any) => ({
       ...row,
       expiry_date: row.expiry_date ? new Date(row.expiry_date).toISOString().split("T")[0] : null,
     }))
   } catch (error) {
     console.error("Error fetching care professionals with expiring credentials:", error)
-    // Return mock data in case of error
-    return [
-      {
-        id: "cp-001",
-        first_name: "Sarah",
-        last_name: "Johnson",
-        role: "Registered Nurse",
-        credential_id: "cred-001",
-        credential_type: "Nursing Registration",
-        credential_number: "RN123456",
-        expiry_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        verification_status: "verified",
-        avatar_url: "/placeholder.svg?height=44&width=44",
-      },
-      {
-        id: "cp-003",
-        first_name: "Emily",
-        last_name: "Brown",
-        role: "Occupational Therapist",
-        credential_id: "cred-005",
-        credential_type: "HCPC Registration",
-        credential_number: "OT345678",
-        expiry_date: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        verification_status: "verified",
-        avatar_url: "/placeholder.svg?height=68&width=68",
-      },
-    ]
+    throw new Error("Failed to fetch care professionals with expiring credentials.")
   }
 }
 
 // Get care professionals with assigned patients
 export async function getCareProfessionalsWithPatientCounts(tenantId: string): Promise<any[]> {
   try {
-    // Check if we're in demo mode
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      // Return mock patient count data
-      return [
-        {
-          id: "cp-001",
-          first_name: "Sarah",
-          last_name: "Johnson",
-          role: "Registered Nurse",
-          patient_count: 8,
-          avatar_url: "/placeholder.svg?height=44&width=44",
-        },
-        {
-          id: "cp-002",
-          first_name: "James",
-          last_name: "Williams",
-          role: "Physiotherapist",
-          patient_count: 12,
-          avatar_url: "/placeholder.svg?height=32&width=32",
-        },
-        {
-          id: "cp-003",
-          first_name: "Emily",
-          last_name: "Brown",
-          role: "Occupational Therapist",
-          patient_count: 6,
-          avatar_url: "/placeholder.svg?height=68&width=68",
-        },
-        {
-          id: "cp-004",
-          first_name: "Robert",
-          last_name: "Smith",
-          role: "Healthcare Assistant",
-          patient_count: 4,
-          avatar_url: "/placeholder.svg?height=45&width=45",
-        },
-        {
-          id: "cp-005",
-          first_name: "Olivia",
-          last_name: "Taylor",
-          role: "Speech and Language Therapist",
-          patient_count: 7,
-          avatar_url: "/placeholder.svg?height=22&width=22",
-        },
-      ]
-    }
-
     const result = await tenantQuery<any>(
       tenantId,
       `SELECT cp.id, cp.first_name, cp.last_name, cp.role, cp.avatar_url,
@@ -331,52 +236,14 @@ export async function getCareProfessionalsWithPatientCounts(tenantId: string): P
       ORDER BY patient_count DESC`,
       [tenantId],
     )
+    if (!Array.isArray(result)) {
+      console.error("tenantQuery did not return an array for patient counts:", result)
+      return []
+    }
     return result
   } catch (error) {
     console.error("Error fetching care professionals with patient counts:", error)
-    // Return mock data in case of error
-    return [
-      {
-        id: "cp-001",
-        first_name: "Sarah",
-        last_name: "Johnson",
-        role: "Registered Nurse",
-        patient_count: 8,
-        avatar_url: "/placeholder.svg?height=44&width=44",
-      },
-      {
-        id: "cp-002",
-        first_name: "James",
-        last_name: "Williams",
-        role: "Physiotherapist",
-        patient_count: 12,
-        avatar_url: "/placeholder.svg?height=32&width=32",
-      },
-      {
-        id: "cp-003",
-        first_name: "Emily",
-        last_name: "Brown",
-        role: "Occupational Therapist",
-        patient_count: 6,
-        avatar_url: "/placeholder.svg?height=68&width=68",
-      },
-      {
-        id: "cp-004",
-        first_name: "Robert",
-        last_name: "Smith",
-        role: "Healthcare Assistant",
-        patient_count: 4,
-        avatar_url: "/placeholder.svg?height=45&width=45",
-      },
-      {
-        id: "cp-005",
-        first_name: "Olivia",
-        last_name: "Taylor",
-        role: "Speech and Language Therapist",
-        patient_count: 7,
-        avatar_url: "/placeholder.svg?height=22&width=22",
-      },
-    ]
+    throw new Error("Failed to fetch care professionals with patient counts.")
   }
 }
 
@@ -387,53 +254,6 @@ export async function getCareProfessionalsWithAppointmentCounts(
   endDate: string,
 ): Promise<any[]> {
   try {
-    // Check if we're in demo mode
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      // Return mock appointment count data
-      return [
-        {
-          id: "cp-002",
-          first_name: "James",
-          last_name: "Williams",
-          role: "Physiotherapist",
-          appointment_count: 18,
-          avatar_url: "/placeholder.svg?height=32&width=32",
-        },
-        {
-          id: "cp-001",
-          first_name: "Sarah",
-          last_name: "Johnson",
-          role: "Registered Nurse",
-          appointment_count: 15,
-          avatar_url: "/placeholder.svg?height=44&width=44",
-        },
-        {
-          id: "cp-005",
-          first_name: "Olivia",
-          last_name: "Taylor",
-          role: "Speech and Language Therapist",
-          appointment_count: 12,
-          avatar_url: "/placeholder.svg?height=22&width=22",
-        },
-        {
-          id: "cp-003",
-          first_name: "Emily",
-          last_name: "Brown",
-          role: "Occupational Therapist",
-          appointment_count: 9,
-          avatar_url: "/placeholder.svg?height=68&width=68",
-        },
-        {
-          id: "cp-004",
-          first_name: "Robert",
-          last_name: "Smith",
-          role: "Healthcare Assistant",
-          appointment_count: 7,
-          avatar_url: "/placeholder.svg?height=45&width=45",
-        },
-      ]
-    }
-
     const result = await tenantQuery<any>(
       tenantId,
       `SELECT cp.id, cp.first_name, cp.last_name, cp.role, cp.avatar_url,
@@ -447,61 +267,13 @@ export async function getCareProfessionalsWithAppointmentCounts(
       ORDER BY appointment_count DESC`,
       [tenantId, startDate, endDate],
     )
+    if (!Array.isArray(result)) {
+      console.error("tenantQuery did not return an array for appointment counts:", result)
+      return []
+    }
     return result
   } catch (error) {
     console.error("Error fetching care professionals with appointment counts:", error)
-    // Return mock data in case of error
-    return [
-      {
-        id: "cp-002",
-        first_name: "James",
-        last_name: "Williams",
-        role: "Physiotherapist",
-        appointment_count: 18,
-        avatar_url: "/placeholder.svg?height=32&width=32",
-      },
-      {
-        id: "cp-001",
-        first_name: "Sarah",
-        last_name: "Johnson",
-        role: "Registered Nurse",
-        appointment_count: 15,
-        avatar_url: "/placeholder.svg?height=44&width=44",
-      },
-      {
-        id: "cp-005",
-        first_name: "Olivia",
-        last_name: "Taylor",
-        role: "Speech and Language Therapist",
-        appointment_count: 12,
-        avatar_url: "/placeholder.svg?height=22&width=22",
-      },
-      {
-        id: "cp-003",
-        first_name: "Emily",
-        last_name: "Brown",
-        role: "Occupational Therapist",
-        appointment_count: 9,
-        avatar_url: "/placeholder.svg?height=68&width=68",
-      },
-      {
-        id: "cp-004",
-        first_name: "Robert",
-        last_name: "Smith",
-        role: "Healthcare Assistant",
-        appointment_count: 7,
-        avatar_url: "/placeholder.svg?height=45&width=45",
-      },
-    ]
-  }
-}
-
-export async function deleteCareProfessional(id: string, tenantId: string, userId: string) {
-  // In demo mode, just return a success response
-  return {
-    id,
-    is_active: false,
-    updated_at: new Date().toISOString(),
-    updated_by: userId,
+    throw new Error("Failed to fetch care professionals with appointment counts.")
   }
 }
